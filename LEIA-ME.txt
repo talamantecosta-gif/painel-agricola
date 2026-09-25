@@ -1,0 +1,5 @@
+Coloque aqui o logo da empresa com o nome:  logo.png
+(PNG com fundo transparente, ~ 256 x 256 px ou proporção horizontal).
+
+O logo aparece automaticamente no cabeçalho e no rodapé do painel.
+Enquanto o arquivo não existir, é exibido um ícone verde padrão.
