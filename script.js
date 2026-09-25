@@ -320,7 +320,7 @@ function buildModel(raw) {
   }));
   const ofensores = [...pesos.values()].sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
 
-  return { raw, frentes, linhas, turnos, ofensores };
+  return { raw, frentes, linhas, turnos, ofensores, metas: { ...METAS_DEFAULT, ...(raw.metas || {}) } };
 }
 
 /** Totais consolidados para um conjunto (filtrado) de frentes. */
@@ -341,7 +341,8 @@ function totals(frentes, M = null) {
 }
 
 /* ---------------------------------------------------------
-   4. INTELIGÊNCIA OPERACIONAL (insights agrupados por frente)
+   4. INTELIGÊNCIA EXECUTIVA
+   Resumo do dia, prioridades e sinais (semáforo) por frente.
    --------------------------------------------------------- */
 /** Ordem das frentes: numéricas em ordem crescente (01, 02, 03…), depois as demais (ex.: Cassia e Cassia). */
 const frenteOrderKey = nome => {
@@ -352,122 +353,110 @@ const sortFrentes = list => [...list].sort((a, b) => {
   const ka = frenteOrderKey(a.frente || a), kb = frenteOrderKey(b.frente || b);
   return ka[0] - kb[0] || ka[1] - kb[1] || ka[2].localeCompare(kb[2]);
 });
+const shortFrente = n => String(n).replace(/^Frente\s*/i, 'F');
 
+/** Metas usadas no semáforo (podem ser ajustadas em dados.json → "metas"). */
+const METAS_DEFAULT = { eficiencia: 75, vinhaca: 100, disponibilidade: 90 };
+/** Semáforo contra meta: verde ≥ meta · amarelo até 10% abaixo · vermelho > 10% abaixo. */
+const statusVsMeta = (v, meta) => (Number.isFinite(v) && meta ? statusOf(v / meta * 100) : 'warn');
 
-function buildInsightGroups(M, frentes) {
-  const out = { frentes: [], gerais: [] };
+/** Disponibilidade de frota (logística + prancha). */
+function frotaStats(raw) {
+  const L = raw.logistica || {}, P = raw.prancha || { operacao: {}, manutencao: {} };
+  const op = sum(['happening', 'aroeira'].map(k => sum(Object.values(L[k]?.frota?.operacao || {})))) + sum(Object.values(P.operacao || {}));
+  const man = sum(['happening', 'aroeira'].map(k => sum(Object.values(L[k]?.frota?.manutencao || {})))) + sum(Object.values(P.manutencao || {}));
+  const manFrota = sum(['happening', 'aroeira'].map(k => sum(Object.values(L[k]?.frota?.manutencao || {}))));
+  return { op, man, manFrota, manPrancha: man - manFrota, disp: op + man ? op / (op + man) * 100 : null };
+}
+
+function buildExecutive(M, frentes) {
+  const out = { resumo: [], prio: [], tiles: [] };
   if (!M || !frentes.length) return out;
+  const metas = M.metas || METAS_DEFAULT;
   const tg = M.raw.totalGeral || {};
-  const Tall = totals(M.frentes, M);
-  const refEf = Number.isFinite(tg.eficiencia) ? tg.eficiencia : Tall.eficiencia;
-  const refVeg = tg.impVeg, refMin = tg.impMin;
-  const all = M.frentes.filter(f => f.cota);
-  const rankPct = [...all].sort((a, b) => b.pct - a.pct).map(f => f.frente);
-  const maxBy = (key) => [...M.frentes].filter(f => Number.isFinite(f[key]) && f[key] > 0).sort((a, b) => b[key] - a[key])[0];
-  const topTch = maxBy('tch'), topAtr = maxBy('atr'), topTatr = maxBy('tatr');
-  const minBy = key => [...M.frentes].filter(f => Number.isFinite(f[key])).sort((a, b) => a[key] - b[key])[0];
-  const lowAder = minBy('aderencia'), lowEf = minBy('eficiencia');
-  const col = M.raw.colhedoras || [], vin = M.raw.vinhaca || [];
+  const T = totals(frentes, M);
+  const withCota = frentes.filter(f => f.cota);
+  const byPct = [...withCota].sort((a, b) => b.pct - a.pct || b.diferenca - a.diferenca);
+  const byDif = [...withCota].sort((a, b) => b.diferenca - a.diferenca);
+  const best = byPct[0], worst = byPct[byPct.length - 1];
+  const ganho = byDif[0] && byDif[0].diferenca > 0 ? byDif[0] : null;
+  const perda = byDif[byDif.length - 1] && byDif[byDif.length - 1].diferenca < 0 ? byDif[byDif.length - 1] : null;
+  const deficit = -sum(withCota.filter(f => f.diferenca < 0), f => f.diferenca);
+  const pick = (key, dir) => [...frentes].filter(f => Number.isFinite(f[key])).sort((a, b) => dir * (a[key] - b[key]))[0];
+  const bestEf = pick('eficiencia', -1), lowAder = pick('aderencia', 1), topTatr = pick('tatr', -1);
 
-  for (const f of sortFrentes(frentes)) {
-    const cards = [];
-    // Produção
+  // Sinais por frente (sem vinhaça)
+  const sinais = f => {
+    const s = [];
     if (f.cota) {
-      cards.push({ cat: 'Produção', icon: 'fa-wheat-awn', type: f.status, value: fmtPct(f.pct),
-        text: `${fmt(f.cota, 0)} / ${fmt(f.producao, 0)} t · ${fmtSigned(f.diferenca, 0)} t` });
+      s.push({ st: f.status, core: true, txt: f.diferenca >= 0 ? `+${fmt(f.diferenca, 0)} t acima da cota` : `${fmt(-f.diferenca, 0)} t abaixo da cota` });
     }
-    // Eficiência
+    if (perda && perda.frente === f.frente && frentes.length > 1) s.push({ st: 'bad', key: true, txt: `Principal ofensora (${fmt(-f.diferenca / deficit * 100, 0)}%)` });
     if (Number.isFinite(f.eficiencia)) {
-      const d = f.eficiencia - refEf;
-      cards.push({ cat: 'Eficiência', icon: 'fa-gauge-high', type: f.eficiencia >= 70 ? 'ok' : f.eficiencia >= 60 ? 'warn' : 'bad',
-        value: fmtPct(f.eficiencia), text: `${fmtSigned(d, 1)} p.p. vs consolidado (${fmtPct(refEf)})` });
+      const st = statusVsMeta(f.eficiencia, metas.eficiencia);
+      if (bestEf && bestEf.frente === f.frente && frentes.length > 1) s.push({ st: 'ok', key: true, txt: `Melhor eficiência ${fmtPct(f.eficiencia)}` });
+      else if (st === 'bad') s.push({ st, txt: `Eficiência crítica ${fmtPct(f.eficiencia)}` });
+      else if (st === 'warn') s.push({ st, txt: `Eficiência ${fmtPct(f.eficiencia)} < meta` });
+      else if (f.eficiencia >= metas.eficiencia + 5) s.push({ st: 'ok', txt: `Boa eficiência ${fmtPct(f.eficiencia)}` });
     }
-    // Impureza
-    const comAnalise = f.fazendas.filter(z => z.anlTon > 0 || z.impVeg > 0 || z.impMin > 0);
-    if (!comAnalise.length) {
-      cards.push({ cat: 'Impureza', icon: 'fa-leaf', type: 'info', value: 's/ análise', text: 'Sem amostragem de qualidade no dia' });
-    } else {
-      const rVeg = refVeg ? f.impVeg / refVeg : 1, rMin = refMin ? f.impMin / refMin : 1;
-      const worst = Math.max(rVeg, rMin);
-      const alvo = rVeg >= rMin ? `vegetal ${rVeg > 1 ? 'acima' : 'abaixo'} da média (${fmt(refVeg, 2)}%)` : `mineral ${rMin > 1 ? 'acima' : 'abaixo'} da média (${fmt(refMin, 2)}%)`;
-      cards.push({ cat: 'Impureza', icon: 'fa-leaf', type: worst > 1.6 ? 'bad' : worst > 1.3 ? 'warn' : 'ok',
-        value: `${fmt(f.impVeg, 2)}% <small>veg</small> · ${fmt(f.impMin, 2)}% <small>min</small>`,
-        text: worst > 1.3 ? `Impureza ${alvo}` : `Dentro da média do dia`, html: true });
-    }
-    // Velocidade
     if (Number.isFinite(f.aderencia)) {
-      cards.push({ cat: 'Velocidade', icon: 'fa-gauge-simple', type: f.aderencia >= 0 ? 'ok' : f.aderencia >= -10 ? 'warn' : 'bad',
-        value: `${fmtSigned(f.aderencia, 2)}%`, text: `${fmt(f.velReal, 1)} de ${fmt(f.velDim, 1)} km/h dimensionados` });
+      if (f.aderencia >= 0) s.push({ st: 'ok', txt: `Boa velocidade ${fmtSigned(f.aderencia, 1)}%` });
+      else if (f.aderencia < -10) s.push({ st: 'bad', txt: `Velocidade ${fmtSigned(f.aderencia, 1)}%` });
+      else if (f.aderencia < -5) s.push({ st: 'warn', txt: `Velocidade ${fmtSigned(f.aderencia, 1)}%` });
     }
-    // Observações
-    const obs = [];
-    const pos = rankPct.indexOf(f.frente);
-    if (pos === 0) obs.push('1º lugar no ranking de atingimento');
-    if (pos === rankPct.length - 1 && rankPct.length > 1) obs.push('Último lugar no ranking de atingimento');
-    if (f.diferenca > 0 && f.eficiencia < 60) obs.push('Acima da cota mesmo com baixa eficiência — potencial de ganho');
-    if (f.piloto === 0) obs.push('Piloto automático zerado — verificar sinal/equipamento');
-    else if (Number.isFinite(f.piloto) && f.piloto < 50) obs.push(`Uso de piloto automático baixo (${fmtPct(f.piloto)})`);
-    if (lowAder && lowAder.frente === f.frente && f.aderencia < 0) obs.push('Menor aderência de velocidade do dia');
-    if (lowEf && lowEf.frente === f.frente) obs.push('Menor eficiência operacional do dia');
-    if (topTatr && topTatr.frente === f.frente) obs.push(`Maior TATR/ha do dia (${fmt(f.tatr, 2)})`);
-    if (topTch && topTch.frente === f.frente) obs.push(`Maior TCH do dia (${fmt(f.tch, 0)} t/ha)`);
-    if (topAtr && topAtr.frente === f.frente) obs.push(`Maior ATR do dia (${fmt(f.atr, 2)})`);
-    f.fazendas.filter(z => !(z.anlTon > 0 || z.impVeg > 0)).forEach(z => { if (comAnalise.length) obs.push(`${titleCase(z.fazenda)} sem análise de qualidade`); });
-    const v = vin.find(x => x.frente === f.frente);
-    if (v) obs.push(`Vinhaça: ${fmtPct(v.realizado / v.dimensionado * 100, 0)} do dimensionado`);
-    const cf = col.filter(c => c.frente === f.frente);
-    if (cf.length) obs.push(`${cf.length} colhedora(s) · ${fmt(sum(cf, c => c.tc) / cf.length, 0)} t/máquina`);
-    if (f.fazendas.length > 1) obs.push(`${f.fazendas.length} fazendas: ${f.fazendas.map(z => titleCase(z.fazenda)).join(', ')}`);
-    cards.push({ cat: 'Observações', icon: 'fa-note-sticky', type: 'info', list: obs.slice(0, 3), extra: obs.length > 3 ? obs.slice(3) : [] });
+    const iv = tg.impVeg && f.impVeg > tg.impVeg * 1.3, im = tg.impMin && f.impMin > tg.impMin * 1.3;
+    if (iv && im) s.push({ st: 'warn', txt: `Impureza alta ${fmt(f.impVeg, 1)}% veg` });
+    else if (iv) s.push({ st: 'warn', txt: `Impureza veg. alta ${fmt(f.impVeg, 1)}%` });
+    else if (im) s.push({ st: 'warn', txt: `Impureza min. alta ${fmt(f.impMin, 2)}%` });
+    if (f.piloto === 0) s.push({ st: 'warn', txt: 'Piloto automático 0%' });
+    return s;
+  };
+  const rank = { bad: 0, warn: 1, ok: 2 };
+  out.tiles = sortFrentes(frentes).map(f => {
+    const all = sinais(f);
+    const core = all.filter(x => x.core), rest = all.filter(x => !x.core).sort((a, b) => (b.key ? 1 : 0) - (a.key ? 1 : 0) || rank[a.st] - rank[b.st]);
+    const show = [...core, ...rest].slice(0, 3);
+    return { frente: f.frente, st: f.status, pct: f.pct, cota: f.cota, producao: f.producao, show, all };
+  });
 
-    out.frentes.push({ frente: f.frente, status: f.status, pct: f.pct, cota: f.cota, producao: f.producao, cards });
-  }
+  // Prioridades (1 linha)
+  if (best) out.prio.push({ k: 'Melhor Frente', st: 'ok', icon: 'fa-trophy', v: best.frente, s: fmtPct(best.pct) });
+  if (worst && withCota.length > 1) out.prio.push({ k: 'Pior Frente', st: worst.status, icon: 'fa-arrow-trend-down', v: worst.frente, s: fmtPct(worst.pct) });
+  if (ganho) out.prio.push({ k: 'Maior Ganho', st: 'ok', icon: 'fa-arrow-up', v: ganho.frente, s: `+${fmt(ganho.diferenca, 0)} t` });
+  if (perda) out.prio.push({ k: 'Maior Perda', st: 'bad', icon: 'fa-arrow-down', v: perda.frente, s: `${fmt(perda.diferenca, 0)} t` });
+  if (perda && deficit) out.prio.push({ k: 'Principal Ofensora', st: 'bad', icon: 'fa-crosshairs', v: perda.frente, s: `${fmt(-perda.diferenca / deficit * 100, 0)}% do déficit` });
+  if (topTatr) out.prio.push({ k: 'Principal Destaque', st: 'ok', icon: 'fa-star', v: topTatr.frente, s: `TATR/ha ${fmt(topTatr.tatr, 2)}` });
 
-  // ---------- Insights gerais ----------
-  const isAll = frentes.length === M.frentes.length;
-  const L = M.raw.logistica || {};
-  const th = L.happening?.total?.tc, ta = L.aroeira?.total?.tc;
-  if (th && ta) {
-    const main = ta >= th ? ['Aroeira', ta] : ['Happening', th];
-    out.gerais.push({ cat: 'Logística', icon: 'fa-truck', type: 'info', title: `${main[0]} respondeu por ${fmtPct(main[1] / (th + ta) * 100)} do transporte`,
-      text: `Happening ${fmt(th, 0)} TC · Aroeira ${fmt(ta, 0)} TC · ${fmt((L.happening.total.cargas || 0) + (L.aroeira.total.cargas || 0), 0)} viagens.` });
-  }
-  if (vin.length) {
-    const d = sum(vin, x => x.dimensionado), r = sum(vin, x => x.realizado);
-    out.gerais.push({ cat: 'Vinhaça', icon: 'fa-droplet', type: r / d >= 1 ? 'ok' : r / d >= .9 ? 'warn' : 'bad', title: `${fmtPct(r / d * 100)} do dimensionado aplicado`,
-      text: `${fmt(r)} de ${fmt(d, 0)} ha (${fmt(r - d)} ha) em ${vin.length} frentes.` });
-  }
-  const man = ['happening', 'aroeira'].map(k => sum(Object.values(L[k]?.frota?.manutencao || {})));
-  const P = M.raw.prancha || { manutencao: {} };
-  const totMan = sum(man) + sum(Object.values(P.manutencao || {}));
-  if (totMan) {
-    const rodoMan = (L.happening?.frota?.manutencao?.rodotrem || 0) + (L.aroeira?.frota?.manutencao?.rodotrem || 0);
-    out.gerais.push({ cat: 'Manutenção', icon: 'fa-wrench', type: 'warn', title: `${totMan} equipamentos em manutenção`,
-      text: `Happening ${man[0]} · Aroeira ${man[1]} · Prancha ${sum(Object.values(P.manutencao || {}))}. Rodotrens concentram ${rodoMan}.` });
-  }
+  // Resumo executivo do dia
+  const R = out.resumo;
+  if (best) R.push({ st: 'ok', icon: 'fa-trophy', k: 'Melhor Frente', v: `${best.frente}`, s: `${fmtSigned(best.diferenca, 0)} t · ${fmtPct(best.pct)}` });
+  if (perda) R.push({ st: 'bad', icon: 'fa-arrow-trend-down', k: 'Maior Desvio', v: perda.frente, s: `${fmt(perda.diferenca, 0)} t · ${fmtPct(perda.pct)}` });
+  if (T.cota) R.push({ st: statusOf(T.pct), icon: 'fa-bullseye', k: T.diferenca < 0 ? 'Faltou para a Meta' : 'Acima da Meta', v: `${fmt(Math.abs(T.diferenca), 0)} t`, s: `${fmtPct(T.pct)} da cota atingida` });
+  if (Number.isFinite(T.eficiencia)) R.push({ st: statusVsMeta(T.eficiencia, metas.eficiencia), icon: 'fa-gauge-high', k: 'Eficiência Geral', v: fmtPct(T.eficiencia), s: bestEf ? `melhor: ${shortFrente(bestEf.frente)} ${fmtPct(bestEf.eficiencia)} · meta ${metas.eficiencia}%` : `meta ${metas.eficiencia}%` });
+  if (lowAder && lowAder.aderencia < 0) R.push({ st: lowAder.aderencia >= -10 ? 'warn' : 'bad', icon: 'fa-gauge-simple', k: 'Menor Aderência', v: lowAder.frente, s: `${fmtSigned(lowAder.aderencia, 2)}% velocidade` });
   if (M.ofensores.length) {
     const top = M.ofensores.filter(o => o.total === M.ofensores[0].total).map(o => o.nome);
-    const semC = M.turnos.filter(t => !t.registros.length).map(t => t.turno);
-    out.gerais.push({ cat: 'Ofensores', icon: 'fa-triangle-exclamation', type: 'warn', title: `Principal: ${top.join(' e ')}`,
-      text: `${M.ofensores[0].total} citações${top.length > 1 ? ' cada' : ''}.${semC.length ? ` Turno ${semC.join(', ')} sem registros.` : ''}` });
+    R.push({ st: 'warn', icon: 'fa-triangle-exclamation', k: 'Principal Problema', v: top[0], s: `${M.ofensores[0].total} citações${top.length > 1 ? ` · empate: ${top.slice(1).join(', ')}` : ''}` });
   }
-  const T = totals(frentes, M);
-  if (T.cota) {
-    const gap = (1 - T.producao / T.cota) * 100;
-    out.gerais.push({ cat: 'Consolidação', icon: 'fa-scale-unbalanced', type: gap > 10 ? 'bad' : gap > 0 ? 'warn' : 'ok',
-      title: gap > 0 ? `Produção ${fmt(gap, 1)}% abaixo da cota${isAll ? '' : ' (filtro)'}` : `Produção ${fmt(-gap, 1)}% acima da cota`,
-      text: `${fmt(T.producao)} t para ${fmt(T.cota)} t (${fmtSigned(T.diferenca)} t).` });
+  const L = M.raw.logistica || {};
+  const th = L.happening?.total?.tc || 0, ta = L.aroeira?.total?.tc || 0;
+  const F = frotaStats(M.raw);
+  if (th + ta) R.push({ st: statusVsMeta(F.disp, metas.disponibilidade), icon: 'fa-truck', k: 'Transporte', v: `${fmtPct(ta / (th + ta) * 100)} Aroeira`, s: `${fmt(th + ta, 0)} TC · frota ${fmtPct(F.disp)} disponível` });
+  const vin = M.raw.vinhaca || [];
+  if (vin.length) {
+    const d = sum(vin, v => v.dimensionado), r = sum(vin, v => v.realizado);
+    R.push({ st: statusVsMeta(r / d * 100, metas.vinhaca), icon: 'fa-droplet', k: 'Vinhaça', v: `${fmtPct(r / d * 100)} do planejado`, s: `${fmt(r, 1)} de ${fmt(d, 0)} ha` });
   }
-  if (isAll && Number.isFinite(tg.velDim)) {
-    const close = Math.abs(tg.aderencia) <= 5;
-    out.gerais.push({ cat: 'Velocidade', icon: 'fa-gauge-high', type: close ? 'ok' : 'warn',
-      title: close ? 'Velocidade média próxima do dimensionado' : 'Velocidade média distante do dimensionado',
-      text: `${fmt(tg.velReal, 1)} km/h realizada x ${fmt(tg.velDim, 1)} km/h (${fmtSigned(tg.aderencia, 2)}%).` });
-  }
-  if (col.length) {
-    const b = [...col].sort((a, c) => c.tc - a.tc)[0];
-    out.gerais.push({ cat: 'Máquinas', icon: 'fa-star', type: 'info', title: `Colhedora destaque: ${b.maquina}`,
-      text: `${fmt(b.tc, 1)} t em ${b.cargas} cargas (${b.frente}) · média ${fmt(sum(col, c => c.tc) / col.length, 0)} t/máquina.` });
+  if (F.op + F.man) R.push({ st: statusVsMeta(F.disp, metas.disponibilidade), icon: 'fa-wrench', k: 'Equipamentos', v: `${F.man} parados`, s: `${F.manFrota} frota + ${F.manPrancha} prancha · ${F.op} operando` });
+  // Ação imediata
+  const criticas = withCota.filter(f => f.status === 'bad').sort((a, b) => a.diferenca - b.diferenca);
+  const efCrit = frentes.filter(f => statusVsMeta(f.eficiencia, metas.eficiencia) === 'bad').sort((a, b) => a.eficiencia - b.eficiencia);
+  if (criticas.length || efCrit.length) {
+    R.push({ st: 'bad', icon: 'fa-bell', k: 'Ação Imediata', urgent: true,
+      v: criticas.length ? `${criticas.length} frente(s) >10% abaixo` : `${efCrit.length} frente(s) c/ eficiência crítica`,
+      s: [criticas.length ? criticas.slice(0, 4).map(f => shortFrente(f.frente)).join(', ') + (criticas.length > 4 ? ` +${criticas.length - 4}` : '') : '', efCrit.length ? `efic. crítica: ${efCrit.map(f => `${shortFrente(f.frente)} ${fmt(f.eficiencia, 0)}%`).join(', ')}` : ''].filter(Boolean).join(' · ') });
+  } else {
+    R.push({ st: 'ok', icon: 'fa-bell', k: 'Ação Imediata', v: 'Nenhuma frente crítica', s: 'todas até 10% da meta' });
   }
   return out;
 }
@@ -479,7 +468,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const STORE_KEY = 'ctt-dashboard-dados';
   const $ = sel => document.querySelector(sel);
   const $$ = sel => [...document.querySelectorAll(sel)];
-  const state = { M: null, frente: '', fazenda: '', q: '', rankSort: 'pct', log: 'happening', maq: 'colhedoras' };
+  const state = { M: null, frente: '', fazenda: '', q: '', rankSort: 'pct', log: 'happening', maq: 'colhedoras', status: '', fullCols: false };
   const charts = {};
   const tables = {};
 
@@ -569,11 +558,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const fillFilters = () => {
     const M = state.M;
     const sf = $('#filterFrente'), sz = $('#filterFazenda');
-    sf.innerHTML = '<option value="">Todas</option>' + M.frentes.map(f => `<option>${escapeHtml(f.frente)}</option>`).join('');
+    sf.innerHTML = '<option value="">Todas as frentes</option>' + M.frentes.map(f => `<option>${escapeHtml(f.frente)}</option>`).join('');
     sf.value = state.frente;
     const fz = M.linhas.filter(l => !state.frente || l.frente === state.frente);
     const uniq = [...new Set(fz.map(l => l.fazenda))];
-    sz.innerHTML = '<option value="">Todas</option>' + uniq.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(titleCase(n))}</option>`).join('');
+    sz.innerHTML = '<option value="">Todas as fazendas</option>' + uniq.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(titleCase(n))}</option>`).join('');
     if (!uniq.includes(state.fazenda)) state.fazenda = '';
     sz.value = state.fazenda;
   };
@@ -587,13 +576,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     return s.charAt(0).toUpperCase() + s.slice(1);
   };
   const renderHeader = () => {
-    const M = state.M, fr = filteredFrentes(), T = totals(fr, M);
+    const M = state.M;
     const meta = M.raw.meta || {};
-    $('#hProd').textContent = fmtT(T.producao);
-    $('#hCota').textContent = fmtT(T.cota);
-    const hd = $('#hDif'); hd.textContent = `${fmtSigned(T.diferenca)} t`; hd.className = T.diferenca < 0 ? 'neg' : 'pos';
-    $('#hEfic').textContent = fmtPct(T.eficiencia);
-    $('#hFrentes').textContent = T.n;
     const dt = meta.dataRelatorio ? meta.dataRelatorio.split('-').reverse().join('/') : 'sem data';
     const chip = $('#reportChip');
     chip.querySelector('span').textContent = dt;
@@ -606,63 +590,69 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     $('#footerSource').textContent = `Fonte: ${meta.arquivo || 'dados.json'}${meta.origem ? ' (' + meta.origem + ')' : ''} · atualizado em ${new Date(meta.importadoEm || Date.now()).toLocaleString('pt-BR')}`;
   };
 
-  const kpiCard = ({ label, value, unit = '', icon, sub = '', cls = '', iconCls = '', bar = null, barCls = '' }) => `
-    <div class="kpi">
+  const ST_ICON = { ok: 'fa-circle-check', warn: 'fa-triangle-exclamation', bad: 'fa-circle-xmark', info: 'fa-circle-info' };
+  const kpiCard = ({ label, value, unit = '', icon, sub = '', cls = '', iconCls = '', bar = null, barCls = '', st = '' }) => `
+    <div class="kpi ${st ? 'kpi--' + st : ''}">
       <div class="kpi__top"><span class="kpi__label">${label}</span><span class="kpi__icon ${iconCls}"><i class="fa-solid ${icon}"></i></span></div>
       <div class="kpi__value ${cls}" title="${escapeHtml(String(value).replace(/<[^>]+>/g, ''))}">${value}${unit ? `<small>${unit}</small>` : ''}</div>
       ${sub ? `<div class="kpi__sub">${sub}</div>` : ''}
       ${bar != null ? `<div class="bar"><i class="${barCls}" style="width:${Math.max(0, Math.min(100, bar))}%"></i></div>` : ''}
     </div>`;
 
+  /* Faixa de KPIs (uma linha no desktop) */
   const renderKpis = () => {
-    const fr = filteredFrentes(), T = totals(fr, state.M);
+    const M = state.M, fr = filteredFrentes(), T = totals(fr, M);
     const withCota = fr.filter(f => f.cota);
     const best = [...withCota].sort((a, b) => b.pct - a.pct || b.diferenca - a.diferenca)[0];
     const worst = [...withCota].sort((a, b) => a.pct - b.pct)[0];
-    const media = T.n ? T.producao / T.n : 0;
-    const st = statusOf(T.pct || 0);
-    $('#kpis').innerHTML = [
-      kpiCard({ label: 'Produção Total', value: fmt(T.producao), unit: 't', icon: 'fa-wheat-awn', sub: `<b>${fmtPct(T.pct)}</b> da cota`, bar: T.pct, barCls: st }),
-      kpiCard({ label: 'Cota Total', value: fmt(T.cota), unit: 't', icon: 'fa-bullseye', sub: `${T.n} frente(s) com cota` }),
-      kpiCard({ label: 'Diferença', value: fmtSigned(T.diferenca), unit: 't', icon: 'fa-scale-unbalanced', cls: T.diferenca < 0 ? 'neg' : 'pos', iconCls: T.diferenca < 0 ? 'is-bad' : '', sub: `${fmtSigned(T.pct - 100, 1)}% vs. cota` }),
-      kpiCard({ label: 'Eficiência Operacional', value: fmt(T.eficiencia, 1), unit: '%', icon: 'fa-gauge-high', sub: state.frente || state.fazenda ? 'Média ponderada pela produção' : 'Total geral do relatório', bar: T.eficiencia, barCls: T.eficiencia >= 70 ? '' : T.eficiencia >= 60 ? 'warn' : 'bad', iconCls: T.eficiencia >= 70 ? '' : 'is-warn' }),
-      kpiCard({ label: 'Produção Média / Frente', value: fmt(media), unit: 't', icon: 'fa-calculator', sub: `${fmt(T.producao)} t ÷ ${T.n} frentes` }),
-      best && withCota.length > 1 ? kpiCard({ label: 'Melhor Frente', value: best.frente, icon: 'fa-trophy', cls: 'pos', sub: `<b>${fmtPct(best.pct)}</b> · ${fmtSigned(best.diferenca, 0)} t` }) : '',
-      worst && withCota.length > 1 ? kpiCard({ label: 'Pior Frente', value: worst.frente, icon: 'fa-arrow-trend-down', cls: 'neg', iconCls: 'is-bad', sub: `<b>${fmtPct(worst.pct)}</b> · ${fmtSigned(worst.diferenca, 0)} t` }) : '',
+    const n = st => withCota.filter(f => f.status === st).length;
+    const st = statusOf(T.pct || 0), stEf = statusVsMeta(T.eficiencia, M.metas.eficiencia);
+    const tile = (k, v, s, stt = '', title = '') => `
+      <div class="ks ${stt ? 'ks--' + stt : ''}" title="${escapeHtml(title || '')}">
+        <span class="ks__k">${stt ? `<i class="sem sem--${stt}"></i>` : ''}${k}</span>
+        <strong class="ks__v">${v}</strong>
+        <span class="ks__s">${s}</span>
+      </div>`;
+    $('#kstrip').innerHTML = [
+      tile('Produção', `${fmt(T.producao, 0)}<small> t</small>`, `${fmtPct(T.pct)} da cota`, st, `${fmt(T.producao)} t`),
+      tile('Cota', `${fmt(T.cota, 0)}<small> t</small>`, `${T.n} frente(s)`, '', `${fmt(T.cota)} t`),
+      tile(T.diferenca < 0 ? 'Faltou p/ Meta' : 'Acima da Meta', `${fmtSigned(T.diferenca, 0)}<small> t</small>`, `${fmtSigned((T.pct || 0) - 100, 1)}% vs. cota`, st, `${fmtSigned(T.diferenca)} t`),
+      tile('Atingimento', fmtPct(T.pct), `<span class="bar bar--in"><i class="${st}" style="width:${Math.min(100, T.pct || 0)}%"></i></span>`, st),
+      tile('Eficiência Oper.', fmtPct(T.eficiencia), `meta ${M.metas.eficiencia}%`, stEf),
+      tile('Frentes', T.n, `<b class="t-ok">${n('ok')}</b> · <b class="t-warn">${n('warn')}</b> · <b class="t-bad">${n('bad')}</b>`, '', 'acima · até 10% abaixo · +10% abaixo'),
+      tile('Média / Frente', `${fmt(T.n ? T.producao / T.n : 0, 0)}<small> t</small>`, 'produção média'),
+      best && withCota.length > 1 ? tile('Melhor Frente', escapeHtml(best.frente), `${fmtPct(best.pct)} · ${fmtSigned(best.diferenca, 0)} t`, 'ok') : '',
+      worst && withCota.length > 1 ? tile('Pior Frente', escapeHtml(worst.frente), `${fmtPct(worst.pct)} · ${fmtSigned(worst.diferenca, 0)} t`, worst.status) : '',
     ].join('');
   };
 
-  const renderInsights = () => {
-    const G = buildInsightGroups(state.M, filteredFrentes());
-    const card = c => `
-      <div class="ig-card ig-card--${c.type}">
-        <span class="ig-cat"><i class="fa-solid ${c.icon}"></i>${c.cat}</span>
-        ${c.list ? (c.list.length
-          ? `<ul class="ig-obs">${c.list.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul>${c.extra.length ? `<span class="ig-more" title="${escapeHtml(c.extra.join(' · '))}">+${c.extra.length} observação(ões)</span>` : ''}`
-          : '<p class="ig-txt">Sem observações adicionais.</p>')
-          : `<b class="ig-val">${c.html ? c.value : escapeHtml(c.value)}</b><p class="ig-txt">${escapeHtml(c.text)}</p>`}
-      </div>`;
-    const icon = t => t === 'ok' ? '✅ ' : t === 'info' ? '' : '⚠ ';
-    $('#insights').innerHTML = G.frentes.map(g => `
-      <div class="ig-group ig-group--${g.status}">
-        <div class="ig-head">
-          <strong>${escapeHtml(g.frente)}</strong>
-          ${g.pct != null ? `<span class="pill ${g.status}">${fmtPct(g.pct)}</span>` : ''}
-          ${g.cota ? `<small>${fmt(g.cota, 0)} / ${fmt(g.producao, 0)} t</small>` : ''}
+  /* Resumo executivo do dia (um único card horizontal) */
+  const renderResumo = () => {
+    const E = buildExecutive(state.M, filteredFrentes());
+    $('#resumoGrid').innerHTML = E.resumo.map(r => `
+      <div class="ri ri--${r.st} ${r.urgent ? 'ri--urgent' : ''}">
+        <span class="ri__ic"><i class="fa-solid ${r.icon}"></i></span>
+        <div class="ri__tx">
+          <span class="ri__k"><i class="sem sem--${r.st}"></i>${escapeHtml(r.k)}</span>
+          <b class="ri__v" title="${escapeHtml(r.v)}">${escapeHtml(r.v)}</b>
+          <span class="ri__s" title="${escapeHtml(r.s)}">${escapeHtml(r.s)}</span>
         </div>
-        ${g.cards.map(card).join('')}
-      </div>`).join('') + (G.gerais.length ? `
-      <div class="ig-gerais">
-        <div class="ig-gerais__head"><i class="fa-solid fa-layer-group"></i> Insights Gerais</div>
-        <div class="ig-gerais__grid">
-          ${G.gerais.map(i => `
-            <div class="ig-card ig-card--${i.type}">
-              <span class="ig-cat"><i class="fa-solid ${i.icon}"></i>${i.cat}</span>
-              <b class="ig-title">${icon(i.type)}${escapeHtml(i.title)}</b>
-              <p class="ig-txt">${escapeHtml(i.text)}</p>
-            </div>`).join('')}
-        </div>
-      </div>` : '') || '<div class="skeleton-msg">Sem observações para o filtro atual.</div>';
+      </div>`).join('') || '<div class="empty">Sem dados.</div>';
+  };
+
+  /* Inteligência operacional: prioridades + sinais por frente */
+  const renderInteligencia = () => {
+    const E = buildExecutive(state.M, filteredFrentes());
+    $('#prio').innerHTML = E.prio.map((p, i) => `
+      <div class="prio__it prio__it--${p.st}">
+        <span class="prio__n">${i + 1}</span>
+        <div><span class="prio__k">${escapeHtml(p.k)}</span><b>${escapeHtml(p.v)}</b><small>${escapeHtml(p.s)}</small></div>
+      </div>`).join('');
+    $('#ftiles').innerHTML = E.tiles.map(t => `
+      <div class="ft ft--${t.st}" title="${escapeHtml(t.all.map(x => x.txt).join(' · '))}">
+        <div class="ft__head"><strong>${escapeHtml(t.frente)}</strong>${t.all.length > t.show.length ? `<span class="ft__more">+${t.all.length - t.show.length}</span>` : ''}${t.pct != null ? `<span class="pill ${t.st}">${fmtPct(t.pct)}</span>` : ''}</div>
+        <ul class="ft__sig">${t.show.map(x => `<li class="s-${x.st}"><i class="fa-solid ${ST_ICON[x.st]}"></i><span>${escapeHtml(x.txt)}</span></li>`).join('')}</ul>
+      </div>`).join('') || '<div class="empty">Sem frentes para o filtro.</div>';
   };
 
   /* ---------- Render: ranking (Cota / Produção) ---------- */
@@ -797,31 +787,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     $('#agroKpis').innerHTML = chips.map(([k, v, u]) => `<div><span>${k}</span><b>${v}${u ? `<small> ${u}</small>` : ''}</b></div>`).join('');
   };
 
-  const renderFazProd = () => {
-    const L = [...filteredLinhas()].sort((a, b) => b.tc - a.tc);
-    $('#fazProdBox').style.height = `${Math.max(140, 34 + L.length * 27)}px`;
-    makeChart('chFazProd', {
-      type: 'bar',
-      data: {
-        labels: L.map(l => [titleCase(l.fazenda), l.frente]),
-        datasets: [{ label: 'Produção (t)', data: L.map(l => l.tc), backgroundColor: L.map(l => STATUS_COLOR[l.status] + 'E6'), borderRadius: 5, barThickness: 14 }],
-      },
-      options: {
-        indexAxis: 'y',
-        layout: { padding: { right: 48 } },
-        scales: { x: { beginAtZero: true, ticks: { callback: v => fmt(v, 0) } }, y: { grid: { display: false }, ticks: { autoSkip: false, font: { size: 10.5 } } } },
-        plugins: {
-          legend: { display: false },
-          valueLabels: { enabled: true, format: v => fmt(v, 0) },
-          tooltip: { callbacks: {
-            title: it => `${titleCase(L[it[0].dataIndex].fazenda)} (${L[it[0].dataIndex].frente})`,
-            label: c => { const l = L[c.dataIndex]; return [` Produção: ${fmt(l.tc)} t`, ` Meta${l.rateio ? ' (rateada)' : ''}: ${fmt(l.meta)} t`, ` Atingimento: ${fmtPct(l.pct)}`]; },
-          } },
-        },
-      },
-    });
-  };
-
   const renderFazChart = () => {
     const L = filteredLinhas().filter(l => Number.isFinite(l.tatr));
     const maxTc = Math.max(...state.M.linhas.map(l => l.tc), 1);
@@ -851,45 +816,58 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   };
 
   const DT_LANG = {
-    search: '', searchPlaceholder: 'Buscar na tabela…', lengthMenu: '_MENU_ por página',
+    search: '', searchPlaceholder: 'Buscar…', lengthMenu: '_MENU_',
     info: '_START_–_END_ de _TOTAL_', infoEmpty: 'Nenhum registro', infoFiltered: '(de _MAX_)',
     zeroRecords: 'Nenhum registro encontrado', emptyTable: 'Sem dados',
     paginate: { first: '«', last: '»', next: '›', previous: '‹' },
   };
   const numCol = (data, title, d = 2, suffix = '') => ({ data, title, className: 'num', render: (v, type) => type === 'display' ? (v === null || v === undefined ? '—' : fmt(v, d) + suffix) : v });
   const semAnalise = row => !(row.anlTon > 0 || row.atr > 0);
-  const qualCol = (data, title, d = 2) => ({ data, title, className: 'num', render: (v, type, row) => type === 'display' ? ((semAnalise(row) && !v) || v == null ? '<span class="muted" title="Sem análise">s/ análise</span>' : fmt(v, d)) : v });
+  const qualCol = (data, title, d = 2) => ({ data, title, className: 'num', render: (v, type, row) => type === 'display' ? ((semAnalise(row) && !v) || v == null ? '<span class="muted" title="Sem análise">s/ an.</span>' : fmt(v, d)) : v });
   const pctPill = (data, title) => ({ data, title, className: 'num', render: (v, type, row) => type === 'display' ? (v == null ? '—' : `<span class="pill ${row.status}">${fmt(v, 1)}%</span>`) : v });
-  const efPill = (data, title) => ({ data, title, className: 'num', render: (v, type) => type === 'display' ? `<span class="pill ${v >= 70 ? 'ok' : v >= 60 ? 'warn' : 'bad'}">${fmt(v, 1)}%</span>` : v });
+  const efPill = (data, title) => ({ data, title, className: 'num', render: (v, type) => type === 'display' ? `<span class="pill ${statusVsMeta(v, state.M.metas.eficiencia)}">${fmt(v, 1)}%</span>` : v });
   const COLS = {
     tblGer: [
       { data: 'frente', title: 'Frente' },
-      { data: 'fazenda', title: 'Fazenda', render: (v, t, r) => t === 'display' ? `${escapeHtml(titleCase(v))} <span class="tag">${escapeHtml(r.codFaz)}</span>` : v },
-      numCol('tc', 'Produção (t)'),
-      { data: 'meta', title: 'Meta (t)', className: 'num', render: (v, t, r) => t === 'display' ? (v == null ? '—' : fmt(v) + (r.rateio ? '<span class="tag">*</span>' : '')) : v },
-      { data: 'dif', title: 'Diferença (t)', className: 'num', render: (v, t) => t === 'display' ? (v == null ? '—' : `<span class="${v >= 0 ? 't-ok' : 't-bad'}"><b>${fmtSigned(v)}</b></span>`) : v },
+      { data: 'fazenda', title: 'Fazenda', render: (v, t, r) => t === 'display' ? `<span class="fz"><i class="sem sem--${r.status}"></i><span>${escapeHtml(titleCase(v))}<small>${escapeHtml(r.frente)} · ${escapeHtml(r.codFaz)}</small></span></span>` : v },
+      numCol('tc', 'Prod. (t)', 0),
+      { data: 'meta', title: 'Meta (t)', className: 'num', render: (v, t, r) => t === 'display' ? (v == null ? '—' : fmt(v, 0) + (r.rateio ? '<span class="tag">*</span>' : '')) : v },
+      { data: 'dif', title: 'Dif. (t)', className: 'num', render: (v, t) => t === 'display' ? (v == null ? '—' : `<span class="${v >= 0 ? 't-ok' : 't-bad'}"><b>${fmtSigned(v, 0)}</b></span>`) : v },
       pctPill('pct', 'Ating.'),
       numCol('velDim', 'Vel. Plan.', 1),
       numCol('velReal', 'Vel. Real', 1),
       { data: 'aderencia', title: 'Aderência', className: 'num', render: (v, t) => t === 'display' ? `<span class="${v >= 0 ? 't-ok' : v >= -10 ? 't-warn' : 't-bad'}">${fmtSigned(v, 2)}%</span>` : v },
       numCol('tch', 'TCH', 0),
-      efPill('eficiencia', 'Efic. Oper.'),
+      efPill('eficiencia', 'Efic.'),
       qualCol('atr', 'ATR'),
       { data: 'tatr', title: 'TATR/ha', className: 'num', render: (v, t) => t === 'display' ? (v == null ? '<span class="muted">—</span>' : `<span class="tatr-dot" style="background:${tatrColor(v)}"></span>${fmt(v, 2)}`) : v },
       qualCol('fibra', 'Fibra'),
-      qualCol('impMin', 'Imp. Mineral'),
-      qualCol('impVeg', 'Imp. Vegetal'),
+      qualCol('impMin', 'Imp. Min.'),
+      qualCol('impVeg', 'Imp. Veg.'),
     ],
+  };
+  const COMPACT_COLS = [1, 2, 5, 10, 12]; // Fazenda · Produção · Ating. · Eficiência · TATR/ha
+  const setTableCols = full => {
+    const dt = tables.tblGer; if (!dt) return;
+    dt.columns().every(function (i) { this.visible(full || COMPACT_COLS.includes(i), false); });
+    dt.columns.adjust().draw(false);
+    const b = $('#btnCols'); if (b) { b.classList.toggle('is-on', !!full); b.title = full ? 'Mostrar colunas resumidas' : 'Mostrar todas as colunas'; }
   };
   const renderTables = () => {
     const data = state.M.linhas;
     const id = 'tblGer';
     if (!window.DataTable) { const el = document.getElementById(id); if (el) el.outerHTML = '<div class="empty"><i class="fa-solid fa-plug-circle-xmark"></i>DataTables não carregou (verifique a conexão).</div>'; return; }
     if (tables[id]) { tables[id].clear(); tables[id].rows.add(data); applyTableFilters(); return; }
+    if (!renderTables._ext) {
+      DataTable.ext.search.push((settings, _d, _i, row) => settings.nTable.id !== 'tblGer' || !state.status || (row && row.status === state.status));
+      renderTables._ext = true;
+    }
     tables[id] = new DataTable('#' + id, {
       data, columns: COLS[id], language: DT_LANG, pageLength: 10,
-      lengthMenu: [5, 10, 25, 50], order: [[2, 'desc']], autoWidth: false,
+      order: [[2, 'desc']], autoWidth: false,
+      layout: { topStart: null, topEnd: null, bottomStart: 'info', bottomEnd: 'paging' },
     });
+    setTableCols(state.fullCols);
     applyTableFilters();
   };
   const applyTableFilters = () => {
@@ -929,7 +907,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         scales: { y: { beginAtZero: true, ticks: { callback: v => fmt(v, 0) } }, x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 90, minRotation: sorted.length > 16 ? 60 : 0, font: { size: 10.5 } } } },
         plugins: {
           legend: { display: false },
-          valueLabels: { enabled: sorted.length <= 16, format: v => fmt(v, 0) },
+          valueLabels: { enabled: sorted.length <= 16 && window.innerWidth > 700, format: v => fmt(v, 0) },
           tooltip: { callbacks: { title: it => `${nome} ${sorted[it[0].dataIndex].maquina}`, label: c => { const m = sorted[c.dataIndex]; return [` ${m.frente}`, ` ${fmt(m.tc, 2)} t · ${m.cargas} cargas`, ` ${fmt(m.tc / m.cargas, 1)} t/carga`]; } } },
         },
       },
@@ -981,12 +959,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const rod = d.composicao.find(c => c.tipo === 'Rodotrem') || {}, tri = d.composicao.find(c => c.tipo === 'Tritrem') || {};
     const tot = d.total || { tc: sum(d.composicao, c => c.tc), cargas: sum(d.composicao, c => c.cargas) };
     const fo = d.frota?.operacao || {}, fm = d.frota?.manutencao || {};
+    const opN = sum(Object.values(fo)), manN = sum(Object.values(fm));
+    const dispLog = opN + manN ? opN / (opN + manN) * 100 : null;
     $('#logKpis').innerHTML = [
       kpiCard({ label: 'Rodotrem', value: fmt(rod.tc), unit: 'TC', icon: 'fa-truck-moving', sub: `<b>${fmt(rod.cargas, 0)}</b> viagens · ${fmt(rod.tcv, 1)} TC/v` }),
       kpiCard({ label: 'Tritrem', value: fmt(tri.tc), unit: 'TC', icon: 'fa-trailer', sub: `<b>${fmt(tri.cargas, 0)}</b> viagens · ${fmt(tri.tcv, 1)} TC/v` }),
       kpiCard({ label: 'Total Entregue', value: fmt(tot.tc), unit: 'TC', icon: 'fa-route', sub: `<b>${fmt(tot.cargas, 0)}</b> viagens · ${fmt(tot.tcv, 1)} TC/v` }),
       kpiCard({ label: 'Distância Média', value: fmt(tot.dist, 1), unit: 'km', icon: 'fa-road', sub: `Rodo ${fmt(rod.dist, 1)} · Tri ${fmt(tri.dist, 1)} km` }),
-      kpiCard({ label: 'Frota Operando', value: fmt((fo.cavalos || 0), 0), unit: 'cavalos', icon: 'fa-truck-front', sub: `${fo.rodotrem || 0} rodo · ${fo.tritrem || 0} tri · <b class="t-bad">${sum(Object.values(fm))}</b> em manut.` }),
+      kpiCard({ st: statusVsMeta(dispLog, state.M.metas.disponibilidade), label: 'Frota Operando', value: fmt((fo.cavalos || 0), 0), unit: 'cavalos', icon: 'fa-truck-front', sub: `${fo.rodotrem || 0} rodo · ${fo.tritrem || 0} tri · <b class="t-bad">${manN}</b> manut. · disp. ${fmtPct(dispLog, 0)}` }),
       kpiCard({ label: 'Participação', value: fmtPct(totAll ? tot.tc / totAll * 100 : 0), icon: 'fa-chart-pie', sub: `de ${fmt(totAll, 0)} TC`, bar: totAll ? tot.tc / totAll * 100 : 0 }),
     ].join('');
     const nome = { happening: 'Happening', aroeira: 'Aroeira', consolidado: 'Consolidado' }[state.log];
@@ -1041,9 +1021,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const worst = [...vin].sort((a, b) => a.realizado / a.dimensionado - b.realizado / b.dimensionado)[0];
     $('#vinKpis').innerHTML = vin.length ? [
       kpiCard({ label: 'Dimensionado', value: fmt(d, 2), unit: 'ha', icon: 'fa-ruler-combined', sub: `${vin.length} frentes` }),
-      kpiCard({ label: 'Realizado', value: fmt(r, 2), unit: 'ha', icon: 'fa-droplet' }),
+      kpiCard({ label: 'Realizado', value: fmt(r, 2), unit: 'ha', icon: 'fa-droplet', st: statusVsMeta(ad, state.M.metas.vinhaca), sub: `meta ${state.M.metas.vinhaca}% do dimensionado` }),
       kpiCard({ label: 'Diferença', value: fmtSigned(r - d, 2), unit: 'ha', icon: 'fa-scale-unbalanced', cls: r - d < 0 ? 'neg' : 'pos', iconCls: r - d < 0 ? 'is-bad' : '' }),
-      kpiCard({ label: 'Aderência', value: fmt(ad, 1), unit: '%', icon: 'fa-bullseye', bar: ad, barCls: statusOf(ad) === 'ok' ? '' : statusOf(ad), iconCls: ad >= 90 ? '' : 'is-warn' }),
+      kpiCard({ label: 'Aderência', value: fmt(ad, 1), unit: '%', icon: 'fa-bullseye', st: statusVsMeta(ad, state.M.metas.vinhaca), bar: ad, barCls: statusVsMeta(ad, state.M.metas.vinhaca) === 'ok' ? '' : statusVsMeta(ad, state.M.metas.vinhaca), iconCls: ad >= 90 ? '' : 'is-warn' }),
       worst ? kpiCard({ label: 'Menor aderência', value: worst.frente, icon: 'fa-arrow-trend-down', cls: 'neg', iconCls: 'is-bad', sub: `<b>${fmtPct(worst.realizado / worst.dimensionado * 100)}</b> · ${fmt(worst.diferenca, 2)} ha` }) : '',
     ].join('') : '<div class="skeleton-msg">Sem dados de vinhaça no relatório.</div>';
 
@@ -1066,7 +1046,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     });
 
     $('#vinRank').innerHTML = vin.map(v => {
-      const p = v.realizado / v.dimensionado * 100, st = statusOf(p);
+      const p = v.realizado / v.dimensionado * 100, st = statusVsMeta(p, state.M.metas.vinhaca);
       return `<div class="rank-row rank-row--vin" title="${escapeHtml(v.frente)}: ${fmt(v.realizado, 2)} de ${fmt(v.dimensionado, 0)} ha">
         <span class="rank-name">${escapeHtml(v.frente)}<small>${fmt(v.dimensionado, 0)} / ${fmt(v.realizado, 2)} ha</small></span>
         <div class="rank-track"><div class="rank-fill ${st}" style="width:${Math.min(100, p)}%"></div><span class="rank-label">${fmtPct(p)}</span></div>
@@ -1154,13 +1134,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   /* ---------- Render geral ---------- */
   const renderAll = () => {
     if (!state.M) return;
-    renderHeader(); renderKpis(); renderRanking(); renderFrenteCharts(); renderInsights();
-    renderAgroKpis(); renderFazProd(); renderFazChart(); renderTables();
+    renderHeader(); renderKpis(); renderResumo(); renderRanking(); renderFrenteCharts(); renderInteligencia();
     renderMaquinas(); renderLogistica(); renderVinhaca(); renderOfensores(); renderEquip();
+    renderAgroKpis(); renderFazChart(); renderTables();
   };
   const renderFiltered = () => {
-    renderHeader(); renderKpis(); renderRanking(); renderFrenteCharts(); renderInsights();
-    renderAgroKpis(); renderFazProd(); renderFazChart(); renderMaquinas(); applyTableFilters();
+    renderHeader(); renderKpis(); renderResumo(); renderRanking(); renderFrenteCharts(); renderInteligencia();
+    renderMaquinas(); renderAgroKpis(); renderFazChart(); applyTableFilters();
   };
 
   const setData = (raw, { persist = false } = {}) => {
@@ -1224,6 +1204,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       } else {
         const { items, info } = await extractPdfItems(file);
         parsed = parseReportItems(items, info);
+        if (state.M?.raw?.metas) parsed.metas = state.M.raw.metas; // preserva metas configuradas
         // mantém seções que não foram encontradas no novo PDF? Não — mostra aviso.
       }
       const v = validateParsed(parsed);
@@ -1268,7 +1249,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       use = cached; fromCache = true;
     }
     if (!use) {
-      $('#kpis').innerHTML = `<div class="skeleton-msg"><i class="fa-solid fa-file-arrow-up" style="font-size:28px;color:var(--green-700)"></i>
+      $('#kstrip').innerHTML = `<div class="skeleton-msg"><i class="fa-solid fa-file-arrow-up" style="font-size:28px;color:var(--green-700)"></i>
         <h3 style="margin:10px 0 4px">Nenhum dado carregado</h3>
         <p>Não foi possível ler <b>dados.json</b> (ao abrir o arquivo direto do computador o navegador bloqueia a leitura).<br>
         Publique no GitHub Pages / use um servidor local, ou clique em <b>Importar PDF</b> para carregar o relatório.</p></div>`;
@@ -1293,6 +1274,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     else document.documentElement.requestFullscreen?.();
   });
   document.addEventListener('fullscreenchange', () => {
+    setTableCols(document.fullscreenElement && document.fullscreenElement.id === 'tblCard' ? true : state.fullCols);
     $('#btnFull').innerHTML = `<i class="fa-solid ${document.fullscreenElement === document.documentElement ? 'fa-compress' : 'fa-expand'}"></i>`;
     setTimeout(() => Object.values(charts).forEach(c => c.resize()), 120);
   });
@@ -1319,7 +1301,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   });
   let qT;
   $('#globalSearch').addEventListener('input', e => { clearTimeout(qT); qT = setTimeout(() => { state.q = e.target.value.trim(); applyTableFilters(); }, 120); });
-  $('#btnClear').addEventListener('click', () => { state.frente = ''; state.fazenda = ''; state.q = ''; $('#globalSearch').value = ''; fillFilters(); renderFiltered(); });
+  $('#btnClear').addEventListener('click', () => { state.frente = ''; state.fazenda = ''; state.q = ''; state.status = ''; $('#globalSearch').value = ''; $('#filterStatus').value = ''; fillFilters(); renderFiltered(); });
+  $('#filterStatus').addEventListener('change', e => { state.status = e.target.value; applyTableFilters(); });
+  $('#btnCols').addEventListener('click', () => { state.fullCols = !state.fullCols; setTableCols(state.fullCols); });
   $('#rankSort').addEventListener('change', e => { state.rankSort = e.target.value; renderRanking(); });
 
   // Arrastar e soltar PDF
@@ -1354,5 +1338,5 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Exporta funções puras para testes em Node (ignorado no navegador). */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseReportItems, parseNum, buildModel, totals, buildInsightGroups, calcTatr, validateParsed };
+  module.exports = { parseReportItems, parseNum, buildModel, totals, buildExecutive, calcTatr, statusVsMeta, validateParsed };
 }

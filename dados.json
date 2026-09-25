@@ -7,6 +7,12 @@
     "autor": "Marcos Vinicius Lima Da Silva",
     "importadoEm": "2026-09-25T07:31:40.000Z"
   },
+  "metas": {
+    "eficiencia": 75,
+    "vinhaca": 100,
+    "disponibilidade": 90,
+    "_comentario": "Metas do semáforo (em %). Verde >= meta; amarelo até 10% abaixo; vermelho > 10% abaixo."
+  },
   "fazendas": [
     {
       "frente": "Frente 01",
