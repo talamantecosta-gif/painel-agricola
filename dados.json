@@ -1,17 +1,18 @@
 {
   "meta": {
-    "dataRelatorio": "2026-09-25",
+    "dataRelatorio": "2026-09-26",
     "titulo": "Gerenciamento Diário",
-    "arquivo": "Relatório 25-09-2026.pdf",
+    "arquivo": "Relatório 26-09-2026.pdf",
     "origem": "Gerencial.xlsm",
-    "autor": "Marcos Vinicius Lima Da Silva",
-    "importadoEm": "2026-09-25T07:31:40.000Z"
+    "autor": "Talamante Gomes Costa Neto",
+    "importadoEm": "2026-09-25T18:18:02.718Z"
   },
   "metas": {
     "eficiencia": 75,
     "vinhaca": 100,
     "disponibilidade": 90,
-    "_comentario": "Metas do semáforo (em %). Verde >= meta; amarelo até 10% abaixo; vermelho > 10% abaixo."
+    "_comentario": "Metas do semáforo (em %). Eficiência, vinhaça e disponibilidade: verde >= meta, amarelo até 10% abaixo, vermelho > 10% abaixo. Indisponibilidade (quanto menor, melhor): verde <= meta, amarelo até 10% acima, vermelho > 10% acima.",
+    "indisponibilidade": 15
   },
   "fazendas": [
     {
@@ -32,7 +33,8 @@
       "fibra": 12.72,
       "atr": 127.89,
       "impMin": 1.56,
-      "impVeg": 12.06
+      "impVeg": 12.06,
+      "indisp": 15
     },
     {
       "frente": "Frente 02",
@@ -52,7 +54,8 @@
       "fibra": 12.61,
       "atr": 128.56,
       "impMin": 0.7,
-      "impVeg": 7.54
+      "impVeg": 7.54,
+      "indisp": 16
     },
     {
       "frente": "Frente 03",
@@ -72,7 +75,8 @@
       "fibra": 11.6,
       "atr": 143.21,
       "impMin": 0.5,
-      "impVeg": 4.28
+      "impVeg": 4.28,
+      "indisp": 19
     },
     {
       "frente": "Frente 04",
@@ -92,7 +96,8 @@
       "fibra": 11.5,
       "atr": 148.09,
       "impMin": 0.29,
-      "impVeg": 1.72
+      "impVeg": 1.72,
+      "indisp": 10
     },
     {
       "frente": "Frente 05",
@@ -112,7 +117,8 @@
       "fibra": 12.09,
       "atr": 135.71,
       "impMin": 0.91,
-      "impVeg": 6.86
+      "impVeg": 6.86,
+      "indisp": 20
     },
     {
       "frente": "Frente 11",
@@ -132,7 +138,8 @@
       "fibra": 11.89,
       "atr": 131.96,
       "impMin": 0.38,
-      "impVeg": 5.02
+      "impVeg": 5.02,
+      "indisp": 6
     },
     {
       "frente": "Frente 13",
@@ -152,7 +159,8 @@
       "fibra": 13.06,
       "atr": 146.95,
       "impMin": 0.9,
-      "impVeg": 4.57
+      "impVeg": 4.57,
+      "indisp": 14
     },
     {
       "frente": "Frente 34",
@@ -172,7 +180,8 @@
       "fibra": 12.04,
       "atr": 146.53,
       "impMin": 0.83,
-      "impVeg": 4.49
+      "impVeg": 4.49,
+      "indisp": 18
     },
     {
       "frente": "Cassia e Cassia",
@@ -192,7 +201,8 @@
       "fibra": 0,
       "atr": 0,
       "impMin": 0,
-      "impVeg": 0
+      "impVeg": 0,
+      "indisp": 26
     },
     {
       "frente": "Cassia e Cassia",
@@ -212,7 +222,8 @@
       "fibra": 12.91,
       "atr": 151.26,
       "impMin": 0.67,
-      "impVeg": 10.06
+      "impVeg": 10.06,
+      "indisp": 3
     }
   ],
   "totalGeral": {
@@ -230,38 +241,39 @@
     "fibra": 12.3,
     "atr": 136.97,
     "impMin": 0.9,
-    "impVeg": 6.65
+    "impVeg": 6.65,
+    "indisp": 15
   },
   "entregaCota": [
     {
       "frente": "Frente 01",
       "producao": 3517.22,
-      "cota": 2780.95,
-      "diferenca": 736.27
+      "cota": 3405.4,
+      "diferenca": 111.82
     },
     {
       "frente": "Frente 02",
       "producao": 2413.54,
-      "cota": 2556.05,
-      "diferenca": -142.51
+      "cota": 2798.98,
+      "diferenca": -385.44
     },
     {
       "frente": "Frente 03",
       "producao": 1241.45,
-      "cota": 2618.6,
-      "diferenca": -1377.15
+      "cota": 2376.78,
+      "diferenca": -1135.33
     },
     {
       "frente": "Frente 04",
       "producao": 1934.12,
-      "cota": 2428.73,
-      "diferenca": -494.61
+      "cota": 2172.33,
+      "diferenca": -238.21
     },
     {
       "frente": "Frente 05",
       "producao": 1524.62,
-      "cota": 2479.46,
-      "diferenca": -954.84
+      "cota": 2286.96,
+      "diferenca": -762.34
     },
     {
       "frente": "Frente 11",
@@ -272,8 +284,8 @@
     {
       "frente": "Frente 13",
       "producao": 977.3,
-      "cota": 772.8,
-      "diferenca": 204.5
+      "cota": 596.16,
+      "diferenca": 381.14
     },
     {
       "frente": "Frente 34",
@@ -373,7 +385,7 @@
       "pranchas": 3
     },
     "manutencao": {
-      "caminhoes": 1,
+      "caminhoes": 0,
       "pranchas": 1
     }
   },
@@ -381,41 +393,36 @@
     {
       "frente": "Frente 03",
       "dimensionado": 59,
-      "realizado": 43.72,
-      "diferenca": -15.28
+      "realizado": 0,
+      "diferenca": -59
     },
     {
       "frente": "Frente 04",
       "dimensionado": 41,
-      "realizado": 30.91,
-      "diferenca": -10.09
+      "realizado": 0,
+      "diferenca": -41
     },
     {
       "frente": "Frente 05",
       "dimensionado": 42,
-      "realizado": 21.47,
-      "diferenca": -20.53
+      "realizado": 0,
+      "diferenca": -42
     },
     {
       "frente": "Frente 06",
       "dimensionado": 25,
-      "realizado": 17.29,
-      "diferenca": -7.71
+      "realizado": 0,
+      "diferenca": -25
     }
   ],
   "ofensores": {
     "A": [
-      "Aguardando mecanico",
-      "Aguardando mecanico",
-      "Mudança de área / Aguardando insumos",
-      "Abastecimento do implemento"
+      "Aguardando insumos",
+      "Aguardando insumos",
+      "Aguardando mecânico",
+      "Aguardando insumos"
     ],
-    "B": [
-      "Abastecimento do implemento / Aguardando insumos",
-      "Aguardando insumos / Abastecimento do implemento",
-      "Falta operador / Abastecimento do implemento / Aguardando insumos",
-      "Embuchamento / Aguardando insumos / Abastecimento do implemento"
-    ],
+    "B": [],
     "C": []
   },
   "colhedoras": [

@@ -106,20 +106,20 @@ function parseReportItems(rawItems, info = {}) {
       // --- Sumário de produção (linha por fazenda) ---
       if (FRENTE_RE.test(s) && t[k + 1] && /^\d{3,5}$/.test(t[k + 1].s) && t[k + 2] && !isNum(t[k + 2].s)) {
         const vals = [];
-        for (let j = k + 3; j < t.length && vals.length < 15; j++) { if (!isNum(t[j].s)) break; vals.push(parseNum(t[j].s)); }
-        if (vals.length === 15) {
-          const [velDim, velReal, aderencia, piloto, tch, tiroMedio, eficiencia, tc, anlTon, tcCarga, distMed, fibra, atr, impMin, impVeg] = vals;
-          out.fazendas.push({ frente: normFrente(s), codFaz: t[k + 1].s, fazenda: t[k + 2].s, velDim, velReal, aderencia, piloto, tch, tiroMedio, eficiencia, tc, anlTon, tcCarga, distMed, fibra, atr, impMin, impVeg });
-          k += 17; continue;
+        for (let j = k + 3; j < t.length && vals.length < 16; j++) { if (!isNum(t[j].s)) break; vals.push(parseNum(t[j].s)); }
+        if (vals.length >= 15) {
+          const [velDim, velReal, aderencia, piloto, tch, tiroMedio, eficiencia, tc, anlTon, tcCarga, distMed, fibra, atr, impMin, impVeg, indisp = null] = vals;
+          out.fazendas.push({ frente: normFrente(s), codFaz: t[k + 1].s, fazenda: t[k + 2].s, velDim, velReal, aderencia, piloto, tch, tiroMedio, eficiencia, tc, anlTon, tcCarga, distMed, fibra, atr, impMin, impVeg, indisp });
+          k += 2 + vals.length; continue;
         }
       }
       // --- Total Geral do sumário (15 números) ---
       if (/^Total Geral$/i.test(s)) {
-        const a = nums(15);
-        if (a.length === 15 && !out.totalGeral) {
+        const a = nums(16);
+        if (a.length >= 15 && !out.totalGeral) {
           const v = a.map(parseNum);
-          out.totalGeral = { velDim: v[0], velReal: v[1], aderencia: v[2], piloto: v[3], tch: v[4], tiroMedio: v[5], eficiencia: v[6], tc: v[7], anlTon: v[8], tcCarga: v[9], distMed: v[10], fibra: v[11], atr: v[12], impMin: v[13], impVeg: v[14] };
-          k += 15; continue;
+          out.totalGeral = { velDim: v[0], velReal: v[1], aderencia: v[2], piloto: v[3], tch: v[4], tiroMedio: v[5], eficiencia: v[6], tc: v[7], anlTon: v[8], tcCarga: v[9], distMed: v[10], fibra: v[11], atr: v[12], impMin: v[13], impVeg: v[14], indisp: Number.isFinite(v[15]) ? v[15] : null };
+          k += a.length; continue;
         }
       }
       // --- Entrega x Cota (produção − cota = diferença) e Vinhaça (realizado − dimensionado = dif) ---
@@ -293,6 +293,7 @@ function buildModel(raw) {
       fibra: wavg(fz, 'fibra', 'tc', true), impMin: wavg(fz, 'impMin', 'tc', true), impVeg: wavg(fz, 'impVeg', 'tc', true),
       piloto: wavg(fz, 'piloto'),
       tatr: calcTatr(wavg(fz, 'tch'), wavg(fz, 'atr', 'tc', true)),
+      indisp: fz.some(z => Number.isFinite(z.indisp)) ? wavg(fz.filter(z => Number.isFinite(z.indisp)), 'indisp') : null,
     };
   });
 
@@ -356,7 +357,9 @@ const sortFrentes = list => [...list].sort((a, b) => {
 const shortFrente = n => String(n).replace(/^Frente\s*/i, 'F');
 
 /** Metas usadas no semáforo (podem ser ajustadas em dados.json → "metas"). */
-const METAS_DEFAULT = { eficiencia: 75, vinhaca: 100, disponibilidade: 90 };
+const METAS_DEFAULT = { eficiencia: 75, vinhaca: 100, disponibilidade: 90, indisponibilidade: 15 };
+/** Indisponibilidade (quanto menor, melhor): verde ≤ meta · amarelo até 10% acima · vermelho > 10% acima. */
+const statusIndisp = (v, meta = METAS_DEFAULT.indisponibilidade) => (!Number.isFinite(v) ? 'info' : v <= meta ? 'ok' : v <= meta * 1.1 ? 'warn' : 'bad');
 /** Semáforo contra meta: verde ≥ meta · amarelo até 10% abaixo · vermelho > 10% abaixo. */
 const statusVsMeta = (v, meta) => (Number.isFinite(v) && meta ? statusOf(v / meta * 100) : 'warn');
 
@@ -367,6 +370,15 @@ function frotaStats(raw) {
   const man = sum(['happening', 'aroeira'].map(k => sum(Object.values(L[k]?.frota?.manutencao || {})))) + sum(Object.values(P.manutencao || {}));
   const manFrota = sum(['happening', 'aroeira'].map(k => sum(Object.values(L[k]?.frota?.manutencao || {}))));
   return { op, man, manFrota, manPrancha: man - manFrota, disp: op + man ? op / (op + man) * 100 : null };
+}
+
+/** Indisponibilidade consolidada: total do relatório (sem filtro) ou média ponderada pela produção. */
+function indispTotal(M, frentes) {
+  const tg = M.raw.totalGeral || {};
+  if (frentes.length === M.frentes.length && Number.isFinite(tg.indisp)) return tg.indisp;
+  const fz = frentes.flatMap(f => f.fazendas).filter(z => Number.isFinite(z.indisp));
+  const w = sum(fz, z => z.tc);
+  return w ? sum(fz, z => z.indisp * z.tc) / w : null;
 }
 
 function buildExecutive(M, frentes) {
@@ -408,6 +420,12 @@ function buildExecutive(M, frentes) {
     if (iv && im) s.push({ st: 'warn', txt: `Impureza alta ${fmt(f.impVeg, 1)}% veg` });
     else if (iv) s.push({ st: 'warn', txt: `Impureza veg. alta ${fmt(f.impVeg, 1)}%` });
     else if (im) s.push({ st: 'warn', txt: `Impureza min. alta ${fmt(f.impMin, 2)}%` });
+    if (Number.isFinite(f.indisp)) {
+      const si = statusIndisp(f.indisp, metas.indisponibilidade);
+      if (si === 'bad') s.push({ st: 'bad', txt: `Indisp. mecânica ${fmt(f.indisp, 0)}%` });
+      else if (si === 'warn') s.push({ st: 'warn', txt: `Indisp. mecânica ${fmt(f.indisp, 0)}%` });
+      else if (f.indisp <= metas.indisponibilidade * 0.7) s.push({ st: 'ok', txt: `Indisp. baixa ${fmt(f.indisp, 0)}%` });
+    }
     if (f.piloto === 0) s.push({ st: 'warn', txt: 'Piloto automático 0%' });
     return s;
   };
@@ -448,13 +466,20 @@ function buildExecutive(M, frentes) {
     R.push({ st: statusVsMeta(r / d * 100, metas.vinhaca), icon: 'fa-droplet', k: 'Vinhaça', v: `${fmtPct(r / d * 100)} do planejado`, s: `${fmt(r, 1)} de ${fmt(d, 0)} ha` });
   }
   if (F.op + F.man) R.push({ st: statusVsMeta(F.disp, metas.disponibilidade), icon: 'fa-wrench', k: 'Equipamentos', v: `${F.man} parados`, s: `${F.manFrota} frota + ${F.manPrancha} prancha · ${F.op} operando` });
+  const indTot = indispTotal(M, frentes);
+  if (Number.isFinite(indTot)) {
+    const acima = frentes.filter(f => statusIndisp(f.indisp, metas.indisponibilidade) !== 'ok' && Number.isFinite(f.indisp)).sort((a, b) => b.indisp - a.indisp);
+    R.push({ st: statusIndisp(indTot, metas.indisponibilidade), icon: 'fa-screwdriver-wrench', k: 'Indisponibilidade Mec.', v: `${fmt(indTot, 1)}% (meta ≤ ${metas.indisponibilidade}%)`,
+      s: acima.length ? `${acima.length} acima: ${acima.slice(0, 3).map(f => `${shortFrente(f.frente)} ${fmt(f.indisp, 0)}%`).join(', ')}` : 'todas as frentes dentro da meta' });
+  }
   // Ação imediata
   const criticas = withCota.filter(f => f.status === 'bad').sort((a, b) => a.diferenca - b.diferenca);
   const efCrit = frentes.filter(f => statusVsMeta(f.eficiencia, metas.eficiencia) === 'bad').sort((a, b) => a.eficiencia - b.eficiencia);
+  const indCrit = frentes.filter(f => statusIndisp(f.indisp, metas.indisponibilidade) === 'bad').sort((a, b) => b.indisp - a.indisp);
   if (criticas.length || efCrit.length) {
     R.push({ st: 'bad', icon: 'fa-bell', k: 'Ação Imediata', urgent: true,
       v: criticas.length ? `${criticas.length} frente(s) >10% abaixo` : `${efCrit.length} frente(s) c/ eficiência crítica`,
-      s: [criticas.length ? criticas.slice(0, 4).map(f => shortFrente(f.frente)).join(', ') + (criticas.length > 4 ? ` +${criticas.length - 4}` : '') : '', efCrit.length ? `efic. crítica: ${efCrit.map(f => `${shortFrente(f.frente)} ${fmt(f.eficiencia, 0)}%`).join(', ')}` : ''].filter(Boolean).join(' · ') });
+      s: [criticas.length ? criticas.slice(0, 4).map(f => shortFrente(f.frente)).join(', ') + (criticas.length > 4 ? ` +${criticas.length - 4}` : '') : '', efCrit.length ? `efic. crítica: ${efCrit.map(f => `${shortFrente(f.frente)} ${fmt(f.eficiencia, 0)}%`).join(', ')}` : '', indCrit.length ? `indisp.: ${indCrit.map(f => `${shortFrente(f.frente)} ${fmt(f.indisp, 0)}%`).join(', ')}` : ''].filter(Boolean).join(' · ') });
   } else {
     R.push({ st: 'ok', icon: 'fa-bell', k: 'Ação Imediata', v: 'Nenhuma frente crítica', s: 'todas até 10% da meta' });
   }
@@ -620,6 +645,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       kpiCard({ label: 'Produção Média / Frente', value: fmt(T.n ? T.producao / T.n : 0, 0), unit: 't', icon: 'fa-calculator', sub: `${fmt(T.producao, 0)} t ÷ ${T.n} frentes` }),
       best && withCota.length > 1 ? kpiCard({ label: 'Melhor Frente', value: escapeHtml(best.frente), icon: 'fa-trophy', st: 'ok', sub: `<b>${fmtPct(best.pct)}</b> · ${fmtSigned(best.diferenca, 0)} t` }) : '',
       worst && withCota.length > 1 ? kpiCard({ label: 'Pior Frente', value: escapeHtml(worst.frente), icon: 'fa-arrow-trend-down', st: worst.status, sub: `<b>${fmtPct(worst.pct)}</b> · ${fmtSigned(worst.diferenca, 0)} t` }) : '',
+      Number.isFinite(indispTotal(M, fr)) ? kpiCard({ label: 'Indisponibilidade Mec.', value: fmt(indispTotal(M, fr), 1), unit: '%', icon: 'fa-screwdriver-wrench', st: statusIndisp(indispTotal(M, fr), M.metas.indisponibilidade), sub: `meta ≤ ${M.metas.indisponibilidade}% · ${fr.filter(f => statusIndisp(f.indisp, M.metas.indisponibilidade) === 'bad' || statusIndisp(f.indisp, M.metas.indisponibilidade) === 'warn').length} frente(s) acima` }) : '',
       kpiCard({ label: 'Frentes por Status', value: `<span class="t-ok">${n('ok')}</span> · <span class="t-warn">${n('warn')}</span> · <span class="t-bad">${n('bad')}</span>`, icon: 'fa-traffic-light', sub: 'acima · até 10% abaixo · +10% abaixo' }),
     ].join('');
   };
@@ -844,6 +870,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       { data: 'aderencia', title: 'Aderência', className: 'num', render: (v, t) => t === 'display' ? `<span class="${v >= 0 ? 't-ok' : v >= -10 ? 't-warn' : 't-bad'}">${fmtSigned(v, 2)}%</span>` : v },
       numCol('tch', 'TCH', 0),
       efPill('eficiencia', 'Efic.'),
+      { data: 'indisp', title: 'Indisp.', className: 'num', render: (v, t) => t === 'display' ? (Number.isFinite(v) ? `<span class="pill ${statusIndisp(v, state.M.metas.indisponibilidade)}">${fmt(v, 0)}%</span>` : '—') : (v ?? '') },
       qualCol('atr', 'ATR'),
       { data: 'tatr', title: 'TATR/ha', className: 'num', render: (v, t) => t === 'display' ? (v == null ? '<span class="muted">—</span>' : `<span class="tatr-dot" style="background:${tatrColor(v)}"></span>${fmt(v, 2)}`) : v },
       qualCol('fibra', 'Fibra'),
@@ -1001,20 +1028,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     makeChart('chLogTcv', barCfg('tcv', 'TC / viagem', 1));
     makeChart('chLogDist', barCfg('dist', 'km', 1));
 
-    // Tabela de composições e frota
-    const rows = [];
-    ['happening', 'aroeira'].forEach(k => {
-      const o = L[k]; if (!o) return;
-      const nm = k === 'happening' ? 'Happening' : 'Aroeira';
-      (o.composicao || []).forEach(c => {
-        const fk = c.tipo === 'Rodotrem' ? 'rodotrem' : 'tritrem';
-        rows.push(`<tr><td>${nm}</td><td>${c.tipo}</td><td class="num">${fmt(c.tc)}</td><td class="num">${fmt(c.cargas, 0)}</td><td class="num">${fmt(c.tcv, 1)}</td><td class="num">${fmt(c.dist, 1)}</td><td class="num">${o.frota?.operacao?.[fk] ?? '—'}</td><td class="num t-bad">${o.frota?.manutencao?.[fk] ?? '—'}</td></tr>`);
-      });
-      if (o.total) rows.push(`<tr class="sub"><td>${nm}</td><td>Total · cavalos</td><td class="num">${fmt(o.total.tc)}</td><td class="num">${fmt(o.total.cargas, 0)}</td><td class="num">${fmt(o.total.tcv, 1)}</td><td class="num">${fmt(o.total.dist, 1)}</td><td class="num">${o.frota?.operacao?.cavalos ?? '—'}</td><td class="num t-bad">${o.frota?.manutencao?.cavalos ?? '—'}</td></tr>`);
-    });
-    const C = logData('consolidado');
-    rows.push(`<tr class="tot"><td colspan="2">Consolidado</td><td class="num">${fmt(C.total.tc)}</td><td class="num">${fmt(C.total.cargas, 0)}</td><td class="num">${fmt(C.total.tcv, 1)}</td><td class="num">${fmt(C.total.dist, 1)}</td><td class="num">${sum(Object.values(C.frota.operacao))}</td><td class="num t-bad">${sum(Object.values(C.frota.manutencao))}</td></tr>`);
-    $('#logTable').innerHTML = `<thead><tr><th>Operação</th><th>Composição</th><th class="num">TC</th><th class="num">Viagens</th><th class="num">TC/Viagem</th><th class="num">Dist. (km)</th><th class="num">Operando</th><th class="num">Manutenção</th></tr></thead><tbody>${rows.join('')}</tbody>`;
   };
 
   /* ---------- Render: vinhaça ---------- */
@@ -1135,16 +1148,58 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     });
   };
 
+  /* ---------- Render: indisponibilidade mecânica ---------- */
+  const renderIndisp = () => {
+    const M = state.M, meta = M.metas.indisponibilidade;
+    const card = $('#indisponibilidade');
+    const fr = sortFrentes(filteredFrentes().filter(f => Number.isFinite(f.indisp)));
+    $$('.meta-indisp').forEach(e => { e.textContent = fmt(meta, 0); });
+    if (!fr.length) { card.hidden = true; return; }
+    card.hidden = false;
+    const tot = indispTotal(M, filteredFrentes());
+    const acima = fr.filter(f => statusIndisp(f.indisp, meta) !== 'ok');
+    const pior = [...fr].sort((a, b) => b.indisp - a.indisp)[0], melhor = [...fr].sort((a, b) => a.indisp - b.indisp)[0];
+    $('#indispHint').textContent = `% de equipamento parado para manutenção · meta ≤ ${fmt(meta, 0)}% · amarelo até ${fmt(meta * 1.1, 1)}%`;
+    $('#indispKpis').innerHTML = [
+      kpiCard({ label: 'Indisponibilidade Geral', value: fmt(tot, 1), unit: '%', icon: 'fa-screwdriver-wrench', st: statusIndisp(tot, meta), sub: `meta ≤ ${fmt(meta, 0)}%` }),
+      kpiCard({ label: 'Frentes acima da meta', value: `${acima.length}<small> de ${fr.length}</small>`, icon: 'fa-triangle-exclamation', st: acima.length ? 'bad' : 'ok', sub: acima.map(f => shortFrente(f.frente)).join(', ') || 'nenhuma' }),
+      kpiCard({ label: 'Maior indisponibilidade', value: escapeHtml(pior.frente), icon: 'fa-arrow-trend-up', st: statusIndisp(pior.indisp, meta), sub: `<b>${fmt(pior.indisp, 1)}%</b> · ${fmtSigned(pior.indisp - meta, 1)} p.p. da meta` }),
+      kpiCard({ label: 'Menor indisponibilidade', value: escapeHtml(melhor.frente), icon: 'fa-arrow-trend-down', st: statusIndisp(melhor.indisp, meta), sub: `<b>${fmt(melhor.indisp, 1)}%</b>` }),
+    ].join('');
+    const fz = f => f.fazendas.filter(z => Number.isFinite(z.indisp));
+    makeChart('chIndisp', {
+      data: {
+        labels: fr.map(f => f.frente),
+        datasets: [
+          { type: 'bar', label: 'Indisponibilidade (%)', data: fr.map(f => f.indisp), backgroundColor: fr.map(f => STATUS_COLOR[statusIndisp(f.indisp, meta)] + 'D9'), borderRadius: 5, maxBarThickness: 40, order: 2 },
+          { type: 'line', label: `Meta (≤ ${fmt(meta, 0)}%)`, data: fr.map(() => meta), borderColor: '#263238', borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, order: 1 },
+        ],
+      },
+      options: {
+        layout: { padding: { top: 18 } },
+        scales: { y: { beginAtZero: true, suggestedMax: Math.max(meta * 1.6, ...fr.map(f => f.indisp)) * 1.05, ticks: { callback: v => v + '%' } }, x: { grid: { display: false } } },
+        plugins: {
+          legend: { position: 'bottom' },
+          valueLabels: { enabled: true, datasets: [0], format: v => fmt(v, 0) + '%' },
+          tooltip: { callbacks: {
+            label: c => c.datasetIndex ? ` Meta: ≤ ${fmt(meta, 0)}%` : ` Indisponibilidade: ${fmt(c.parsed.y, 1)}%`,
+            afterBody: it => { const f = fr[it[0].dataIndex]; const z = fz(f); return z.length > 1 ? z.map(x => `${titleCase(x.fazenda)}: ${fmt(x.indisp, 0)}%`) : ''; },
+          } },
+        },
+      },
+    });
+  };
+
   /* ---------- Render geral ---------- */
   const renderAll = () => {
     if (!state.M) return;
     renderHeader(); renderKpis(); renderResumo(); renderRanking(); renderFrenteCharts(); renderInteligencia();
-    renderMaquinas(); renderLogistica(); renderVinhaca(); renderOfensores(); renderEquip();
+    renderMaquinas(); renderLogistica(); renderVinhaca(); renderOfensores(); renderEquip(); renderIndisp();
     renderAgroKpis(); renderFazChart(); renderTables();
   };
   const renderFiltered = () => {
     renderHeader(); renderKpis(); renderResumo(); renderRanking(); renderFrenteCharts(); renderInteligencia();
-    renderMaquinas(); renderAgroKpis(); renderFazChart(); applyTableFilters();
+    renderMaquinas(); renderIndisp(); renderAgroKpis(); renderFazChart(); applyTableFilters();
   };
 
   const setData = (raw, { persist = false } = {}) => {

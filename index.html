@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gerenciamento Diário · Operação Agrícola</title>
   <meta name="description" content="Dashboard executivo diário da operação agrícola — produção, cota, logística, vinhaça, ofensores e equipamentos.">
-  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
 
   <!-- Fontes e ícones -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,7 +25,7 @@
     <div class="topbar__inner">
       <a class="brand" href="#topo" aria-label="Início">
         <span class="brand__logo">
-          <img src="assets/logo.png" alt="Logo da empresa" onerror="this.remove(); document.querySelectorAll('.brand__logo').forEach(e=>e.classList.add('is-fallback'));">
+          <img src="assets/logo-icon.png" alt="Bioenergética Aroeira" onerror="this.parentNode.classList.add('is-fallback'); this.remove();">
           <i class="fa-solid fa-seedling brand__fallback" aria-hidden="true"></i>
         </span>
         <span class="brand__text">
@@ -60,6 +60,7 @@
       <a href="#resumo">Resumo</a>
       <a href="#inteligencia">Inteligência</a>
       <a href="#frentes">Frentes</a>
+      <a href="#indisponibilidade">Indisponibilidade</a>
       <a href="#maquinas">Máquinas</a>
       <a href="#logistica">Logística</a>
       <a href="#vinhaca">Vinhaça</a>
@@ -183,6 +184,26 @@
       </div>
     </section>
 
+    <!-- ============ INDISPONIBILIDADE MECÂNICA ============ -->
+    <section class="section" id="indisponibilidade">
+      <div class="section__head">
+        <h2><i class="fa-solid fa-screwdriver-wrench"></i> Indisponibilidade Mecânica</h2>
+        <p>Equipamento parado para manutenção · meta ≤ <span class="meta-indisp">15</span>%.</p>
+      </div>
+      <article class="card" data-card id="indispCard">
+        <header class="card__head">
+          <div><h3>Indisponibilidade Mecânica por Frente</h3><p class="hint" id="indispHint">% do tempo com equipamento parado para manutenção · meta ≤ 15%</p></div>
+          <div class="card__tools">
+            <button class="icon-btn" data-png="chIndisp" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
+            <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
+          </div>
+        </header>
+        <div class="kpis kpis--sm kpis--in" id="indispKpis"></div>
+        <div class="chart-box chart-box--sm"><canvas id="chIndisp"></canvas></div>
+      </article>
+    </section>
+
+
     <!-- ============ PRODUTIVIDADE DE MÁQUINAS ============ -->
     <section class="section" id="maquinas">
       <div class="section__head">
@@ -270,11 +291,6 @@
           <div class="chart-box chart-box--sm"><canvas id="chLogDist"></canvas></div>
         </article>
       </div>
-
-      <article class="card card--flat" data-card>
-        <header class="card__head"><div><h3>Composições e Frota</h3><p class="hint">TC, viagens, carga média, distância e conjuntos em operação</p></div></header>
-        <div class="table-wrap"><table class="simple-table" id="logTable"></table></div>
-      </article>
     </section>
 
     <!-- ============ VINHAÇA ============ -->
@@ -346,6 +362,7 @@
           <div class="chart-box chart-box--sm"><canvas id="chEquip"></canvas></div>
         </article>
       </div>
+    
     </section>
 
     <!-- ============ CTT · FAZENDAS E TABELA GERENCIAL ============ -->
@@ -394,7 +411,7 @@
     <div class="footer__inner">
       <div class="footer__brand">
         <span class="brand__logo brand__logo--lg">
-          <img src="assets/logo.png" alt="Logo da empresa" onerror="this.remove(); document.querySelectorAll('.brand__logo').forEach(e=>e.classList.add('is-fallback'));">
+          <img src="assets/logo.png" alt="Bioenergética Aroeira" onerror="this.parentNode.classList.add('is-fallback'); this.remove();">
           <i class="fa-solid fa-seedling brand__fallback" aria-hidden="true"></i>
         </span>
         <div>
