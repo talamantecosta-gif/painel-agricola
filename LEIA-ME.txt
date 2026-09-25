@@ -1,6 +1,0 @@
-Logos da usina usados no painel:
-- logo.png       -> logo completo (rodapé)
-- logo-icon.png  -> símbolo (cabeçalho)
-- favicon.png    -> ícone da aba do navegador
-
-Para trocar, substitua os arquivos mantendo os mesmos nomes.
