@@ -596,3 +596,8 @@ div.dt-container .dt-info, div.dt-container .dt-length, div.dt-container .dt-sea
   table.dataTable { font-size: 8.5px; }
   .footer { margin-top: 10px; }
 }
+
+/* KPIs: 5 cards em uma linha no desktop */
+.kpis--in { margin: 0 0 8px; }
+.kpis--in .kpi { box-shadow: none; }
+@media (min-width: 1300px) { #kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } }

@@ -630,7 +630,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const withCota = fr.filter(f => f.cota);
     const best = [...withCota].sort((a, b) => b.pct - a.pct || b.diferenca - a.diferenca)[0];
     const worst = [...withCota].sort((a, b) => a.pct - b.pct)[0];
-    const n = st => withCota.filter(f => f.status === st).length;
     const st = statusOf(T.pct || 0), stEf = statusVsMeta(T.eficiencia, M.metas.eficiencia);
     const hs = (k, v, stt = '', title = '') => `<div class="hstat" title="${escapeHtml(title)}"><span>${stt ? `<i class="sem sem--${stt}"></i>` : ''}${k}</span><strong>${v}</strong></div>`;
     $('#hero').innerHTML = [
@@ -646,7 +645,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       best && withCota.length > 1 ? kpiCard({ label: 'Melhor Frente', value: escapeHtml(best.frente), icon: 'fa-trophy', st: 'ok', sub: `<b>${fmtPct(best.pct)}</b> · ${fmtSigned(best.diferenca, 0)} t` }) : '',
       worst && withCota.length > 1 ? kpiCard({ label: 'Pior Frente', value: escapeHtml(worst.frente), icon: 'fa-arrow-trend-down', st: worst.status, sub: `<b>${fmtPct(worst.pct)}</b> · ${fmtSigned(worst.diferenca, 0)} t` }) : '',
       Number.isFinite(indispTotal(M, fr)) ? kpiCard({ label: 'Indisponibilidade Mec.', value: fmt(indispTotal(M, fr), 1), unit: '%', icon: 'fa-screwdriver-wrench', st: statusIndisp(indispTotal(M, fr), M.metas.indisponibilidade), sub: `meta ≤ ${M.metas.indisponibilidade}% · ${fr.filter(f => statusIndisp(f.indisp, M.metas.indisponibilidade) === 'bad' || statusIndisp(f.indisp, M.metas.indisponibilidade) === 'warn').length} frente(s) acima` }) : '',
-      kpiCard({ label: 'Frentes por Status', value: `<span class="t-ok">${n('ok')}</span> · <span class="t-warn">${n('warn')}</span> · <span class="t-bad">${n('bad')}</span>`, icon: 'fa-traffic-light', sub: 'acima · até 10% abaixo · +10% abaixo' }),
     ].join('');
   };
 
