@@ -592,14 +592,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
   const ST_ICON = { ok: 'fa-circle-check', warn: 'fa-triangle-exclamation', bad: 'fa-circle-xmark', info: 'fa-circle-info' };
   const kpiCard = ({ label, value, unit = '', icon, sub = '', cls = '', iconCls = '', bar = null, barCls = '', st = '' }) => `
-    <div class="kpi ${st ? 'kpi--' + st : ''}">
-      <div class="kpi__top"><span class="kpi__label">${label}</span><span class="kpi__icon ${iconCls}"><i class="fa-solid ${icon}"></i></span></div>
+    <div class="kpi">
+      <div class="kpi__top"><span class="kpi__label">${st ? `<i class="sem sem--${st}"></i>` : ''}${label}</span><span class="kpi__icon ${iconCls}"><i class="fa-solid ${icon}"></i></span></div>
       <div class="kpi__value ${cls}" title="${escapeHtml(String(value).replace(/<[^>]+>/g, ''))}">${value}${unit ? `<small>${unit}</small>` : ''}</div>
       ${sub ? `<div class="kpi__sub">${sub}</div>` : ''}
       ${bar != null ? `<div class="bar"><i class="${barCls}" style="width:${Math.max(0, Math.min(100, bar))}%"></i></div>` : ''}
     </div>`;
 
-  /* Faixa de KPIs (uma linha no desktop) */
+  /* Cabeçalho executivo (hero) + cards de KPI */
   const renderKpis = () => {
     const M = state.M, fr = filteredFrentes(), T = totals(fr, M);
     const withCota = fr.filter(f => f.cota);
@@ -607,22 +607,20 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const worst = [...withCota].sort((a, b) => a.pct - b.pct)[0];
     const n = st => withCota.filter(f => f.status === st).length;
     const st = statusOf(T.pct || 0), stEf = statusVsMeta(T.eficiencia, M.metas.eficiencia);
-    const tile = (k, v, s, stt = '', title = '') => `
-      <div class="ks ${stt ? 'ks--' + stt : ''}" title="${escapeHtml(title || '')}">
-        <span class="ks__k">${stt ? `<i class="sem sem--${stt}"></i>` : ''}${k}</span>
-        <strong class="ks__v">${v}</strong>
-        <span class="ks__s">${s}</span>
-      </div>`;
-    $('#kstrip').innerHTML = [
-      tile('Produção', `${fmt(T.producao, 0)}<small> t</small>`, `${fmtPct(T.pct)} da cota`, st, `${fmt(T.producao)} t`),
-      tile('Cota', `${fmt(T.cota, 0)}<small> t</small>`, `${T.n} frente(s)`, '', `${fmt(T.cota)} t`),
-      tile(T.diferenca < 0 ? 'Faltou p/ Meta' : 'Acima da Meta', `${fmtSigned(T.diferenca, 0)}<small> t</small>`, `${fmtSigned((T.pct || 0) - 100, 1)}% vs. cota`, st, `${fmtSigned(T.diferenca)} t`),
-      tile('Atingimento', fmtPct(T.pct), `<span class="bar bar--in"><i class="${st}" style="width:${Math.min(100, T.pct || 0)}%"></i></span>`, st),
-      tile('Eficiência Oper.', fmtPct(T.eficiencia), `meta ${M.metas.eficiencia}%`, stEf),
-      tile('Frentes', T.n, `<b class="t-ok">${n('ok')}</b> · <b class="t-warn">${n('warn')}</b> · <b class="t-bad">${n('bad')}</b>`, '', 'acima · até 10% abaixo · +10% abaixo'),
-      tile('Média / Frente', `${fmt(T.n ? T.producao / T.n : 0, 0)}<small> t</small>`, 'produção média'),
-      best && withCota.length > 1 ? tile('Melhor Frente', escapeHtml(best.frente), `${fmtPct(best.pct)} · ${fmtSigned(best.diferenca, 0)} t`, 'ok') : '',
-      worst && withCota.length > 1 ? tile('Pior Frente', escapeHtml(worst.frente), `${fmtPct(worst.pct)} · ${fmtSigned(worst.diferenca, 0)} t`, worst.status) : '',
+    const hs = (k, v, stt = '', title = '') => `<div class="hstat" title="${escapeHtml(title)}"><span>${stt ? `<i class="sem sem--${stt}"></i>` : ''}${k}</span><strong>${v}</strong></div>`;
+    $('#hero').innerHTML = [
+      hs('Total Produzido', `${fmt(T.producao)} t`, st),
+      hs('Total da Cota', `${fmt(T.cota)} t`),
+      hs(T.diferenca < 0 ? 'Diferença (faltou)' : 'Diferença', `${fmtSigned(T.diferenca)} t`, st),
+      hs('Eficiência Operacional', fmtPct(T.eficiencia), stEf, `meta ${M.metas.eficiencia}%`),
+      hs('Frentes', T.n),
+    ].join('');
+    $('#kpis').innerHTML = [
+      kpiCard({ label: 'Atingimento da Cota', value: fmt(T.pct, 1), unit: '%', icon: 'fa-bullseye', st, sub: `${fmtSigned((T.pct || 0) - 100, 1)}% vs. cota`, bar: T.pct, barCls: st === 'ok' ? '' : st }),
+      kpiCard({ label: 'Produção Média / Frente', value: fmt(T.n ? T.producao / T.n : 0, 0), unit: 't', icon: 'fa-calculator', sub: `${fmt(T.producao, 0)} t ÷ ${T.n} frentes` }),
+      best && withCota.length > 1 ? kpiCard({ label: 'Melhor Frente', value: escapeHtml(best.frente), icon: 'fa-trophy', st: 'ok', sub: `<b>${fmtPct(best.pct)}</b> · ${fmtSigned(best.diferenca, 0)} t` }) : '',
+      worst && withCota.length > 1 ? kpiCard({ label: 'Pior Frente', value: escapeHtml(worst.frente), icon: 'fa-arrow-trend-down', st: worst.status, sub: `<b>${fmtPct(worst.pct)}</b> · ${fmtSigned(worst.diferenca, 0)} t` }) : '',
+      kpiCard({ label: 'Frentes por Status', value: `<span class="t-ok">${n('ok')}</span> · <span class="t-warn">${n('warn')}</span> · <span class="t-bad">${n('bad')}</span>`, icon: 'fa-traffic-light', sub: 'acima · até 10% abaixo · +10% abaixo' }),
     ].join('');
   };
 
@@ -784,6 +782,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       ['Imp. Veg.', fmt(w(q, 'impVeg', tq), 2), '%'],
       ['Imp. Min.', fmt(w(q, 'impMin', tq), 2), '%'],
     ];
+    const tr = [...L].filter(l => Number.isFinite(l.tatr)).sort((a, b) => b.tatr - a.tatr);
+    const mx = tr[0]?.tatr || 1;
+    $('#tatrRank').innerHTML = tr.map((l, i) => `
+      <li><span class="pos">${i + 1}</span>
+        <div><span class="nm">${escapeHtml(titleCase(l.fazenda))} <small>${escapeHtml(l.frente)}</small></span><div class="bar"><i style="width:${l.tatr / mx * 100}%"></i></div></div>
+        <span class="vl"><span class="tatr-dot" style="background:${tatrColor(l.tatr)}"></span>${fmt(l.tatr, 2)}<small>TCH ${fmt(l.tch, 0)} · ATR ${fmt(l.atr, 1)}</small></span></li>`).join('')
+      || '<div class="empty">Sem fazendas com análise.</div>';
     $('#agroKpis').innerHTML = chips.map(([k, v, u]) => `<div><span>${k}</span><b>${v}${u ? `<small> ${u}</small>` : ''}</b></div>`).join('');
   };
 
@@ -829,7 +834,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const COLS = {
     tblGer: [
       { data: 'frente', title: 'Frente' },
-      { data: 'fazenda', title: 'Fazenda', render: (v, t, r) => t === 'display' ? `<span class="fz"><i class="sem sem--${r.status}"></i><span>${escapeHtml(titleCase(v))}<small>${escapeHtml(r.frente)} · ${escapeHtml(r.codFaz)}</small></span></span>` : v },
+      { data: 'fazenda', title: 'Fazenda', render: (v, t, r) => t === 'display' ? `<span class="fz"><i class="sem sem--${r.status}"></i>${escapeHtml(titleCase(v))} <span class="tag">${escapeHtml(r.codFaz)}</span></span>` : v },
       numCol('tc', 'Prod. (t)', 0),
       { data: 'meta', title: 'Meta (t)', className: 'num', render: (v, t, r) => t === 'display' ? (v == null ? '—' : fmt(v, 0) + (r.rateio ? '<span class="tag">*</span>' : '')) : v },
       { data: 'dif', title: 'Dif. (t)', className: 'num', render: (v, t) => t === 'display' ? (v == null ? '—' : `<span class="${v >= 0 ? 't-ok' : 't-bad'}"><b>${fmtSigned(v, 0)}</b></span>`) : v },
@@ -863,11 +868,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       renderTables._ext = true;
     }
     tables[id] = new DataTable('#' + id, {
-      data, columns: COLS[id], language: DT_LANG, pageLength: 10,
+      data, columns: COLS[id], language: DT_LANG, pageLength: 10, lengthMenu: [5, 10, 25, 50],
       order: [[2, 'desc']], autoWidth: false,
-      layout: { topStart: null, topEnd: null, bottomStart: 'info', bottomEnd: 'paging' },
+      layout: { topStart: 'pageLength', topEnd: null, bottomStart: 'info', bottomEnd: 'paging' },
     });
-    setTableCols(state.fullCols);
     applyTableFilters();
   };
   const applyTableFilters = () => {
@@ -1249,7 +1253,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       use = cached; fromCache = true;
     }
     if (!use) {
-      $('#kstrip').innerHTML = `<div class="skeleton-msg"><i class="fa-solid fa-file-arrow-up" style="font-size:28px;color:var(--green-700)"></i>
+      $('#kpis').innerHTML = `<div class="skeleton-msg"><i class="fa-solid fa-file-arrow-up" style="font-size:28px;color:var(--green-700)"></i>
         <h3 style="margin:10px 0 4px">Nenhum dado carregado</h3>
         <p>Não foi possível ler <b>dados.json</b> (ao abrir o arquivo direto do computador o navegador bloqueia a leitura).<br>
         Publique no GitHub Pages / use um servidor local, ou clique em <b>Importar PDF</b> para carregar o relatório.</p></div>`;
@@ -1274,7 +1278,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     else document.documentElement.requestFullscreen?.();
   });
   document.addEventListener('fullscreenchange', () => {
-    setTableCols(document.fullscreenElement && document.fullscreenElement.id === 'tblCard' ? true : state.fullCols);
     $('#btnFull').innerHTML = `<i class="fa-solid ${document.fullscreenElement === document.documentElement ? 'fa-compress' : 'fa-expand'}"></i>`;
     setTimeout(() => Object.values(charts).forEach(c => c.resize()), 120);
   });
@@ -1303,7 +1306,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   $('#globalSearch').addEventListener('input', e => { clearTimeout(qT); qT = setTimeout(() => { state.q = e.target.value.trim(); applyTableFilters(); }, 120); });
   $('#btnClear').addEventListener('click', () => { state.frente = ''; state.fazenda = ''; state.q = ''; state.status = ''; $('#globalSearch').value = ''; $('#filterStatus').value = ''; fillFilters(); renderFiltered(); });
   $('#filterStatus').addEventListener('change', e => { state.status = e.target.value; applyTableFilters(); });
-  $('#btnCols').addEventListener('click', () => { state.fullCols = !state.fullCols; setTableCols(state.fullCols); });
+
   $('#rankSort').addEventListener('change', e => { state.rankSort = e.target.value; renderRanking(); });
 
   // Arrastar e soltar PDF
@@ -1330,6 +1333,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     entries.forEach(en => { if (en.isIntersecting) links.forEach(a => a.classList.toggle('is-active', a.getAttribute('href') === '#' + en.target.id)); });
   }, { rootMargin: '-45% 0px -50% 0px' });
   $$('main section[id]').forEach(s => spy.observe(s));
+
+  // Altura real do topo (a barra de pesquisa fica fixa logo abaixo)
+  const syncTop = () => document.documentElement.style.setProperty('--topbar-h', `${$('.topbar').offsetHeight}px`);
+  syncTop(); window.addEventListener('resize', syncTop);
 
   $('#year').textContent = new Date().getFullYear();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadInitial);
