@@ -31,6 +31,8 @@ function parseNum(str) {
 }
 const isNum = s => /^[+-]?[\d.,]+%?$/.test(String(s).trim()) && !Number.isNaN(parseNum(s));
 const near = (a, b, tol = 0.03) => Math.abs(a - b) <= tol;
+/** TATR/ha = (TCH × ATR) ÷ 1000 */
+const calcTatr = (tch, atr) => (Number.isFinite(tch) && Number.isFinite(atr) && tch > 0 && atr > 0) ? (tch * atr) / 1000 : null;
 
 /** Classificação de atingimento: verde (≥100%), amarelo (até 10% abaixo), vermelho (>10% abaixo). */
 const statusOf = pct => (pct >= 100 ? 'ok' : pct >= 90 ? 'warn' : 'bad');
@@ -290,6 +292,7 @@ function buildModel(raw) {
       eficiencia: wavg(fz, 'eficiencia'), tch: wavg(fz, 'tch'), atr: wavg(fz, 'atr', 'tc', true),
       fibra: wavg(fz, 'fibra', 'tc', true), impMin: wavg(fz, 'impMin', 'tc', true), impVeg: wavg(fz, 'impVeg', 'tc', true),
       piloto: wavg(fz, 'piloto'),
+      tatr: calcTatr(wavg(fz, 'tch'), wavg(fz, 'atr', 'tc', true)),
     };
   });
 
@@ -301,7 +304,7 @@ function buildModel(raw) {
     const meta = fr && fr.cota != null ? fr.cota * (rateio ? share : 1) : null;
     const dif = meta != null ? f.tc - meta : null;
     const pct = meta ? (f.tc / meta) * 100 : null;
-    return { ...f, meta, dif, pct, rateio, status: pct != null ? statusOf(pct) : 'warn' };
+    return { ...f, meta, dif, pct, rateio, tatr: calcTatr(f.tch, f.atr), status: pct != null ? statusOf(pct) : 'warn' };
   });
 
   // Ofensores
@@ -338,105 +341,135 @@ function totals(frentes, M = null) {
 }
 
 /* ---------------------------------------------------------
-   4. INSIGHTS AUTOMÁTICOS
+   4. INTELIGÊNCIA OPERACIONAL (insights agrupados por frente)
    --------------------------------------------------------- */
-function buildInsights(M, frentes) {
-  const ins = [];
-  if (!frentes.length) return ins;
-  const T = totals(frentes, M);
+/** Ordem das frentes: numéricas em ordem crescente (01, 02, 03…), depois as demais (ex.: Cassia e Cassia). */
+const frenteOrderKey = nome => {
+  const m = String(nome).match(/^Frente\s*(\d+)/i);
+  return m ? [0, +m[1], ''] : [1, 0, String(nome)];
+};
+const sortFrentes = list => [...list].sort((a, b) => {
+  const ka = frenteOrderKey(a.frente || a), kb = frenteOrderKey(b.frente || b);
+  return ka[0] - kb[0] || ka[1] - kb[1] || ka[2].localeCompare(kb[2]);
+});
+
+
+function buildInsightGroups(M, frentes) {
+  const out = { frentes: [], gerais: [] };
+  if (!M || !frentes.length) return out;
+  const tg = M.raw.totalGeral || {};
+  const Tall = totals(M.frentes, M);
+  const refEf = Number.isFinite(tg.eficiencia) ? tg.eficiencia : Tall.eficiencia;
+  const refVeg = tg.impVeg, refMin = tg.impMin;
+  const all = M.frentes.filter(f => f.cota);
+  const rankPct = [...all].sort((a, b) => b.pct - a.pct).map(f => f.frente);
+  const maxBy = (key) => [...M.frentes].filter(f => Number.isFinite(f[key]) && f[key] > 0).sort((a, b) => b[key] - a[key])[0];
+  const topTch = maxBy('tch'), topAtr = maxBy('atr'), topTatr = maxBy('tatr');
+  const minBy = key => [...M.frentes].filter(f => Number.isFinite(f[key])).sort((a, b) => a[key] - b[key])[0];
+  const lowAder = minBy('aderencia'), lowEf = minBy('eficiencia');
+  const col = M.raw.colhedoras || [], vin = M.raw.vinhaca || [];
+
+  for (const f of sortFrentes(frentes)) {
+    const cards = [];
+    // Produção
+    if (f.cota) {
+      cards.push({ cat: 'Produção', icon: 'fa-wheat-awn', type: f.status, value: fmtPct(f.pct),
+        text: `${fmt(f.cota, 0)} / ${fmt(f.producao, 0)} t · ${fmtSigned(f.diferenca, 0)} t` });
+    }
+    // Eficiência
+    if (Number.isFinite(f.eficiencia)) {
+      const d = f.eficiencia - refEf;
+      cards.push({ cat: 'Eficiência', icon: 'fa-gauge-high', type: f.eficiencia >= 70 ? 'ok' : f.eficiencia >= 60 ? 'warn' : 'bad',
+        value: fmtPct(f.eficiencia), text: `${fmtSigned(d, 1)} p.p. vs consolidado (${fmtPct(refEf)})` });
+    }
+    // Impureza
+    const comAnalise = f.fazendas.filter(z => z.anlTon > 0 || z.impVeg > 0 || z.impMin > 0);
+    if (!comAnalise.length) {
+      cards.push({ cat: 'Impureza', icon: 'fa-leaf', type: 'info', value: 's/ análise', text: 'Sem amostragem de qualidade no dia' });
+    } else {
+      const rVeg = refVeg ? f.impVeg / refVeg : 1, rMin = refMin ? f.impMin / refMin : 1;
+      const worst = Math.max(rVeg, rMin);
+      const alvo = rVeg >= rMin ? `vegetal ${rVeg > 1 ? 'acima' : 'abaixo'} da média (${fmt(refVeg, 2)}%)` : `mineral ${rMin > 1 ? 'acima' : 'abaixo'} da média (${fmt(refMin, 2)}%)`;
+      cards.push({ cat: 'Impureza', icon: 'fa-leaf', type: worst > 1.6 ? 'bad' : worst > 1.3 ? 'warn' : 'ok',
+        value: `${fmt(f.impVeg, 2)}% <small>veg</small> · ${fmt(f.impMin, 2)}% <small>min</small>`,
+        text: worst > 1.3 ? `Impureza ${alvo}` : `Dentro da média do dia`, html: true });
+    }
+    // Velocidade
+    if (Number.isFinite(f.aderencia)) {
+      cards.push({ cat: 'Velocidade', icon: 'fa-gauge-simple', type: f.aderencia >= 0 ? 'ok' : f.aderencia >= -10 ? 'warn' : 'bad',
+        value: `${fmtSigned(f.aderencia, 2)}%`, text: `${fmt(f.velReal, 1)} de ${fmt(f.velDim, 1)} km/h dimensionados` });
+    }
+    // Observações
+    const obs = [];
+    const pos = rankPct.indexOf(f.frente);
+    if (pos === 0) obs.push('1º lugar no ranking de atingimento');
+    if (pos === rankPct.length - 1 && rankPct.length > 1) obs.push('Último lugar no ranking de atingimento');
+    if (f.diferenca > 0 && f.eficiencia < 60) obs.push('Acima da cota mesmo com baixa eficiência — potencial de ganho');
+    if (f.piloto === 0) obs.push('Piloto automático zerado — verificar sinal/equipamento');
+    else if (Number.isFinite(f.piloto) && f.piloto < 50) obs.push(`Uso de piloto automático baixo (${fmtPct(f.piloto)})`);
+    if (lowAder && lowAder.frente === f.frente && f.aderencia < 0) obs.push('Menor aderência de velocidade do dia');
+    if (lowEf && lowEf.frente === f.frente) obs.push('Menor eficiência operacional do dia');
+    if (topTatr && topTatr.frente === f.frente) obs.push(`Maior TATR/ha do dia (${fmt(f.tatr, 2)})`);
+    if (topTch && topTch.frente === f.frente) obs.push(`Maior TCH do dia (${fmt(f.tch, 0)} t/ha)`);
+    if (topAtr && topAtr.frente === f.frente) obs.push(`Maior ATR do dia (${fmt(f.atr, 2)})`);
+    f.fazendas.filter(z => !(z.anlTon > 0 || z.impVeg > 0)).forEach(z => { if (comAnalise.length) obs.push(`${titleCase(z.fazenda)} sem análise de qualidade`); });
+    const v = vin.find(x => x.frente === f.frente);
+    if (v) obs.push(`Vinhaça: ${fmtPct(v.realizado / v.dimensionado * 100, 0)} do dimensionado`);
+    const cf = col.filter(c => c.frente === f.frente);
+    if (cf.length) obs.push(`${cf.length} colhedora(s) · ${fmt(sum(cf, c => c.tc) / cf.length, 0)} t/máquina`);
+    if (f.fazendas.length > 1) obs.push(`${f.fazendas.length} fazendas: ${f.fazendas.map(z => titleCase(z.fazenda)).join(', ')}`);
+    cards.push({ cat: 'Observações', icon: 'fa-note-sticky', type: 'info', list: obs.slice(0, 3), extra: obs.length > 3 ? obs.slice(3) : [] });
+
+    out.frentes.push({ frente: f.frente, status: f.status, pct: f.pct, cota: f.cota, producao: f.producao, cards });
+  }
+
+  // ---------- Insights gerais ----------
   const isAll = frentes.length === M.frentes.length;
-  const tg = M.raw.totalGeral;
-  const withCota = frentes.filter(f => f.cota);
-  const byDif = [...withCota].sort((a, b) => b.diferenca - a.diferenca);
-
-  const acima = byDif.filter(f => f.diferenca > 0);
-  if (acima.length) {
-    const b = acima[0];
-    ins.push({ type: 'ok', icon: 'fa-trophy', title: `${b.frente} superou a meta em ${fmt(b.diferenca, 0)} t`,
-      text: `Entregou ${fmtT(b.producao)} contra cota de ${fmtT(b.cota)} (${fmtPct(b.pct)} de atingimento).` });
-    acima.slice(1).forEach(f => ins.push({ type: 'ok', icon: 'fa-circle-check', title: `${f.frente} acima da cota (+${fmt(f.diferenca, 0)} t)`,
-      text: `Atingimento de ${fmtPct(f.pct)} da cota planejada.` }));
-  }
-  const worst = byDif[byDif.length - 1];
-  if (worst && worst.diferenca < 0) {
-    ins.push({ type: 'bad', icon: 'fa-arrow-trend-down', title: `${worst.frente} apresentou o maior desvio negativo (${fmt(worst.diferenca, 0)} t)`,
-      text: `Atingiu apenas ${fmtPct(worst.pct)} da cota. Eficiência operacional de ${fmtPct(worst.eficiencia)}.` });
-  }
-  const lowEf = [...frentes].filter(f => f.eficiencia != null).sort((a, b) => a.eficiencia - b.eficiencia)[0];
-  if (lowEf && lowEf.eficiencia < 65) {
-    ins.push({ type: 'warn', icon: 'fa-gauge-simple', title: `${lowEf.frente} apresentou baixa Eficiência Operacional`,
-      text: `${fmtPct(lowEf.eficiencia)} contra ${fmtPct(T.eficiencia)} do consolidado${lowEf.diferenca > 0 ? ' — mesmo acima da cota, há espaço de ganho' : ''}.` });
-  }
-  // Velocidade
-  const vd = isAll && tg ? tg.velDim : sum(frentes, f => f.velDim) / frentes.length;
-  const vr = isAll && tg ? tg.velReal : sum(frentes, f => f.velReal) / frentes.length;
-  const va = isAll && tg ? tg.aderencia : (vr / vd - 1) * 100;
-  if (vd) {
-    const close = Math.abs(va) <= 5;
-    ins.push({ type: close ? 'ok' : 'warn', icon: 'fa-gauge-high',
-      title: close ? 'Velocidade média realizada ficou próxima do dimensionado' : 'Velocidade média realizada distante do dimensionado',
-      text: `${fmt(vr, 1)} km/h realizada x ${fmt(vd, 1)} km/h dimensionada (${fmtSigned(va, 2)}%).` });
-  }
-  const velWorst = [...frentes].sort((a, b) => a.aderencia - b.aderencia)[0];
-  if (velWorst && velWorst.aderencia < -10) {
-    ins.push({ type: 'warn', icon: 'fa-person-running', title: `${velWorst.frente} com menor aderência de velocidade (${fmtSigned(velWorst.aderencia, 2)}%)`,
-      text: `Realizou ${fmt(velWorst.velReal, 1)} km/h para ${fmt(velWorst.velDim, 1)} km/h dimensionados.` });
-  }
-  // Consolidado
-  if (T.cota) {
-    const gap = (1 - T.producao / T.cota) * 100;
-    ins.push({ type: gap > 0 ? (gap > 10 ? 'bad' : 'warn') : 'ok', icon: 'fa-scale-unbalanced',
-      title: gap > 0 ? `Produção consolidada ficou ${fmt(gap, 1)}% abaixo da cota planejada` : `Produção consolidada ${fmt(-gap, 1)}% acima da cota`,
-      text: `${fmtT(T.producao)} entregues para ${fmtT(T.cota)} de cota (${fmtSigned(T.diferenca)} t).` });
-  }
-  if (!isAll) return ins;
-
-  // Logística
   const L = M.raw.logistica || {};
   const th = L.happening?.total?.tc, ta = L.aroeira?.total?.tc;
   if (th && ta) {
     const main = ta >= th ? ['Aroeira', ta] : ['Happening', th];
-    ins.push({ type: 'info', icon: 'fa-truck', title: `${main[0]} respondeu por ${fmtPct(main[1] / (th + ta) * 100)} do transporte`,
-      text: `Happening ${fmt(th)} TC · Aroeira ${fmt(ta)} TC · ${fmt((L.happening.total.cargas || 0) + (L.aroeira.total.cargas || 0), 0)} cargas no total.` });
+    out.gerais.push({ cat: 'Logística', icon: 'fa-truck', type: 'info', title: `${main[0]} respondeu por ${fmtPct(main[1] / (th + ta) * 100)} do transporte`,
+      text: `Happening ${fmt(th, 0)} TC · Aroeira ${fmt(ta, 0)} TC · ${fmt((L.happening.total.cargas || 0) + (L.aroeira.total.cargas || 0), 0)} viagens.` });
   }
-  // Frota em manutenção
-  const man = ['happening', 'aroeira'].map(k => [k, sum(Object.values(L[k]?.frota?.manutencao || {}))]);
-  const totMan = sum(man, x => x[1]);
+  if (vin.length) {
+    const d = sum(vin, x => x.dimensionado), r = sum(vin, x => x.realizado);
+    out.gerais.push({ cat: 'Vinhaça', icon: 'fa-droplet', type: r / d >= 1 ? 'ok' : r / d >= .9 ? 'warn' : 'bad', title: `${fmtPct(r / d * 100)} do dimensionado aplicado`,
+      text: `${fmt(r)} de ${fmt(d, 0)} ha (${fmt(r - d)} ha) em ${vin.length} frentes.` });
+  }
+  const man = ['happening', 'aroeira'].map(k => sum(Object.values(L[k]?.frota?.manutencao || {})));
+  const P = M.raw.prancha || { manutencao: {} };
+  const totMan = sum(man) + sum(Object.values(P.manutencao || {}));
   if (totMan) {
     const rodoMan = (L.happening?.frota?.manutencao?.rodotrem || 0) + (L.aroeira?.frota?.manutencao?.rodotrem || 0);
-    ins.push({ type: 'warn', icon: 'fa-wrench', title: `${totMan} conjuntos/frotas em manutenção`,
-      text: `Happening ${man[0][1]} · Aroeira ${man[1][1]}. Rodotrens concentram ${rodoMan} das paradas.` });
+    out.gerais.push({ cat: 'Manutenção', icon: 'fa-wrench', type: 'warn', title: `${totMan} equipamentos em manutenção`,
+      text: `Happening ${man[0]} · Aroeira ${man[1]} · Prancha ${sum(Object.values(P.manutencao || {}))}. Rodotrens concentram ${rodoMan}.` });
   }
-  // Ofensores
   if (M.ofensores.length) {
     const top = M.ofensores.filter(o => o.total === M.ofensores[0].total).map(o => o.nome);
-    ins.push({ type: 'warn', icon: 'fa-triangle-exclamation', title: `Principal ofensor: ${top.join(' e ')}`,
-      text: `${M.ofensores[0].total} citações cada no dia. Turno C sem registros de ofensores.`.replace(' Turno C sem registros de ofensores.', M.turnos[2].registros.length ? '' : ' Turno C sem registros de ofensores.') });
+    const semC = M.turnos.filter(t => !t.registros.length).map(t => t.turno);
+    out.gerais.push({ cat: 'Ofensores', icon: 'fa-triangle-exclamation', type: 'warn', title: `Principal: ${top.join(' e ')}`,
+      text: `${M.ofensores[0].total} citações${top.length > 1 ? ' cada' : ''}.${semC.length ? ` Turno ${semC.join(', ')} sem registros.` : ''}` });
   }
-  // Vinhaça
-  const vin = M.raw.vinhaca || [];
-  if (vin.length) {
-    const d = sum(vin, v => v.dimensionado), r = sum(vin, v => v.realizado);
-    ins.push({ type: r / d >= .9 ? 'ok' : 'warn', icon: 'fa-droplet', title: `Vinhaça: ${fmtPct(r / d * 100)} do dimensionado aplicado`,
-      text: `${fmt(r)} ha realizados de ${fmt(d, 0)} ha (${fmt(r - d)} ha).` });
+  const T = totals(frentes, M);
+  if (T.cota) {
+    const gap = (1 - T.producao / T.cota) * 100;
+    out.gerais.push({ cat: 'Consolidação', icon: 'fa-scale-unbalanced', type: gap > 10 ? 'bad' : gap > 0 ? 'warn' : 'ok',
+      title: gap > 0 ? `Produção ${fmt(gap, 1)}% abaixo da cota${isAll ? '' : ' (filtro)'}` : `Produção ${fmt(-gap, 1)}% acima da cota`,
+      text: `${fmt(T.producao)} t para ${fmt(T.cota)} t (${fmtSigned(T.diferenca)} t).` });
   }
-  // Impureza vegetal
-  const imp = [...M.linhas].filter(l => l.impVeg > 0).sort((a, b) => b.impVeg - a.impVeg)[0];
-  if (imp && tg && imp.impVeg > tg.impVeg * 1.3) {
-    ins.push({ type: 'warn', icon: 'fa-leaf', title: `Impureza vegetal elevada na ${imp.frente}`,
-      text: `${fmtPct(imp.impVeg, 2)} em ${titleCase(imp.fazenda)} contra média de ${fmtPct(tg.impVeg, 2)}.` });
+  if (isAll && Number.isFinite(tg.velDim)) {
+    const close = Math.abs(tg.aderencia) <= 5;
+    out.gerais.push({ cat: 'Velocidade', icon: 'fa-gauge-high', type: close ? 'ok' : 'warn',
+      title: close ? 'Velocidade média próxima do dimensionado' : 'Velocidade média distante do dimensionado',
+      text: `${fmt(tg.velReal, 1)} km/h realizada x ${fmt(tg.velDim, 1)} km/h (${fmtSigned(tg.aderencia, 2)}%).` });
   }
-  // Máquina destaque
-  const col = M.raw.colhedoras || [];
   if (col.length) {
     const b = [...col].sort((a, c) => c.tc - a.tc)[0];
-    ins.push({ type: 'info', icon: 'fa-star', title: `Colhedora destaque: ${b.maquina} (${b.frente})`,
-      text: `${fmt(b.tc, 1)} t em ${b.cargas} cargas · média da frota ${fmt(sum(col, c => c.tc) / col.length, 1)} t/máquina.` });
+    out.gerais.push({ cat: 'Máquinas', icon: 'fa-star', type: 'info', title: `Colhedora destaque: ${b.maquina}`,
+      text: `${fmt(b.tc, 1)} t em ${b.cargas} cargas (${b.frente}) · média ${fmt(sum(col, c => c.tc) / col.length, 0)} t/máquina.` });
   }
-  const piloto0 = M.linhas.find(l => l.piloto === 0);
-  if (piloto0) ins.push({ type: 'info', icon: 'fa-satellite-dish', title: `${piloto0.frente} sem uso de piloto automático`,
-    text: `% Piloto zerado em ${titleCase(piloto0.fazenda)} — verificar sinal/equipamento.` });
-  return ins;
+  return out;
 }
 
 /* ---------------------------------------------------------
@@ -536,11 +569,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const fillFilters = () => {
     const M = state.M;
     const sf = $('#filterFrente'), sz = $('#filterFazenda');
-    sf.innerHTML = '<option value="">Todas as frentes</option>' + M.frentes.map(f => `<option>${escapeHtml(f.frente)}</option>`).join('');
+    sf.innerHTML = '<option value="">Todas</option>' + M.frentes.map(f => `<option>${escapeHtml(f.frente)}</option>`).join('');
     sf.value = state.frente;
     const fz = M.linhas.filter(l => !state.frente || l.frente === state.frente);
     const uniq = [...new Set(fz.map(l => l.fazenda))];
-    sz.innerHTML = '<option value="">Todas as fazendas</option>' + uniq.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(titleCase(n))}</option>`).join('');
+    sz.innerHTML = '<option value="">Todas</option>' + uniq.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(titleCase(n))}</option>`).join('');
     if (!uniq.includes(state.fazenda)) state.fazenda = '';
     sz.value = state.fazenda;
   };
@@ -556,14 +589,20 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const renderHeader = () => {
     const M = state.M, fr = filteredFrentes(), T = totals(fr, M);
     const meta = M.raw.meta || {};
-    $('#heroDate').textContent = fmtDate(meta.dataRelatorio);
     $('#hProd').textContent = fmtT(T.producao);
     $('#hCota').textContent = fmtT(T.cota);
     const hd = $('#hDif'); hd.textContent = `${fmtSigned(T.diferenca)} t`; hd.className = T.diferenca < 0 ? 'neg' : 'pos';
     $('#hEfic').textContent = fmtPct(T.eficiencia);
     $('#hFrentes').textContent = T.n;
-    const filt = state.frente || state.fazenda ? ` · filtro: <b>${escapeHtml(state.fazenda ? titleCase(state.fazenda) : state.frente)}</b>` : '';
-    $('#sourceInfo').innerHTML = `<i class="fa-regular fa-file-lines"></i> ${escapeHtml(meta.arquivo || 'dados.json')}${meta.dataRelatorio ? ' · ' + meta.dataRelatorio.split('-').reverse().join('/') : ''}${filt}`;
+    const dt = meta.dataRelatorio ? meta.dataRelatorio.split('-').reverse().join('/') : 'sem data';
+    const chip = $('#reportChip');
+    chip.querySelector('span').textContent = dt;
+    chip.title = `${meta.arquivo || 'dados.json'} · ${fmtDate(meta.dataRelatorio)}`;
+    const fa = $('#filterAlert');
+    if (state.frente || state.fazenda) {
+      fa.hidden = false;
+      fa.innerHTML = `<i class="fa-solid fa-filter"></i> Filtro ativo: <b>${escapeHtml(state.fazenda ? titleCase(state.fazenda) : state.frente)}</b> — os indicadores refletem o filtro. <button class="btn btn--sm btn--ghost" id="filterAlertClear"><i class="fa-solid fa-xmark"></i><span>Limpar</span></button>`;
+    } else { fa.hidden = true; fa.innerHTML = ''; }
     $('#footerSource').textContent = `Fonte: ${meta.arquivo || 'dados.json'}${meta.origem ? ' (' + meta.origem + ')' : ''} · atualizado em ${new Date(meta.importadoEm || Date.now()).toLocaleString('pt-BR')}`;
   };
 
@@ -594,15 +633,39 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   };
 
   const renderInsights = () => {
-    const ins = buildInsights(state.M, filteredFrentes());
-    $('#insights').innerHTML = ins.length ? ins.map(i => `
-      <div class="insight insight--${i.type}">
-        <span class="insight__icon"><i class="fa-solid ${i.icon}"></i></span>
-        <div><h4>${i.type === 'ok' ? '✅ ' : i.type === 'info' ? '' : '⚠ '}${escapeHtml(i.title)}</h4><p>${escapeHtml(i.text)}</p></div>
-      </div>`).join('') : '<div class="skeleton-msg">Sem observações para o filtro atual.</div>';
+    const G = buildInsightGroups(state.M, filteredFrentes());
+    const card = c => `
+      <div class="ig-card ig-card--${c.type}">
+        <span class="ig-cat"><i class="fa-solid ${c.icon}"></i>${c.cat}</span>
+        ${c.list ? (c.list.length
+          ? `<ul class="ig-obs">${c.list.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul>${c.extra.length ? `<span class="ig-more" title="${escapeHtml(c.extra.join(' · '))}">+${c.extra.length} observação(ões)</span>` : ''}`
+          : '<p class="ig-txt">Sem observações adicionais.</p>')
+          : `<b class="ig-val">${c.html ? c.value : escapeHtml(c.value)}</b><p class="ig-txt">${escapeHtml(c.text)}</p>`}
+      </div>`;
+    const icon = t => t === 'ok' ? '✅ ' : t === 'info' ? '' : '⚠ ';
+    $('#insights').innerHTML = G.frentes.map(g => `
+      <div class="ig-group ig-group--${g.status}">
+        <div class="ig-head">
+          <strong>${escapeHtml(g.frente)}</strong>
+          ${g.pct != null ? `<span class="pill ${g.status}">${fmtPct(g.pct)}</span>` : ''}
+          ${g.cota ? `<small>${fmt(g.cota, 0)} / ${fmt(g.producao, 0)} t</small>` : ''}
+        </div>
+        ${g.cards.map(card).join('')}
+      </div>`).join('') + (G.gerais.length ? `
+      <div class="ig-gerais">
+        <div class="ig-gerais__head"><i class="fa-solid fa-layer-group"></i> Insights Gerais</div>
+        <div class="ig-gerais__grid">
+          ${G.gerais.map(i => `
+            <div class="ig-card ig-card--${i.type}">
+              <span class="ig-cat"><i class="fa-solid ${i.icon}"></i>${i.cat}</span>
+              <b class="ig-title">${icon(i.type)}${escapeHtml(i.title)}</b>
+              <p class="ig-txt">${escapeHtml(i.text)}</p>
+            </div>`).join('')}
+        </div>
+      </div>` : '') || '<div class="skeleton-msg">Sem observações para o filtro atual.</div>';
   };
 
-  /* ---------- Render: frentes ---------- */
+  /* ---------- Render: ranking (Cota / Produção) ---------- */
   const renderRanking = () => {
     const fr = filteredFrentes().filter(f => f.cota);
     const key = state.rankSort;
@@ -611,9 +674,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     $('#ranking').innerHTML = sorted.map((f, i) => {
       const w = f.pct / maxPct * 100, metaX = 100 / maxPct * 100;
       return `
-      <div class="rank-row" title="${escapeHtml(f.frente)} — Produção ${fmtT(f.producao)} · Meta ${fmtT(f.cota)} · Dif. ${fmtSigned(f.diferenca)} t">
+      <div class="rank-row" title="${escapeHtml(f.frente)} — Cota ${fmtT(f.cota)} · Produção ${fmtT(f.producao)} · Dif. ${fmtSigned(f.diferenca)} t">
         <span class="rank-pos">${i + 1}</span>
-        <span class="rank-name">${escapeHtml(f.frente)}<small>${fmt(f.producao, 0)} / ${fmt(f.cota, 0)} t</small></span>
+        <span class="rank-name">${escapeHtml(f.frente)}<small>${fmt(f.cota, 0)} / ${fmt(f.producao, 0)} t</small></span>
         <div class="rank-track">
           <div class="rank-fill ${f.status}" style="width:${w}%"></div>
           <div class="rank-meta" style="left:${metaX}%"></div>
@@ -693,220 +756,95 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     });
   };
 
-  /* ---------- Render: logística ---------- */
-  const logData = key => {
-    const L = state.M.raw.logistica || {};
-    if (key !== 'consolidado') return L[key] || { composicao: [], total: null, frota: { operacao: {}, manutencao: {} } };
-    const tipos = ['Rodotrem', 'Tritrem'];
-    const comp = tipos.map(tp => {
-      const regs = ['happening', 'aroeira'].map(k => (L[k]?.composicao || []).find(c => c.tipo === tp)).filter(Boolean);
-      const tc = sum(regs, r => r.tc), cargas = sum(regs, r => r.cargas);
-      return { tipo: tp, tc, cargas, tcv: cargas ? tc / cargas : 0, dist: tc ? sum(regs, r => r.dist * r.tc) / tc : 0 };
-    });
-    const tc = sum(comp, c => c.tc), cargas = sum(comp, c => c.cargas);
-    return { composicao: comp, total: { tc, cargas, tcv: cargas ? tc / cargas : 0, dist: tc ? sum(comp, c => c.dist * c.tc) / tc : 0 } };
-  };
-  const renderLogistica = () => {
-    const d = logData(state.log);
-    const L = state.M.raw.logistica || {};
-    const totAll = (L.happening?.total?.tc || 0) + (L.aroeira?.total?.tc || 0);
-    const rod = d.composicao.find(c => c.tipo === 'Rodotrem') || {}, tri = d.composicao.find(c => c.tipo === 'Tritrem') || {};
-    const tot = d.total || { tc: sum(d.composicao, c => c.tc), cargas: sum(d.composicao, c => c.cargas) };
-    $('#logKpis').innerHTML = [
-      kpiCard({ label: 'Rodotrem', value: fmt(rod.tc), unit: 'TC', icon: 'fa-truck-moving', sub: `<b>${fmt(rod.cargas, 0)}</b> cargas · ${fmt(rod.tcv, 1)} TC/v · ${fmt(rod.dist, 1)} km` }),
-      kpiCard({ label: 'Tritrem', value: fmt(tri.tc), unit: 'TC', icon: 'fa-trailer', sub: `<b>${fmt(tri.cargas, 0)}</b> cargas · ${fmt(tri.tcv, 1)} TC/v · ${fmt(tri.dist, 1)} km` }),
-      kpiCard({ label: 'Total Transportado', value: fmt(tot.tc), unit: 'TC', icon: 'fa-route', sub: `<b>${fmt(tot.cargas, 0)}</b> cargas · ${fmt(tot.tcv, 1)} TC/v` }),
-      kpiCard({ label: 'Participação', value: fmtPct(totAll ? tot.tc / totAll * 100 : 0), icon: 'fa-chart-pie', sub: `do total de ${fmt(totAll)} TC`, bar: totAll ? tot.tc / totAll * 100 : 0 }),
-    ].join('');
-    const nome = { happening: 'Happening', aroeira: 'Aroeira', consolidado: 'Consolidado' }[state.log];
-    $('#logPieHint').textContent = `Rodotrem x Tritrem · ${nome}`;
-    makeChart('chLogPie', {
-      type: 'pie',
-      data: { labels: d.composicao.map(c => c.tipo), datasets: [{ data: d.composicao.map(c => c.tc), backgroundColor: ['#1B5E20', '#81C784'], borderColor: '#fff', borderWidth: 3 }] },
-      options: { plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => { const r = d.composicao[c.dataIndex]; return [` ${fmt(r.tc)} TC (${fmtPct(r.tc / sum(d.composicao, x => x.tc) * 100)})`, ` ${fmt(r.cargas, 0)} cargas · ${fmt(r.tcv, 1)} TC/viagem`]; } } } } },
-    });
-    const th = L.happening?.total?.tc || 0, ta = L.aroeira?.total?.tc || 0;
-    makeChart('chLogDonut', {
-      type: 'doughnut',
-      data: { labels: ['Happening', 'Aroeira'], datasets: [{ data: [th, ta], backgroundColor: ['#2E7D32', '#A5D6A7'], borderColor: '#fff', borderWidth: 3 }] },
-      options: {
-        cutout: '64%',
-        plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => ` ${fmt(c.parsed)} TC (${fmtPct(c.parsed / (th + ta) * 100)})` } } },
-      },
-      plugins: [{ id: 'center', afterDraw(c) { const { ctx, chartArea: a } = c; ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = '#263238'; ctx.font = '800 18px Inter, sans-serif'; ctx.fillText(fmt(th + ta, 0), (a.left + a.right) / 2, (a.top + a.bottom) / 2 + 2); ctx.font = '600 11px Inter, sans-serif'; ctx.fillStyle = '#78909C'; ctx.fillText('TC total', (a.left + a.right) / 2, (a.top + a.bottom) / 2 + 18); ctx.restore(); } }],
-    });
-    const ops = ['happening', 'aroeira'];
-    makeChart('chLogTcv', {
-      type: 'bar',
-      data: {
-        labels: ['Rodotrem', 'Tritrem'],
-        datasets: ops.map((k, i) => ({ label: k === 'happening' ? 'Happening' : 'Aroeira', data: ['Rodotrem', 'Tritrem'].map(tp => (L[k]?.composicao || []).find(c => c.tipo === tp)?.tcv ?? null), backgroundColor: i ? '#81C784' : '#1B5E20', borderRadius: 6, maxBarThickness: 40 })),
-      },
-      options: {
-        layout: { padding: { top: 16 } },
-        scales: { y: { beginAtZero: true, title: { display: true, text: 'TC / viagem' } }, x: { grid: { display: false } } },
-        plugins: { legend: { position: 'bottom' }, valueLabels: { enabled: true, format: v => fmt(v, 1) }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y, 2)} TC/viagem` } } },
-      },
-    });
-  };
-
-  /* ---------- Render: equipamentos ---------- */
-  const renderEquip = () => {
-    const R = state.M.raw, L = R.logistica || {};
-    const cards = [];
-    const add = (title, icon, grupo, op, man) => {
-      if (op == null && man == null) return;
-      const tot = (op || 0) + (man || 0), disp = tot ? (op || 0) / tot * 100 : 0;
-      const c = disp >= 90 ? 'var(--ok)' : disp >= 80 ? 'var(--warn)' : 'var(--bad)';
-      cards.push(`<div class="eq">
-        <div class="ring" style="--p:${disp.toFixed(1)};--c:${c}" title="Disponibilidade ${fmtPct(disp)}"><span>${fmt(disp, 0)}%</span></div>
-        <div><small>${grupo}</small><h4><i class="fa-solid ${icon}"></i>${title}</h4>
-          <div class="eq__nums"><div><b>${op ?? 0}</b><span>operando</span></div><div><b class="man">${man ?? 0}</b><span>manutenção</span></div></div>
-        </div></div>`);
-    };
-    const P = R.prancha || { operacao: {}, manutencao: {} };
-    add('Caminhões', 'fa-truck', 'Prancha', P.operacao.caminhoes, P.manutencao.caminhoes);
-    add('Pranchas', 'fa-trailer', 'Prancha', P.operacao.pranchas, P.manutencao.pranchas);
-    [['happening', 'Happening'], ['aroeira', 'Aroeira']].forEach(([k, nome]) => {
-      const f = L[k]?.frota || { operacao: {}, manutencao: {} };
-      add('Cavalos', 'fa-truck-front', nome, f.operacao.cavalos, f.manutencao.cavalos);
-      add('Rodotrens', 'fa-truck-moving', nome, f.operacao.rodotrem, f.manutencao.rodotrem);
-      add('Tritrens', 'fa-trailer', nome, f.operacao.tritrem, f.manutencao.tritrem);
-    });
-    $('#equipCards').innerHTML = cards.join('');
-
-    const labels = ['Caminhões (prancha)', 'Pranchas', 'Cavalos', 'Rodotrens', 'Tritrens'];
-    const val = (k, key) => (L.happening?.frota?.[k]?.[key] || 0) + (L.aroeira?.frota?.[k]?.[key] || 0);
-    const op = [P.operacao.caminhoes || 0, P.operacao.pranchas || 0, val('operacao', 'cavalos'), val('operacao', 'rodotrem'), val('operacao', 'tritrem')];
-    const man = [P.manutencao.caminhoes || 0, P.manutencao.pranchas || 0, val('manutencao', 'cavalos'), val('manutencao', 'rodotrem'), val('manutencao', 'tritrem')];
-    makeChart('chEquip', {
-      type: 'bar',
-      data: { labels, datasets: [
-        { label: 'Operando', data: op, backgroundColor: '#2E7D32', borderRadius: 5, maxBarThickness: 30 },
-        { label: 'Manutenção', data: man, backgroundColor: '#C62828', borderRadius: 5, maxBarThickness: 30 },
-      ] },
-      options: {
-        indexAxis: 'y',
-        scales: { x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }, y: { stacked: true, grid: { display: false } } },
-        plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { afterBody: it => { const i = it[0].dataIndex, t = op[i] + man[i]; return t ? `Disponibilidade: ${fmtPct(op[i] / t * 100)}` : ''; } } } },
-      },
-    });
-
-    const vin = R.vinhaca || [];
-    const d = sum(vin, v => v.dimensionado), r = sum(vin, v => v.realizado);
-    $('#vinhacaHint').textContent = vin.length ? `Dimensionado x Realizado (ha) · total ${fmt(r)} de ${fmt(d, 0)} ha (${fmtPct(d ? r / d * 100 : 0)})` : 'Sem dados de vinhaça';
-    makeChart('chVinhaca', {
-      type: 'bar',
-      data: { labels: vin.map(v => v.frente), datasets: [
-        { label: 'Dimensionado (ha)', data: vin.map(v => v.dimensionado), backgroundColor: '#C8E6C9', borderRadius: 5, maxBarThickness: 34 },
-        { label: 'Realizado (ha)', data: vin.map(v => v.realizado), backgroundColor: '#2E7D32', borderRadius: 5, maxBarThickness: 34 },
-      ] },
-      options: {
-        layout: { padding: { top: 16 } },
-        scales: { y: { beginAtZero: true, title: { display: true, text: 'hectares' } }, x: { grid: { display: false } } },
-        plugins: { legend: { position: 'bottom' }, valueLabels: { enabled: true, datasets: [1], format: v => fmt(v, 1) },
-          tooltip: { callbacks: { afterBody: it => { const v = vin[it[0].dataIndex]; return `Diferença: ${fmt(v.diferenca)} ha (${fmtPct(v.realizado / v.dimensionado * 100)})`; } } } },
-      },
-    });
-  };
-
-  /* ---------- Render: máquinas ---------- */
-  const renderMaquinas = () => {
-    const R = state.M.raw;
-    let list = (R[state.maq] || []);
-    const fset = new Set(filteredFrentes().map(f => f.frente));
-    list = list.filter(m => fset.has(m.frente));
-    const all = R[state.maq] || [];
-    const frentes = [...new Set(all.map(m => m.frente))];
-    const color = fr => PALETTE[frentes.indexOf(fr) % PALETTE.length];
-    const nome = state.maq === 'colhedoras' ? 'Colhedora' : 'Transbordo';
-    $('#maqTitle').textContent = `Produção por ${nome}`;
-    const tc = sum(list, m => m.tc), cg = sum(list, m => m.cargas);
-    const best = [...list].sort((a, b) => b.tc - a.tc)[0];
-    $('#maqKpis').innerHTML = [
-      kpiCard({ label: `Produção ${state.maq}`, value: fmt(tc, 1), unit: 't', icon: 'fa-wheat-awn', sub: `<b>${fmt(cg, 0)}</b> cargas` }),
-      kpiCard({ label: 'Qtd. de máquinas', value: list.length, icon: 'fa-gears', sub: `${new Set(list.map(m => m.frente)).size} frente(s)` }),
-      kpiCard({ label: 'Produção por máquina', value: fmt(list.length ? tc / list.length : 0, 1), unit: 't', icon: 'fa-calculator', sub: `${fmt(cg ? tc / cg : 0, 1)} t por carga` }),
-      best ? kpiCard({ label: 'Destaque', value: best.maquina, icon: 'fa-star', cls: 'pos', sub: `<b>${fmt(best.tc, 1)} t</b> · ${best.frente}` }) : '',
-    ].join('');
-    const sorted = [...list].sort((a, b) => b.tc - a.tc);
-    makeChart('chMaq', {
-      type: 'bar',
-      data: { labels: sorted.map(m => m.maquina), datasets: [{ label: 'Produção (t)', data: sorted.map(m => m.tc), backgroundColor: sorted.map(m => color(m.frente)), borderRadius: 5, maxBarThickness: 34 }] },
-      options: {
-        layout: { padding: { top: 16 } },
-        scales: { y: { beginAtZero: true, ticks: { callback: v => fmt(v, 0) } }, x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 90, minRotation: sorted.length > 16 ? 60 : 0 } } },
-        plugins: {
-          legend: { display: false },
-          valueLabels: { enabled: sorted.length <= 16, format: v => fmt(v, 0) },
-          tooltip: { callbacks: { title: it => `${nome} ${sorted[it[0].dataIndex].maquina}`, label: c => { const m = sorted[c.dataIndex]; return [` ${m.frente}`, ` ${fmt(m.tc, 2)} t · ${m.cargas} cargas`, ` ${fmt(m.tc / m.cargas, 1)} t/carga`]; } } },
-        },
-      },
-      plugins: [{ id: 'legendFrentes', afterDraw(c) {
-        const { ctx, chartArea: a } = c; ctx.save(); ctx.font = '600 11px Inter, sans-serif';
-        let x = a.right; const used = frentes.filter(f => sorted.some(m => m.frente === f)).reverse();
-        used.forEach(f => { const w = ctx.measureText(f).width; x -= w + 22; ctx.fillStyle = color(f); ctx.fillRect(x, a.top - 2, 10, 10); ctx.fillStyle = '#455A64'; ctx.fillText(f, x + 14, a.top + 7); });
-        ctx.restore();
-      } }],
-    });
-  };
-
-  /* ---------- Render: ofensores ---------- */
-  const renderOfensores = () => {
-    const M = state.M, of = M.ofensores, total = sum(of, o => o.total);
-    makeChart('chOfe', {
-      type: 'bar',
-      data: { labels: of.map(o => o.nome), datasets: [
-        { label: 'Turno A', data: of.map(o => o.A), backgroundColor: '#C62828', borderRadius: 4, maxBarThickness: 26 },
-        { label: 'Turno B', data: of.map(o => o.B), backgroundColor: '#EF9A9A', borderRadius: 4, maxBarThickness: 26 },
-        { label: 'Turno C', data: of.map(o => o.C), backgroundColor: '#FFCDD2', borderRadius: 4, maxBarThickness: 26 },
-      ] },
-      options: {
-        indexAxis: 'y',
-        scales: { x: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'citações' } }, y: { stacked: true, grid: { display: false } } },
-        plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { footer: it => `Total: ${of[it[0].dataIndex].total} (${fmtPct(of[it[0].dataIndex].total / total * 100)})` } } },
-      },
-    });
-    const max = of[0]?.total || 1;
-    $('#ofeRank').innerHTML = of.map((o, i) => `
-      <li><span class="pos">${i + 1}</span>
-        <div><span class="nm">${escapeHtml(o.nome)}</span><div class="bar"><i style="width:${o.total / max * 100}%"></i></div></div>
-        <span class="vl">${o.total}<small>${fmtPct(o.total / total * 100, 0)}</small></span></li>`).join('')
-      || '<div class="empty"><i class="fa-solid fa-circle-check"></i>Nenhum ofensor registrado.</div>';
-    $('#turnos').innerHTML = M.turnos.map(t => {
-      const unicos = [...new Set(t.registros.flat())];
-      return `<div class="turno">
-        <header><h4><i class="fa-solid fa-clock-rotate-left" style="color:var(--green-700)"></i>Turno ${t.turno}</h4>
-          <span class="badge ${t.registros.length ? '' : 'badge--ok'}">${t.registros.length ? `${t.registros.length} registro(s)` : 'Sem registros'}</span></header>
-        ${t.registros.length ? `<ul>${t.registros.map(r => `<li>${r.map(o => `<span class="chip">${escapeHtml(o)}</span>`).join('')}</li>`).join('')}</ul>
-          <p class="hint" style="margin-top:8px">Ofensores distintos: ${unicos.map(escapeHtml).join(', ')}</p>`
-          : '<div class="empty"><i class="fa-solid fa-circle-check"></i>Turno sem ofensores registrados.</div>'}
-      </div>`;
-    }).join('');
-  };
-
-  /* ---------- Render: fazendas (bolhas + tabelas) ---------- */
+  /* ---------- Render: CTT — Centro de Controle Tático ---------- */
   const filteredLinhas = () => {
     const fset = new Set(filteredFrentes().map(f => f.frente));
     return state.M.linhas.filter(l => fset.has(l.frente) && (!state.fazenda || l.fazenda === state.fazenda));
   };
+
+  // Escala de cor TATR/ha: vermelho (baixo) → amarelo (médio) → verde (alto)
+  const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const [C_LO, C_MID, C_HI] = ['#C62828', '#F9A825', '#2E7D32'].map(hex);
+  const tatrRange = () => {
+    const v = state.M.linhas.map(l => l.tatr).filter(Number.isFinite);
+    return v.length ? [Math.min(...v), Math.max(...v)] : [0, 1];
+  };
+  const tatrColor = (t, alpha = 1) => {
+    const [lo, hi] = tatrRange();
+    const u = hi > lo ? Math.max(0, Math.min(1, (t - lo) / (hi - lo))) : 0.5;
+    const [a, b, k] = u < 0.5 ? [C_LO, C_MID, u * 2] : [C_MID, C_HI, (u - 0.5) * 2];
+    return `rgba(${lerp(a[0], b[0], k)},${lerp(a[1], b[1], k)},${lerp(a[2], b[2], k)},${alpha})`;
+  };
+
+  const renderAgroKpis = () => {
+    const L = filteredLinhas();
+    const tc = sum(L, l => l.tc);
+    const q = L.filter(l => l.atr > 0);
+    const tq = sum(q, l => l.tc);
+    const w = (arr, k, tot) => tot ? sum(arr, l => l[k] * l.tc) / tot : null;
+    const tch = w(L, 'tch', tc), atr = w(q, 'atr', tq);
+    const chips = [
+      ['Fazendas', L.length, ''],
+      ['Produção', fmt(tc, 0), 't'],
+      ['TCH', fmt(tch, 0), 't/ha'],
+      ['ATR', fmt(atr, 2), 'kg/t'],
+      ['TATR/ha', fmt(w(q, 'tatr', tq), 2), ''],
+      ['Fibra', fmt(w(q, 'fibra', tq), 2), '%'],
+      ['Imp. Veg.', fmt(w(q, 'impVeg', tq), 2), '%'],
+      ['Imp. Min.', fmt(w(q, 'impMin', tq), 2), '%'],
+    ];
+    $('#agroKpis').innerHTML = chips.map(([k, v, u]) => `<div><span>${k}</span><b>${v}${u ? `<small> ${u}</small>` : ''}</b></div>`).join('');
+  };
+
+  const renderFazProd = () => {
+    const L = [...filteredLinhas()].sort((a, b) => b.tc - a.tc);
+    $('#fazProdBox').style.height = `${Math.max(140, 34 + L.length * 27)}px`;
+    makeChart('chFazProd', {
+      type: 'bar',
+      data: {
+        labels: L.map(l => [titleCase(l.fazenda), l.frente]),
+        datasets: [{ label: 'Produção (t)', data: L.map(l => l.tc), backgroundColor: L.map(l => STATUS_COLOR[l.status] + 'E6'), borderRadius: 5, barThickness: 14 }],
+      },
+      options: {
+        indexAxis: 'y',
+        layout: { padding: { right: 48 } },
+        scales: { x: { beginAtZero: true, ticks: { callback: v => fmt(v, 0) } }, y: { grid: { display: false }, ticks: { autoSkip: false, font: { size: 10.5 } } } },
+        plugins: {
+          legend: { display: false },
+          valueLabels: { enabled: true, format: v => fmt(v, 0) },
+          tooltip: { callbacks: {
+            title: it => `${titleCase(L[it[0].dataIndex].fazenda)} (${L[it[0].dataIndex].frente})`,
+            label: c => { const l = L[c.dataIndex]; return [` Produção: ${fmt(l.tc)} t`, ` Meta${l.rateio ? ' (rateada)' : ''}: ${fmt(l.meta)} t`, ` Atingimento: ${fmtPct(l.pct)}`]; },
+          } },
+        },
+      },
+    });
+  };
+
   const renderFazChart = () => {
-    const L = filteredLinhas().filter(l => l.atr > 0 && l.tch > 0);
-    const maxTc = Math.max(...L.map(l => l.tc), 1);
-    const frentes = state.M.frentes.map(f => f.frente);
+    const L = filteredLinhas().filter(l => Number.isFinite(l.tatr));
+    const maxTc = Math.max(...state.M.linhas.map(l => l.tc), 1);
+    const [lo, hi] = tatrRange();
+    $('#tatrMin').textContent = fmt(lo, 2);
+    $('#tatrMid').textContent = fmt((lo + hi) / 2, 2);
+    $('#tatrMax').textContent = fmt(hi, 2);
     makeChart('chFaz', {
       type: 'bubble',
       data: { datasets: L.map(l => ({
         label: `${titleCase(l.fazenda)} (${l.frente})`,
-        data: [{ x: l.tch, y: l.atr, r: 6 + Math.sqrt(l.tc / maxTc) * 22, l }],
-        backgroundColor: PALETTE[frentes.indexOf(l.frente) % PALETTE.length] + 'B3',
-        borderColor: PALETTE[frentes.indexOf(l.frente) % PALETTE.length], borderWidth: 1.5,
+        data: [{ x: l.tch, y: l.atr, r: 6 + Math.sqrt(l.tc / maxTc) * 20, l }],
+        backgroundColor: tatrColor(l.tatr, 0.72),
+        borderColor: tatrColor(l.tatr, 1), borderWidth: 1.5,
       })) },
       options: {
-        scales: { x: { title: { display: true, text: 'TCH (t/ha)' }, grace: '8%' }, y: { title: { display: true, text: 'ATR (kg/t)' }, grace: '8%' } },
+        scales: { x: { title: { display: true, text: 'TCH (t/ha)' }, grace: '10%' }, y: { title: { display: true, text: 'ATR (kg/t)' }, grace: '10%' } },
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { title: it => it[0].dataset.label, label: c => { const l = c.raw.l; return [` Produção: ${fmt(l.tc)} t`, ` TCH: ${fmt(l.tch, 0)} · ATR: ${fmt(l.atr, 2)}`, ` Fibra: ${fmt(l.fibra, 2)}% · Eficiência: ${fmtPct(l.eficiencia)}`]; } } },
+          tooltip: { callbacks: {
+            title: it => it[0].dataset.label,
+            label: c => { const l = c.raw.l; return [` Produção: ${fmt(l.tc, 0)} t`, ` TCH: ${fmt(l.tch, 0)}`, ` ATR: ${fmt(l.atr, 2)}`, ` Fibra: ${fmt(l.fibra, 2)}%`, ` TATR/ha: ${fmt(l.tatr, 2)}`]; },
+          } },
         },
       },
     });
@@ -919,19 +857,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     paginate: { first: '«', last: '»', next: '›', previous: '‹' },
   };
   const numCol = (data, title, d = 2, suffix = '') => ({ data, title, className: 'num', render: (v, type) => type === 'display' ? (v === null || v === undefined ? '—' : fmt(v, d) + suffix) : v });
-  const qualCol = (data, title, d = 2) => ({ data, title, className: 'num', render: (v, type, row) => type === 'display' ? (row.anlTon === 0 && v === 0 ? '<span class="muted" title="Sem análise">s/ análise</span>' : fmt(v, d)) : v });
+  const semAnalise = row => !(row.anlTon > 0 || row.atr > 0);
+  const qualCol = (data, title, d = 2) => ({ data, title, className: 'num', render: (v, type, row) => type === 'display' ? ((semAnalise(row) && !v) || v == null ? '<span class="muted" title="Sem análise">s/ análise</span>' : fmt(v, d)) : v });
   const pctPill = (data, title) => ({ data, title, className: 'num', render: (v, type, row) => type === 'display' ? (v == null ? '—' : `<span class="pill ${row.status}">${fmt(v, 1)}%</span>`) : v });
   const efPill = (data, title) => ({ data, title, className: 'num', render: (v, type) => type === 'display' ? `<span class="pill ${v >= 70 ? 'ok' : v >= 60 ? 'warn' : 'bad'}">${fmt(v, 1)}%</span>` : v });
   const COLS = {
-    tblFaz: [
-      { data: 'fazenda', title: 'Fazenda', render: (v, t, r) => t === 'display' ? `<b>${escapeHtml(titleCase(v))}</b> <span class="tag">${escapeHtml(r.codFaz)}</span>` : v },
-      { data: 'frente', title: 'Frente' },
-      numCol('tc', 'Produção (t)'),
-      numCol('tch', 'TCH', 0),
-      qualCol('atr', 'ATR'),
-      qualCol('fibra', 'Fibra'),
-      efPill('eficiencia', 'Eficiência'),
-    ],
     tblGer: [
       { data: 'frente', title: 'Frente' },
       { data: 'fazenda', title: 'Fazenda', render: (v, t, r) => t === 'display' ? `${escapeHtml(titleCase(v))} <span class="tag">${escapeHtml(r.codFaz)}</span>` : v },
@@ -945,6 +875,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       numCol('tch', 'TCH', 0),
       efPill('eficiencia', 'Efic. Oper.'),
       qualCol('atr', 'ATR'),
+      { data: 'tatr', title: 'TATR/ha', className: 'num', render: (v, t) => t === 'display' ? (v == null ? '<span class="muted">—</span>' : `<span class="tatr-dot" style="background:${tatrColor(v)}"></span>${fmt(v, 2)}`) : v },
       qualCol('fibra', 'Fibra'),
       qualCol('impMin', 'Imp. Mineral'),
       qualCol('impVeg', 'Imp. Vegetal'),
@@ -952,32 +883,285 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   };
   const renderTables = () => {
     const data = state.M.linhas;
-    ['tblFaz', 'tblGer'].forEach(id => {
-      if (!window.DataTable) { document.getElementById(id).outerHTML = '<div class="empty"><i class="fa-solid fa-plug-circle-xmark"></i>DataTables não carregou (verifique a conexão).</div>'; return; }
-      if (tables[id]) { tables[id].clear(); tables[id].rows.add(data); applyTableFilters(); return; }
-      tables[id] = new DataTable('#' + id, {
-        data, columns: COLS[id], language: DT_LANG, pageLength: id === 'tblGer' ? 10 : 8,
-        lengthMenu: [5, 8, 10, 25, 50], order: [[id === 'tblGer' ? 2 : 2, 'desc']], autoWidth: false,
-      });
+    const id = 'tblGer';
+    if (!window.DataTable) { const el = document.getElementById(id); if (el) el.outerHTML = '<div class="empty"><i class="fa-solid fa-plug-circle-xmark"></i>DataTables não carregou (verifique a conexão).</div>'; return; }
+    if (tables[id]) { tables[id].clear(); tables[id].rows.add(data); applyTableFilters(); return; }
+    tables[id] = new DataTable('#' + id, {
+      data, columns: COLS[id], language: DT_LANG, pageLength: 10,
+      lengthMenu: [5, 10, 25, 50], order: [[2, 'desc']], autoWidth: false,
     });
     applyTableFilters();
   };
   const applyTableFilters = () => {
-    Object.entries(tables).forEach(([id, dt]) => {
-      const fCol = id === 'tblFaz' ? 1 : 0, zCol = id === 'tblFaz' ? 0 : 1;
-      dt.column(fCol).search(state.frente ? '^' + escapeRegex(state.frente) + '$' : '', true, false);
-      dt.column(zCol).search(state.fazenda ? '^' + escapeRegex(state.fazenda) + '$' : '', true, false);
+    Object.values(tables).forEach(dt => {
+      dt.column(0).search(state.frente ? '^' + escapeRegex(state.frente) + '$' : '', true, false);
+      dt.column(1).search(state.fazenda ? '^' + escapeRegex(state.fazenda) + '$' : '', true, false);
       dt.search(state.q).draw();
+    });
+  };
+
+  /* ---------- Render: máquinas ---------- */
+  const renderMaquinas = () => {
+    const R = state.M.raw;
+    const all = R[state.maq] || [];
+    const fset = new Set(filteredFrentes().map(f => f.frente));
+    const list = all.filter(m => fset.has(m.frente));
+    const frentes = sortFrentes([...new Set(all.map(m => m.frente))]);
+    const color = fr => PALETTE[frentes.indexOf(fr) % PALETTE.length];
+    const nome = state.maq === 'colhedoras' ? 'Colhedora' : 'Transbordo';
+    $('#maqTitle').textContent = `Produção por ${nome}`;
+    const tc = sum(list, m => m.tc), cg = sum(list, m => m.cargas);
+    const sorted = [...list].sort((a, b) => b.tc - a.tc);
+    const best = sorted[0], worst = sorted[sorted.length - 1];
+    $('#maqKpis').innerHTML = [
+      kpiCard({ label: `Produção ${state.maq}`, value: fmt(tc, 1), unit: 't', icon: 'fa-wheat-awn', sub: `<b>${fmt(cg, 0)}</b> cargas` }),
+      kpiCard({ label: 'Qtd. de máquinas', value: list.length, icon: 'fa-gears', sub: `${new Set(list.map(m => m.frente)).size} frente(s)` }),
+      kpiCard({ label: 'Produção por máquina', value: fmt(list.length ? tc / list.length : 0, 1), unit: 't', icon: 'fa-calculator', sub: `${fmt(cg ? tc / cg : 0, 1)} t por carga` }),
+      best ? kpiCard({ label: 'Destaque', value: best.maquina, icon: 'fa-star', cls: 'pos', sub: `<b>${fmt(best.tc, 1)} t</b> · ${best.frente}` }) : '',
+      worst && sorted.length > 1 ? kpiCard({ label: 'Menor produção', value: worst.maquina, icon: 'fa-arrow-down-short-wide', iconCls: 'is-warn', sub: `<b>${fmt(worst.tc, 1)} t</b> · ${worst.cargas} cargas · ${worst.frente}` }) : '',
+    ].join('');
+
+    makeChart('chMaq', {
+      type: 'bar',
+      data: { labels: sorted.map(m => m.maquina), datasets: [{ label: 'Produção (t)', data: sorted.map(m => m.tc), backgroundColor: sorted.map(m => color(m.frente)), borderRadius: 4, maxBarThickness: 30 }] },
+      options: {
+        layout: { padding: { top: 22 } },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => fmt(v, 0) } }, x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 90, minRotation: sorted.length > 16 ? 60 : 0, font: { size: 10.5 } } } },
+        plugins: {
+          legend: { display: false },
+          valueLabels: { enabled: sorted.length <= 16, format: v => fmt(v, 0) },
+          tooltip: { callbacks: { title: it => `${nome} ${sorted[it[0].dataIndex].maquina}`, label: c => { const m = sorted[c.dataIndex]; return [` ${m.frente}`, ` ${fmt(m.tc, 2)} t · ${m.cargas} cargas`, ` ${fmt(m.tc / m.cargas, 1)} t/carga`]; } } },
+        },
+      },
+      plugins: [{ id: 'legendFrentes', afterDraw(c) {
+        const { ctx, chartArea: a } = c; ctx.save(); ctx.font = '600 10.5px Inter, sans-serif';
+        let x = a.right; const used = frentes.filter(f => sorted.some(m => m.frente === f)).reverse();
+        used.forEach(f => { const w = ctx.measureText(f).width; x -= w + 20; ctx.fillStyle = color(f); ctx.fillRect(x, a.top - 16, 9, 9); ctx.fillStyle = '#455A64'; ctx.fillText(f, x + 12, a.top - 8); });
+        ctx.restore();
+      } }],
+    });
+
+    const max = best ? best.tc : 1;
+    $('#maqRank').innerHTML = sorted.slice(0, 8).map((m, i) => `
+      <li><span class="pos">${i + 1}</span>
+        <div><span class="nm">${escapeHtml(m.maquina)} <small>${escapeHtml(m.frente)}</small></span><div class="bar"><i style="width:${m.tc / max * 100}%;background:${color(m.frente)}"></i></div></div>
+        <span class="vl">${fmt(m.tc, 0)}<small>${m.cargas} cg</small></span></li>`).join('')
+      || '<div class="empty"><i class="fa-regular fa-folder-open"></i>Sem máquinas para o filtro.</div>';
+
+    const porFrente = frentes.filter(f => fset.has(f)).map(f => {
+      const ms = list.filter(m => m.frente === f); const t = sum(ms, m => m.tc), c = sum(ms, m => m.cargas);
+      return { f, n: ms.length, t, c };
+    }).filter(r => r.n);
+    $('#maqFrente').innerHTML = porFrente.length ? `<table class="simple-table">
+      <thead><tr><th>Frente</th><th class="num">Máq.</th><th class="num">t</th><th class="num">t/máq</th><th class="num">t/carga</th></tr></thead>
+      <tbody>${porFrente.map(r => `<tr><td><span class="sw" style="background:${color(r.f)}"></span>${escapeHtml(r.f)}</td><td class="num">${r.n}</td><td class="num">${fmt(r.t, 0)}</td><td class="num"><b>${fmt(r.t / r.n, 0)}</b></td><td class="num">${fmt(r.c ? r.t / r.c : 0, 1)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Total</td><td class="num">${list.length}</td><td class="num">${fmt(tc, 0)}</td><td class="num">${fmt(list.length ? tc / list.length : 0, 0)}</td><td class="num">${fmt(cg ? tc / cg : 0, 1)}</td></tr></tfoot></table>`
+      : '<div class="empty"><i class="fa-regular fa-folder-open"></i>Sem dados.</div>';
+  };
+
+  /* ---------- Render: logística ---------- */
+  const logData = key => {
+    const L = state.M.raw.logistica || {};
+    if (key !== 'consolidado') return L[key] || { composicao: [], total: null, frota: { operacao: {}, manutencao: {} } };
+    const tipos = ['Rodotrem', 'Tritrem'];
+    const comp = tipos.map(tp => {
+      const regs = ['happening', 'aroeira'].map(k => (L[k]?.composicao || []).find(c => c.tipo === tp)).filter(Boolean);
+      const tc = sum(regs, r => r.tc), cargas = sum(regs, r => r.cargas);
+      return { tipo: tp, tc, cargas, tcv: cargas ? tc / cargas : 0, dist: tc ? sum(regs, r => r.dist * r.tc) / tc : 0 };
+    });
+    const tc = sum(comp, c => c.tc), cargas = sum(comp, c => c.cargas);
+    const frota = { operacao: {}, manutencao: {} };
+    ['operacao', 'manutencao'].forEach(s => ['cavalos', 'rodotrem', 'tritrem'].forEach(k => { frota[s][k] = (L.happening?.frota?.[s]?.[k] || 0) + (L.aroeira?.frota?.[s]?.[k] || 0); }));
+    return { composicao: comp, total: { tc, cargas, tcv: cargas ? tc / cargas : 0, dist: tc ? sum(comp, c => c.dist * c.tc) / tc : 0 }, frota };
+  };
+  const renderLogistica = () => {
+    const d = logData(state.log);
+    const L = state.M.raw.logistica || {};
+    const totAll = (L.happening?.total?.tc || 0) + (L.aroeira?.total?.tc || 0);
+    const rod = d.composicao.find(c => c.tipo === 'Rodotrem') || {}, tri = d.composicao.find(c => c.tipo === 'Tritrem') || {};
+    const tot = d.total || { tc: sum(d.composicao, c => c.tc), cargas: sum(d.composicao, c => c.cargas) };
+    const fo = d.frota?.operacao || {}, fm = d.frota?.manutencao || {};
+    $('#logKpis').innerHTML = [
+      kpiCard({ label: 'Rodotrem', value: fmt(rod.tc), unit: 'TC', icon: 'fa-truck-moving', sub: `<b>${fmt(rod.cargas, 0)}</b> viagens · ${fmt(rod.tcv, 1)} TC/v` }),
+      kpiCard({ label: 'Tritrem', value: fmt(tri.tc), unit: 'TC', icon: 'fa-trailer', sub: `<b>${fmt(tri.cargas, 0)}</b> viagens · ${fmt(tri.tcv, 1)} TC/v` }),
+      kpiCard({ label: 'Total Entregue', value: fmt(tot.tc), unit: 'TC', icon: 'fa-route', sub: `<b>${fmt(tot.cargas, 0)}</b> viagens · ${fmt(tot.tcv, 1)} TC/v` }),
+      kpiCard({ label: 'Distância Média', value: fmt(tot.dist, 1), unit: 'km', icon: 'fa-road', sub: `Rodo ${fmt(rod.dist, 1)} · Tri ${fmt(tri.dist, 1)} km` }),
+      kpiCard({ label: 'Frota Operando', value: fmt((fo.cavalos || 0), 0), unit: 'cavalos', icon: 'fa-truck-front', sub: `${fo.rodotrem || 0} rodo · ${fo.tritrem || 0} tri · <b class="t-bad">${sum(Object.values(fm))}</b> em manut.` }),
+      kpiCard({ label: 'Participação', value: fmtPct(totAll ? tot.tc / totAll * 100 : 0), icon: 'fa-chart-pie', sub: `de ${fmt(totAll, 0)} TC`, bar: totAll ? tot.tc / totAll * 100 : 0 }),
+    ].join('');
+    const nome = { happening: 'Happening', aroeira: 'Aroeira', consolidado: 'Consolidado' }[state.log];
+    $('#logPieHint').textContent = `Rodotrem x Tritrem · ${nome}`;
+    makeChart('chLogPie', {
+      type: 'pie',
+      data: { labels: d.composicao.map(c => c.tipo), datasets: [{ data: d.composicao.map(c => c.tc), backgroundColor: ['#1B5E20', '#81C784'], borderColor: '#fff', borderWidth: 3 }] },
+      options: { plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => { const r = d.composicao[c.dataIndex]; return [` ${fmt(r.tc)} TC (${fmtPct(r.tc / sum(d.composicao, x => x.tc) * 100)})`, ` ${fmt(r.cargas, 0)} viagens · ${fmt(r.tcv, 1)} TC/viagem`]; } } } } },
+    });
+    const th = L.happening?.total?.tc || 0, ta = L.aroeira?.total?.tc || 0;
+    makeChart('chLogDonut', {
+      type: 'doughnut',
+      data: { labels: ['Happening', 'Aroeira'], datasets: [{ data: [th, ta], backgroundColor: ['#2E7D32', '#A5D6A7'], borderColor: '#fff', borderWidth: 3 }] },
+      options: { cutout: '64%', plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => ` ${fmt(c.parsed)} TC (${fmtPct(c.parsed / (th + ta) * 100)})` } } } },
+      plugins: [{ id: 'center', afterDraw(c) { const { ctx, chartArea: a } = c; ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = '#263238'; ctx.font = '800 16px Inter, sans-serif'; ctx.fillText(fmt(th + ta, 0), (a.left + a.right) / 2, (a.top + a.bottom) / 2 + 2); ctx.font = '600 10.5px Inter, sans-serif'; ctx.fillStyle = '#78909C'; ctx.fillText('TC total', (a.left + a.right) / 2, (a.top + a.bottom) / 2 + 17); ctx.restore(); } }],
+    });
+    const ops = ['happening', 'aroeira'];
+    const byType = (k, tp, key) => (L[k]?.composicao || []).find(c => c.tipo === tp)?.[key] ?? null;
+    const barCfg = (key, unit, d0) => ({
+      type: 'bar',
+      data: { labels: ['Rodotrem', 'Tritrem'], datasets: ops.map((k, i) => ({ label: k === 'happening' ? 'Happening' : 'Aroeira', data: ['Rodotrem', 'Tritrem'].map(tp => byType(k, tp, key)), backgroundColor: i ? '#81C784' : '#1B5E20', borderRadius: 5, maxBarThickness: 34 })) },
+      options: {
+        layout: { padding: { top: 16 } },
+        scales: { y: { beginAtZero: true, title: { display: true, text: unit } }, x: { grid: { display: false } } },
+        plugins: { legend: { position: 'bottom' }, valueLabels: { enabled: true, format: v => fmt(v, d0) }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y, 2)} ${unit}` } } },
+      },
+    });
+    makeChart('chLogTcv', barCfg('tcv', 'TC / viagem', 1));
+    makeChart('chLogDist', barCfg('dist', 'km', 1));
+
+    // Tabela de composições e frota
+    const rows = [];
+    ['happening', 'aroeira'].forEach(k => {
+      const o = L[k]; if (!o) return;
+      const nm = k === 'happening' ? 'Happening' : 'Aroeira';
+      (o.composicao || []).forEach(c => {
+        const fk = c.tipo === 'Rodotrem' ? 'rodotrem' : 'tritrem';
+        rows.push(`<tr><td>${nm}</td><td>${c.tipo}</td><td class="num">${fmt(c.tc)}</td><td class="num">${fmt(c.cargas, 0)}</td><td class="num">${fmt(c.tcv, 1)}</td><td class="num">${fmt(c.dist, 1)}</td><td class="num">${o.frota?.operacao?.[fk] ?? '—'}</td><td class="num t-bad">${o.frota?.manutencao?.[fk] ?? '—'}</td></tr>`);
+      });
+      if (o.total) rows.push(`<tr class="sub"><td>${nm}</td><td>Total · cavalos</td><td class="num">${fmt(o.total.tc)}</td><td class="num">${fmt(o.total.cargas, 0)}</td><td class="num">${fmt(o.total.tcv, 1)}</td><td class="num">${fmt(o.total.dist, 1)}</td><td class="num">${o.frota?.operacao?.cavalos ?? '—'}</td><td class="num t-bad">${o.frota?.manutencao?.cavalos ?? '—'}</td></tr>`);
+    });
+    const C = logData('consolidado');
+    rows.push(`<tr class="tot"><td colspan="2">Consolidado</td><td class="num">${fmt(C.total.tc)}</td><td class="num">${fmt(C.total.cargas, 0)}</td><td class="num">${fmt(C.total.tcv, 1)}</td><td class="num">${fmt(C.total.dist, 1)}</td><td class="num">${sum(Object.values(C.frota.operacao))}</td><td class="num t-bad">${sum(Object.values(C.frota.manutencao))}</td></tr>`);
+    $('#logTable').innerHTML = `<thead><tr><th>Operação</th><th>Composição</th><th class="num">TC</th><th class="num">Viagens</th><th class="num">TC/Viagem</th><th class="num">Dist. (km)</th><th class="num">Operando</th><th class="num">Manutenção</th></tr></thead><tbody>${rows.join('')}</tbody>`;
+  };
+
+  /* ---------- Render: vinhaça ---------- */
+  const renderVinhaca = () => {
+    const vin = sortFrentes(state.M.raw.vinhaca || []);
+    const d = sum(vin, v => v.dimensionado), r = sum(vin, v => v.realizado);
+    const ad = d ? r / d * 100 : 0;
+    const worst = [...vin].sort((a, b) => a.realizado / a.dimensionado - b.realizado / b.dimensionado)[0];
+    $('#vinKpis').innerHTML = vin.length ? [
+      kpiCard({ label: 'Dimensionado', value: fmt(d, 2), unit: 'ha', icon: 'fa-ruler-combined', sub: `${vin.length} frentes` }),
+      kpiCard({ label: 'Realizado', value: fmt(r, 2), unit: 'ha', icon: 'fa-droplet' }),
+      kpiCard({ label: 'Diferença', value: fmtSigned(r - d, 2), unit: 'ha', icon: 'fa-scale-unbalanced', cls: r - d < 0 ? 'neg' : 'pos', iconCls: r - d < 0 ? 'is-bad' : '' }),
+      kpiCard({ label: 'Aderência', value: fmt(ad, 1), unit: '%', icon: 'fa-bullseye', bar: ad, barCls: statusOf(ad) === 'ok' ? '' : statusOf(ad), iconCls: ad >= 90 ? '' : 'is-warn' }),
+      worst ? kpiCard({ label: 'Menor aderência', value: worst.frente, icon: 'fa-arrow-trend-down', cls: 'neg', iconCls: 'is-bad', sub: `<b>${fmtPct(worst.realizado / worst.dimensionado * 100)}</b> · ${fmt(worst.diferenca, 2)} ha` }) : '',
+    ].join('') : '<div class="skeleton-msg">Sem dados de vinhaça no relatório.</div>';
+
+    makeChart('chVinhaca', {
+      data: { labels: vin.map(v => v.frente), datasets: [
+        { type: 'bar', label: 'Dimensionado (ha)', data: vin.map(v => v.dimensionado), backgroundColor: '#C8E6C9', borderRadius: 5, maxBarThickness: 34, yAxisID: 'y' },
+        { type: 'bar', label: 'Realizado (ha)', data: vin.map(v => v.realizado), backgroundColor: '#2E7D32', borderRadius: 5, maxBarThickness: 34, yAxisID: 'y' },
+        { type: 'line', label: 'Aderência (%)', data: vin.map(v => v.realizado / v.dimensionado * 100), borderColor: '#F9A825', backgroundColor: '#F9A825', pointRadius: 4, borderWidth: 2, borderDash: [5, 4], yAxisID: 'y2' },
+      ] },
+      options: {
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'hectares' } },
+          y2: { position: 'right', min: 0, max: 110, grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' } },
+          x: { grid: { display: false } },
+        },
+        plugins: { legend: { position: 'bottom' },
+          tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y2' ? ` Aderência: ${fmtPct(c.parsed.y)}` : ` ${c.dataset.label}: ${fmt(c.parsed.y, 2)}`, afterBody: it => `Diferença: ${fmt(vin[it[0].dataIndex].diferenca, 2)} ha` } } },
+      },
+    });
+
+    $('#vinRank').innerHTML = vin.map(v => {
+      const p = v.realizado / v.dimensionado * 100, st = statusOf(p);
+      return `<div class="rank-row rank-row--vin" title="${escapeHtml(v.frente)}: ${fmt(v.realizado, 2)} de ${fmt(v.dimensionado, 0)} ha">
+        <span class="rank-name">${escapeHtml(v.frente)}<small>${fmt(v.dimensionado, 0)} / ${fmt(v.realizado, 2)} ha</small></span>
+        <div class="rank-track"><div class="rank-fill ${st}" style="width:${Math.min(100, p)}%"></div><span class="rank-label">${fmtPct(p)}</span></div>
+        <span class="rank-val t-${st}"><strong>${fmt(v.diferenca, 2)}</strong><small>ha</small></span></div>`;
+    }).join('') || '<div class="empty"><i class="fa-regular fa-folder-open"></i>Sem dados.</div>';
+  };
+
+  /* ---------- Render: ofensores ---------- */
+  const renderOfensores = () => {
+    const M = state.M, of = M.ofensores, total = sum(of, o => o.total);
+    makeChart('chOfe', {
+      type: 'bar',
+      data: { labels: of.map(o => o.nome), datasets: [
+        { label: 'Turno A', data: of.map(o => o.A), backgroundColor: '#C62828', borderRadius: 4, maxBarThickness: 22 },
+        { label: 'Turno B', data: of.map(o => o.B), backgroundColor: '#EF9A9A', borderRadius: 4, maxBarThickness: 22 },
+        { label: 'Turno C', data: of.map(o => o.C), backgroundColor: '#FFCDD2', borderRadius: 4, maxBarThickness: 22 },
+      ] },
+      options: {
+        indexAxis: 'y',
+        scales: { x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }, y: { stacked: true, grid: { display: false }, ticks: { font: { size: 10.5 } } } },
+        plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { footer: it => `Total: ${of[it[0].dataIndex].total} (${fmtPct(of[it[0].dataIndex].total / total * 100)})` } } },
+      },
+    });
+    const max = of[0]?.total || 1;
+    $('#ofeRank').innerHTML = of.map((o, i) => `
+      <li><span class="pos">${i + 1}</span>
+        <div><span class="nm">${escapeHtml(o.nome)}</span><div class="bar"><i style="width:${o.total / max * 100}%"></i></div></div>
+        <span class="vl">${o.total}<small>${fmtPct(o.total / total * 100, 0)}</small></span></li>`).join('')
+      || '<div class="empty"><i class="fa-solid fa-circle-check"></i>Nenhum ofensor registrado.</div>';
+    $('#turnos').innerHTML = M.turnos.map(t => `
+      <div class="turno">
+        <header><h4><i class="fa-solid fa-clock-rotate-left"></i>Turno ${t.turno}</h4>
+          <span class="badge ${t.registros.length ? '' : 'badge--ok'}">${t.registros.length ? `${t.registros.length} registro(s)` : 'Sem registros'}</span></header>
+        ${t.registros.length ? `<ul>${t.registros.map(r => `<li>${r.map(o => `<span class="chip">${escapeHtml(o)}</span>`).join('')}</li>`).join('')}</ul>`
+          : '<div class="empty"><i class="fa-solid fa-circle-check"></i>Turno sem ofensores registrados.</div>'}
+      </div>`).join('');
+  };
+
+  /* ---------- Render: equipamentos ---------- */
+  const renderEquip = () => {
+    const R = state.M.raw, L = R.logistica || {};
+    const cards = [];
+    let tOp = 0, tMan = 0;
+    const add = (title, icon, grupo, op, man) => {
+      if (op == null && man == null) return;
+      tOp += op || 0; tMan += man || 0;
+      const tot = (op || 0) + (man || 0), disp = tot ? (op || 0) / tot * 100 : 0;
+      const c = disp >= 90 ? 'var(--ok)' : disp >= 80 ? 'var(--warn)' : 'var(--bad)';
+      cards.push(`<div class="eq">
+        <div class="ring" style="--p:${disp.toFixed(1)};--c:${c}" title="Disponibilidade ${fmtPct(disp)}"><span>${fmt(disp, 0)}%</span></div>
+        <div><small>${grupo}</small><h4><i class="fa-solid ${icon}"></i>${title}</h4>
+          <div class="eq__nums"><div><b>${op ?? 0}</b><span>operando</span></div><div><b class="man">${man ?? 0}</b><span>manut.</span></div></div>
+        </div></div>`);
+    };
+    const P = R.prancha || { operacao: {}, manutencao: {} };
+    add('Caminhões', 'fa-truck', 'Prancha', P.operacao.caminhoes, P.manutencao.caminhoes);
+    add('Pranchas', 'fa-trailer', 'Prancha', P.operacao.pranchas, P.manutencao.pranchas);
+    [['happening', 'Happening'], ['aroeira', 'Aroeira']].forEach(([k, nome]) => {
+      const f = L[k]?.frota || { operacao: {}, manutencao: {} };
+      add('Cavalos', 'fa-truck-front', nome, f.operacao.cavalos, f.manutencao.cavalos);
+      add('Rodotrens', 'fa-truck-moving', nome, f.operacao.rodotrem, f.manutencao.rodotrem);
+      add('Tritrens', 'fa-trailer', nome, f.operacao.tritrem, f.manutencao.tritrem);
+    });
+    $('#equipCards').innerHTML = cards.join('');
+    $('#equipHint').textContent = `${tOp} operando · ${tMan} em manutenção · disponibilidade geral ${fmtPct(tOp + tMan ? tOp / (tOp + tMan) * 100 : 0)}`;
+
+    const labels = ['Caminhões (prancha)', 'Pranchas', 'Cavalos', 'Rodotrens', 'Tritrens'];
+    const val = (k, key) => (L.happening?.frota?.[k]?.[key] || 0) + (L.aroeira?.frota?.[k]?.[key] || 0);
+    const op = [P.operacao.caminhoes || 0, P.operacao.pranchas || 0, val('operacao', 'cavalos'), val('operacao', 'rodotrem'), val('operacao', 'tritrem')];
+    const man = [P.manutencao.caminhoes || 0, P.manutencao.pranchas || 0, val('manutencao', 'cavalos'), val('manutencao', 'rodotrem'), val('manutencao', 'tritrem')];
+    makeChart('chEquip', {
+      type: 'bar',
+      data: { labels, datasets: [
+        { label: 'Operando', data: op, backgroundColor: '#2E7D32', borderRadius: 4, maxBarThickness: 24 },
+        { label: 'Manutenção', data: man, backgroundColor: '#C62828', borderRadius: 4, maxBarThickness: 24 },
+      ] },
+      options: {
+        indexAxis: 'y',
+        scales: { x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }, y: { stacked: true, grid: { display: false } } },
+        plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { afterBody: it => { const i = it[0].dataIndex, t = op[i] + man[i]; return t ? `Disponibilidade: ${fmtPct(op[i] / t * 100)}` : ''; } } } },
+      },
     });
   };
 
   /* ---------- Render geral ---------- */
   const renderAll = () => {
     if (!state.M) return;
-    renderHeader(); renderKpis(); renderInsights(); renderRanking(); renderFrenteCharts();
-    renderLogistica(); renderEquip(); renderMaquinas(); renderOfensores(); renderFazChart(); renderTables();
+    renderHeader(); renderKpis(); renderRanking(); renderFrenteCharts(); renderInsights();
+    renderAgroKpis(); renderFazProd(); renderFazChart(); renderTables();
+    renderMaquinas(); renderLogistica(); renderVinhaca(); renderOfensores(); renderEquip();
   };
-  const renderFiltered = () => { renderHeader(); renderKpis(); renderInsights(); renderRanking(); renderFrenteCharts(); renderMaquinas(); renderFazChart(); applyTableFilters(); };
+  const renderFiltered = () => {
+    renderHeader(); renderKpis(); renderRanking(); renderFrenteCharts(); renderInsights();
+    renderAgroKpis(); renderFazProd(); renderFazChart(); renderMaquinas(); applyTableFilters();
+  };
 
   const setData = (raw, { persist = false } = {}) => {
     state.M = buildModel(raw);
@@ -1088,7 +1272,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         <h3 style="margin:10px 0 4px">Nenhum dado carregado</h3>
         <p>Não foi possível ler <b>dados.json</b> (ao abrir o arquivo direto do computador o navegador bloqueia a leitura).<br>
         Publique no GitHub Pages / use um servidor local, ou clique em <b>Importar PDF</b> para carregar o relatório.</p></div>`;
-      $('#sourceInfo').innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> sem dados';
+      $('#reportChip span').textContent = 'sem dados';
       return;
     }
     setData(use);
@@ -1115,6 +1299,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
   document.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
+    if (b.id === 'filterAlertClear') { $('#btnClear').click(); return; }
     if (b.dataset.png) exportPng(b.dataset.png);
     if (b.dataset.csv) exportCsv(b.dataset.csv);
     if (b.dataset.reset) charts[b.dataset.reset]?.resetZoom?.();
@@ -1169,5 +1354,5 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Exporta funções puras para testes em Node (ignorado no navegador). */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseReportItems, parseNum, buildModel, totals, buildInsights, validateParsed };
+  module.exports = { parseReportItems, parseNum, buildModel, totals, buildInsightGroups, calcTatr, validateParsed };
 }

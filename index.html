@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gerenciamento Diário · Operação Agrícola</title>
-  <meta name="description" content="Dashboard executivo diário da operação agrícola — produção, cota, logística, equipamentos e ofensores.">
+  <meta name="description" content="Dashboard executivo diário da operação agrícola — produção, cota, logística, vinhaça, ofensores e equipamentos.">
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 
   <!-- Fontes e ícones -->
@@ -25,16 +25,17 @@
     <div class="topbar__inner">
       <a class="brand" href="#topo" aria-label="Início">
         <span class="brand__logo">
-          <img src="assets/logo.png" alt="Logo da empresa" id="logoTop" onerror="this.remove(); document.querySelectorAll('.brand__logo').forEach(e=>e.classList.add('is-fallback'));">
+          <img src="assets/logo.png" alt="Logo da empresa" onerror="this.remove(); document.querySelectorAll('.brand__logo').forEach(e=>e.classList.add('is-fallback'));">
           <i class="fa-solid fa-seedling brand__fallback" aria-hidden="true"></i>
         </span>
         <span class="brand__text">
           <strong>Gerenciamento Diário</strong>
-          <small>Centro de Operações Agrícolas · CTT</small>
+          <small>Centro de Operações Agrícolas</small>
         </span>
       </a>
 
       <div class="toolbar" role="toolbar" aria-label="Ações">
+        <span class="report-chip" id="reportChip" title="Relatório carregado"><i class="fa-regular fa-file-lines"></i><span>—</span></span>
         <button class="btn btn--primary" id="btnImport" title="Importar o PDF do relatório diário e atualizar o painel">
           <i class="fa-solid fa-file-arrow-up"></i><span>Importar PDF</span>
         </button>
@@ -57,82 +58,39 @@
     <nav class="subnav" aria-label="Seções">
       <a href="#visao">Visão Geral</a>
       <a href="#inteligencia">Inteligência</a>
-      <a href="#frentes">Frentes</a>
-      <a href="#logistica">Logística</a>
-      <a href="#equipamentos">Equipamentos</a>
+      <a href="#ctt">CTT</a>
       <a href="#maquinas">Máquinas</a>
+      <a href="#logistica">Logística</a>
+      <a href="#vinhaca">Vinhaça</a>
       <a href="#ofensores">Ofensores</a>
-      <a href="#fazendas">Fazendas</a>
-      <a href="#tabela">Tabela Gerencial</a>
+      <a href="#equipamentos">Equipamentos</a>
     </nav>
   </header>
 
-  <!-- ================= FILTROS ================= -->
-  <section class="filters" aria-label="Filtros">
-    <div class="filters__inner">
-      <label class="field field--search">
-        <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="search" id="globalSearch" placeholder="Pesquisa global (fazenda, frente, código...)">
-      </label>
-      <label class="field">
-        <span>Frente</span>
-        <select id="filterFrente"><option value="">Todas as frentes</option></select>
-      </label>
-      <label class="field">
-        <span>Fazenda</span>
-        <select id="filterFazenda"><option value="">Todas as fazendas</option></select>
-      </label>
-      <button class="btn btn--ghost" id="btnClear"><i class="fa-solid fa-filter-circle-xmark"></i><span>Limpar</span></button>
-      <span class="source" id="sourceInfo"><i class="fa-regular fa-clock"></i> carregando…</span>
-    </div>
-  </section>
-
   <main class="container" id="app">
 
-    <!-- ============ CABEÇALHO EXECUTIVO ============ -->
-    <section class="hero" id="visao">
-      <div class="hero__title">
-        <span class="eyebrow">Relatório diário de produção</span>
-        <h1 id="heroDate">—</h1>
-        <p id="heroSub">Consolidado das frentes de colheita, entrega x cota, logística e disponibilidade de frota.</p>
-      </div>
-      <div class="hero__stats">
+    <!-- ============ 1. VISÃO GERAL ============ -->
+    <section class="section section--first" id="visao">
+      <div class="hero">
         <div class="hstat"><span>Total Produzido</span><strong id="hProd">—</strong></div>
         <div class="hstat"><span>Total da Cota</span><strong id="hCota">—</strong></div>
         <div class="hstat"><span>Diferença Consolidada</span><strong id="hDif">—</strong></div>
         <div class="hstat"><span>Eficiência Operacional</span><strong id="hEfic">—</strong></div>
         <div class="hstat"><span>Frentes</span><strong id="hFrentes">—</strong></div>
       </div>
-    </section>
+      <div class="filter-alert" id="filterAlert" hidden></div>
 
-    <!-- ============ KPIs ============ -->
-    <section class="kpis" id="kpis" aria-label="Indicadores principais"></section>
-
-    <!-- ============ INTELIGÊNCIA ============ -->
-    <section class="section" id="inteligencia">
-      <div class="section__head">
-        <h2><i class="fa-solid fa-brain"></i> Inteligência Operacional</h2>
-        <p>Observações geradas automaticamente a partir dos dados do relatório.</p>
-      </div>
-      <div class="insights" id="insights"></div>
-    </section>
-
-    <!-- ============ FRENTES ============ -->
-    <section class="section" id="frentes">
-      <div class="section__head">
-        <h2><i class="fa-solid fa-tractor"></i> Performance das Frentes</h2>
-        <p>Entrega x cota, desvio e velocidade de colheita por frente.</p>
-      </div>
+      <div class="kpis" id="kpis" aria-label="Indicadores principais"></div>
 
       <div class="grid grid--2">
         <article class="card" data-card>
           <header class="card__head">
             <div>
-              <h3>Ranking de Atingimento</h3>
+              <h3>Ranking de Atingimento <span class="h-sub">cota / produção</span></h3>
               <p class="legend-inline">
-                <span class="dot dot--ok"></span>Acima da meta
-                <span class="dot dot--warn"></span>Até 10% abaixo
-                <span class="dot dot--bad"></span>Mais de 10% abaixo
+                <span><span class="dot dot--ok"></span>Acima da meta</span>
+                <span><span class="dot dot--warn"></span>Até 10% abaixo</span>
+                <span><span class="dot dot--bad"></span>Mais de 10% abaixo</span>
               </p>
             </div>
             <div class="card__tools">
@@ -159,7 +117,7 @@
               <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
             </div>
           </header>
-          <div class="chart-box chart-box--lg"><canvas id="chProdMeta"></canvas></div>
+          <div class="chart-box"><canvas id="chProdMeta"></canvas></div>
         </article>
 
         <article class="card" data-card>
@@ -170,7 +128,7 @@
               <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
             </div>
           </header>
-          <div class="chart-box"><canvas id="chDif"></canvas></div>
+          <div class="chart-box chart-box--sm"><canvas id="chDif"></canvas></div>
         </article>
 
         <article class="card" data-card>
@@ -181,27 +139,136 @@
               <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
             </div>
           </header>
-          <div class="chart-box"><canvas id="chVel"></canvas></div>
+          <div class="chart-box chart-box--sm"><canvas id="chVel"></canvas></div>
         </article>
       </div>
     </section>
 
-    <!-- ============ LOGÍSTICA ============ -->
+    <!-- ============ 2. INTELIGÊNCIA OPERACIONAL ============ -->
+    <section class="section" id="inteligencia">
+      <div class="section__head">
+        <h2><i class="fa-solid fa-brain"></i> Inteligência Operacional</h2>
+        <p>Observações automáticas agrupadas por frente, seguidas dos insights gerais.</p>
+      </div>
+      <div class="ig" id="insights"></div>
+    </section>
+
+    <!-- ============ 3. CTT — CENTRO DE CONTROLE TÁTICO ============ -->
+    <section class="section" id="ctt">
+      <div class="section__head">
+        <h2><i class="fa-solid fa-map-location-dot"></i> CTT — Centro de Controle Tático</h2>
+        <p>Produção por fazenda, mapa agrícola e tabela gerencial. Os filtros atualizam todo o painel.</p>
+      </div>
+
+      <div class="ctt">
+        <!-- Lado esquerdo -->
+        <div class="ctt__left">
+          <article class="card" data-card>
+            <header class="card__head">
+              <div><h3>Produção por Fazenda</h3><p class="hint">Toneladas · cor = atingimento da frente</p></div>
+              <div class="card__tools">
+                <button class="icon-btn" data-png="chFazProd" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
+                <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
+              </div>
+            </header>
+            <div class="chart-box chart-box--auto" id="fazProdBox"><canvas id="chFazProd"></canvas></div>
+          </article>
+
+          <article class="card" data-card>
+            <header class="card__head">
+              <div><h3>Mapa TCH x ATR</h3><p class="hint">Bolha = produção · cor = TATR/ha</p></div>
+              <div class="card__tools">
+                <button class="icon-btn" data-png="chFaz" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
+                <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
+              </div>
+            </header>
+            <div class="chart-box"><canvas id="chFaz"></canvas></div>
+            <div class="grad-legend" id="tatrLegend">
+              <span>TATR/ha</span><i></i><span class="grad-legend__lbl"><b id="tatrMin">—</b><b id="tatrMid">—</b><b id="tatrMax">—</b></span>
+            </div>
+          </article>
+        </div>
+
+        <!-- Lado direito -->
+        <div class="ctt__right">
+          <article class="card card--table" data-card>
+            <header class="card__head">
+              <div><h3>Tabela Gerencial Completa</h3><p class="hint">Busca instantânea · clique no cabeçalho para ordenar · <span class="note">* meta rateada pela produção</span></p></div>
+              <div class="card__tools">
+                <button class="btn btn--sm" data-csv="tblGer"><i class="fa-solid fa-file-csv"></i><span>Exportar CSV</span></button>
+                <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
+              </div>
+            </header>
+
+            <div class="filters" aria-label="Filtros avançados">
+              <label class="field field--search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="search" id="globalSearch" placeholder="Pesquisar fazenda, frente, código…">
+              </label>
+              <label class="field">
+                <span>Frente</span>
+                <select id="filterFrente"><option value="">Todas</option></select>
+              </label>
+              <label class="field">
+                <span>Fazenda</span>
+                <select id="filterFazenda"><option value="">Todas</option></select>
+              </label>
+              <button class="btn btn--sm btn--ghost" id="btnClear"><i class="fa-solid fa-filter-circle-xmark"></i><span>Limpar</span></button>
+            </div>
+
+            <div class="agro-kpis" id="agroKpis"></div>
+            <div class="table-wrap"><table id="tblGer" class="display compact nowrap" style="width:100%"></table></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 4. PRODUTIVIDADE DE MÁQUINAS ============ -->
+    <section class="section" id="maquinas">
+      <div class="section__head">
+        <h2><i class="fa-solid fa-gears"></i> Produtividade de Máquinas</h2>
+        <div class="seg" id="maqSeg">
+          <button class="seg__btn is-active" data-maq="colhedoras">Colhedoras</button>
+          <button class="seg__btn" data-maq="transbordos">Transbordos</button>
+        </div>
+      </div>
+      <div class="kpis kpis--sm" id="maqKpis"></div>
+      <div class="grid grid--maq">
+        <article class="card" data-card>
+          <header class="card__head">
+            <div><h3 id="maqTitle">Produção por Colhedora</h3><p class="hint">Cor por frente · tooltip com cargas e t/carga</p></div>
+            <div class="card__tools">
+              <button class="icon-btn" data-png="chMaq" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
+              <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
+            </div>
+          </header>
+          <div class="chart-box"><canvas id="chMaq"></canvas></div>
+        </article>
+        <article class="card" data-card>
+          <header class="card__head"><div><h3>Ranking de Máquinas</h3><p class="hint">Top produção do dia</p></div></header>
+          <ol class="mini-rank" id="maqRank"></ol>
+        </article>
+        <article class="card" data-card>
+          <header class="card__head"><div><h3>Por Frente</h3><p class="hint">Máquinas, produção e t/máquina</p></div></header>
+          <div class="mini-table" id="maqFrente"></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============ 5. OPERAÇÃO LOGÍSTICA ============ -->
     <section class="section" id="logistica">
       <div class="section__head">
         <h2><i class="fa-solid fa-truck-moving"></i> Operação Logística</h2>
-        <p>Composição de transporte por tipo de conjunto e por operação.</p>
-      </div>
-
-      <div class="seg" role="tablist" id="logSeg">
-        <button class="seg__btn is-active" data-log="happening">Happening</button>
-        <button class="seg__btn" data-log="aroeira">Aroeira</button>
-        <button class="seg__btn" data-log="consolidado">Consolidado</button>
+        <div class="seg" role="tablist" id="logSeg">
+          <button class="seg__btn is-active" data-log="happening">Happening</button>
+          <button class="seg__btn" data-log="aroeira">Aroeira</button>
+          <button class="seg__btn" data-log="consolidado">Consolidado</button>
+        </div>
       </div>
 
       <div class="kpis kpis--sm" id="logKpis"></div>
 
-      <div class="grid grid--3">
+      <div class="grid grid--4">
         <article class="card" data-card>
           <header class="card__head">
             <div><h3>Composição (TC)</h3><p class="hint" id="logPieHint">Rodotrem x Tritrem</p></div>
@@ -214,7 +281,7 @@
         </article>
         <article class="card" data-card>
           <header class="card__head">
-            <div><h3>Participação por Operação</h3><p class="hint">Happening x Aroeira (TC)</p></div>
+            <div><h3>Entregas por Operação</h3><p class="hint">Happening x Aroeira (TC)</p></div>
             <div class="card__tools">
               <button class="icon-btn" data-png="chLogDonut" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
               <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
@@ -224,7 +291,7 @@
         </article>
         <article class="card" data-card>
           <header class="card__head">
-            <div><h3>Carga Média (TC/viagem)</h3><p class="hint">Por tipo e operação</p></div>
+            <div><h3>Carga Média</h3><p class="hint">TC por viagem</p></div>
             <div class="card__tools">
               <button class="icon-btn" data-png="chLogTcv" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
               <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
@@ -232,134 +299,93 @@
           </header>
           <div class="chart-box chart-box--sm"><canvas id="chLogTcv"></canvas></div>
         </article>
-      </div>
-    </section>
-
-    <!-- ============ EQUIPAMENTOS ============ -->
-    <section class="section" id="equipamentos">
-      <div class="section__head">
-        <h2><i class="fa-solid fa-screwdriver-wrench"></i> Gestão de Equipamentos</h2>
-        <p>Conjuntos e frotas em operação x manutenção, com disponibilidade.</p>
-      </div>
-      <div class="equip" id="equipCards"></div>
-      <div class="grid grid--2">
         <article class="card" data-card>
           <header class="card__head">
-            <div><h3>Operação x Manutenção</h3><p class="hint">Quantidade de equipamentos</p></div>
+            <div><h3>Distância Média</h3><p class="hint">km por tipo e operação</p></div>
             <div class="card__tools">
-              <button class="icon-btn" data-png="chEquip" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
+              <button class="icon-btn" data-png="chLogDist" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
               <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
             </div>
           </header>
-          <div class="chart-box"><canvas id="chEquip"></canvas></div>
+          <div class="chart-box chart-box--sm"><canvas id="chLogDist"></canvas></div>
         </article>
+      </div>
+
+      <article class="card card--flat" data-card>
+        <header class="card__head"><div><h3>Composições e Frota</h3><p class="hint">TC, viagens, carga média, distância e conjuntos em operação</p></div></header>
+        <div class="table-wrap"><table class="simple-table" id="logTable"></table></div>
+      </article>
+    </section>
+
+    <!-- ============ 6. VINHAÇA ============ -->
+    <section class="section" id="vinhaca">
+      <div class="section__head">
+        <h2><i class="fa-solid fa-droplet"></i> Vinhaça</h2>
+        <p>Aplicação por frente: dimensionado x realizado (ha).</p>
+      </div>
+      <div class="kpis kpis--sm" id="vinKpis"></div>
+      <div class="grid grid--vin">
         <article class="card" data-card>
           <header class="card__head">
-            <div><h3>Aplicação de Vinhaça</h3><p class="hint" id="vinhacaHint">Dimensionado x Realizado (ha)</p></div>
+            <div><h3>Dimensionado x Realizado</h3><p class="hint">Hectares e % de aderência</p></div>
             <div class="card__tools">
               <button class="icon-btn" data-png="chVinhaca" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
               <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
             </div>
           </header>
-          <div class="chart-box"><canvas id="chVinhaca"></canvas></div>
+          <div class="chart-box chart-box--sm"><canvas id="chVinhaca"></canvas></div>
+        </article>
+        <article class="card" data-card>
+          <header class="card__head"><div><h3>Aderência por Frente</h3><p class="hint">Realizado ÷ dimensionado</p></div></header>
+          <div class="ranking ranking--tight" id="vinRank"></div>
         </article>
       </div>
     </section>
 
-    <!-- ============ MÁQUINAS ============ -->
-    <section class="section" id="maquinas">
-      <div class="section__head">
-        <h2><i class="fa-solid fa-gears"></i> Produtividade de Máquinas</h2>
-        <p>Toneladas e cargas por colhedora e transbordo.</p>
-      </div>
-      <div class="seg" id="maqSeg">
-        <button class="seg__btn is-active" data-maq="colhedoras">Colhedoras</button>
-        <button class="seg__btn" data-maq="transbordos">Transbordos</button>
-      </div>
-      <div class="kpis kpis--sm" id="maqKpis"></div>
-      <article class="card" data-card>
-        <header class="card__head">
-          <div><h3 id="maqTitle">Produção por Colhedora</h3><p class="hint">Cor por frente · tooltip com cargas e t/carga</p></div>
-          <div class="card__tools">
-            <button class="icon-btn" data-png="chMaq" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
-            <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
-          </div>
-        </header>
-        <div class="chart-box chart-box--lg"><canvas id="chMaq"></canvas></div>
-      </article>
-    </section>
-
-    <!-- ============ OFENSORES ============ -->
+    <!-- ============ 7. OFENSORES ============ -->
     <section class="section" id="ofensores">
       <div class="section__head">
         <h2><i class="fa-solid fa-triangle-exclamation"></i> Ofensores Operacionais</h2>
-        <p>Ocorrências registradas por turno. Peso = nº de citações do ofensor no dia.</p>
+        <p>Peso = nº de citações do ofensor no dia.</p>
       </div>
       <div class="grid grid--ofe">
+        <div class="turnos" id="turnos"></div>
+        <article class="card" data-card>
+          <header class="card__head"><div><h3>Ranking</h3><p class="hint">Participação no total de citações</p></div></header>
+          <ol class="ofe-rank" id="ofeRank"></ol>
+        </article>
         <article class="card" data-card>
           <header class="card__head">
-            <div><h3>Peso dos Ofensores</h3><p class="hint">Citações por turno</p></div>
+            <div><h3>Peso por Turno</h3><p class="hint">Citações</p></div>
             <div class="card__tools">
               <button class="icon-btn" data-png="chOfe" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
               <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
             </div>
           </header>
-          <div class="chart-box"><canvas id="chOfe"></canvas></div>
-        </article>
-        <article class="card" data-card>
-          <header class="card__head"><div><h3>Ranking</h3><p class="hint">Participação no total de citações</p></div></header>
-          <ol class="ofe-rank" id="ofeRank"></ol>
-        </article>
-      </div>
-      <div class="turnos" id="turnos"></div>
-    </section>
-
-    <!-- ============ FAZENDAS ============ -->
-    <section class="section" id="fazendas">
-      <div class="section__head">
-        <h2><i class="fa-solid fa-map-location-dot"></i> Produção por Fazenda</h2>
-        <p>Mapa de qualidade (TCH x ATR, tamanho = produção) e tabela inteligente.</p>
-      </div>
-      <div class="grid grid--faz">
-        <article class="card" data-card>
-          <header class="card__head">
-            <div><h3>Mapa TCH x ATR</h3><p class="hint">Bolha = produção (t)</p></div>
-            <div class="card__tools">
-              <button class="icon-btn" data-png="chFaz" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
-              <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
-            </div>
-          </header>
-          <div class="chart-box chart-box--lg"><canvas id="chFaz"></canvas></div>
-        </article>
-        <article class="card card--table" data-card>
-          <header class="card__head">
-            <div><h3>Fazendas</h3><p class="hint">Pesquise, ordene e filtre</p></div>
-            <div class="card__tools">
-              <button class="icon-btn" data-csv="tblFaz" title="Exportar CSV"><i class="fa-solid fa-file-csv"></i></button>
-              <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
-            </div>
-          </header>
-          <div class="table-wrap"><table id="tblFaz" class="display compact" style="width:100%"></table></div>
+          <div class="chart-box chart-box--sm"><canvas id="chOfe"></canvas></div>
         </article>
       </div>
     </section>
 
-    <!-- ============ TABELA GERENCIAL ============ -->
-    <section class="section" id="tabela">
+    <!-- ============ 8. EQUIPAMENTOS ============ -->
+    <section class="section" id="equipamentos">
       <div class="section__head">
-        <h2><i class="fa-solid fa-table-list"></i> Tabela Gerencial Completa</h2>
-        <p>Todos os indicadores por fazenda. <span class="note">* Meta de frentes com mais de uma fazenda rateada pela produção.</span></p>
+        <h2><i class="fa-solid fa-screwdriver-wrench"></i> Equipamentos</h2>
+        <p>Operação, manutenção e disponibilidade.</p>
       </div>
-      <article class="card card--table" data-card>
-        <header class="card__head">
-          <div><h3>Indicadores por Fazenda</h3><p class="hint">Busca instantânea · clique no cabeçalho para ordenar</p></div>
-          <div class="card__tools">
-            <button class="btn btn--sm" data-csv="tblGer"><i class="fa-solid fa-file-csv"></i><span>Exportar CSV</span></button>
-            <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
-          </div>
-        </header>
-        <div class="table-wrap"><table id="tblGer" class="display compact nowrap" style="width:100%"></table></div>
-      </article>
+      <div class="grid grid--equip">
+        <div class="equip" id="equipCards"></div>
+        <article class="card" data-card>
+          <header class="card__head">
+            <div><h3>Operação x Manutenção</h3><p class="hint" id="equipHint">Quantidade de equipamentos</p></div>
+            <div class="card__tools">
+              <button class="icon-btn" data-png="chEquip" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
+              <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
+            </div>
+          </header>
+          <div class="chart-box chart-box--sm"><canvas id="chEquip"></canvas></div>
+        </article>
+      </div>
     </section>
   </main>
 
