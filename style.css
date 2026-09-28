@@ -600,7 +600,7 @@ div.dt-container .dt-info, div.dt-container .dt-length, div.dt-container .dt-sea
 /* KPIs: 5 cards em uma linha no desktop */
 .kpis--in { margin: 0 0 8px; }
 .kpis--in .kpi { box-shadow: none; }
-@media (min-width: 1300px) { #kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (min-width: 1300px) { #kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
 /* ---------------- Colhedoras x Transbordos (análise diária) ---------------- */
 .cxt-resumo { display: flex; flex-direction: row; gap: 12px; align-items: flex-start; padding: 12px 14px; margin-bottom: var(--gap); }

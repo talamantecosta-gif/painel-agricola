@@ -641,7 +641,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     ].join('');
     $('#kpis').innerHTML = [
       kpiCard({ label: 'Atingimento da Cota', value: fmt(T.pct, 1), unit: '%', icon: 'fa-bullseye', st, sub: `${fmtSigned((T.pct || 0) - 100, 1)}% vs. cota`, bar: T.pct, barCls: st === 'ok' ? '' : st }),
-      kpiCard({ label: 'Produção Média / Frente', value: fmt(T.n ? T.producao / T.n : 0, 0), unit: 't', icon: 'fa-calculator', sub: `${fmt(T.producao, 0)} t ÷ ${T.n} frentes` }),
       best && withCota.length > 1 ? kpiCard({ label: 'Melhor Frente', value: escapeHtml(best.frente), icon: 'fa-trophy', st: 'ok', sub: `<b>${fmtPct(best.pct)}</b> · ${fmtSigned(best.diferenca, 0)} t` }) : '',
       worst && withCota.length > 1 ? kpiCard({ label: 'Pior Frente', value: escapeHtml(worst.frente), icon: 'fa-arrow-trend-down', st: worst.status, sub: `<b>${fmtPct(worst.pct)}</b> · ${fmtSigned(worst.diferenca, 0)} t` }) : '',
       Number.isFinite(indispTotal(M, fr)) ? kpiCard({ label: 'Indisponibilidade Mec.', value: fmt(indispTotal(M, fr), 1), unit: '%', icon: 'fa-screwdriver-wrench', st: statusIndisp(indispTotal(M, fr), M.metas.indisponibilidade), sub: `meta ≤ ${M.metas.indisponibilidade}% · ${fr.filter(f => statusIndisp(f.indisp, M.metas.indisponibilidade) === 'bad' || statusIndisp(f.indisp, M.metas.indisponibilidade) === 'warn').length} frente(s) acima` }) : '',
