@@ -774,19 +774,23 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     return state.M.linhas.filter(l => fset.has(l.frente) && (!state.fazenda || l.fazenda === state.fazenda));
   };
 
-  // Escala de cor TATR/ha: vermelho (baixo) → amarelo (médio) → verde (alto)
-  const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+  // Escala de cor TATR/ha por faixa agronômica:
+  // < 10 atenção (vermelho) · 10–12 médio (amarelo) · 12–15 bom a muito bom (verde) · > 15 excelência (verde escuro)
   const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
-  const [C_LO, C_MID, C_HI] = ['#C62828', '#F9A825', '#2E7D32'].map(hex);
+  const TATR_FAIXAS = [
+    { max: 10, cor: '#C62828' },
+    { max: 12, cor: '#F9A825' },
+    { max: 15, cor: '#7CB342' },
+    { max: Infinity, cor: '#1B5E20' },
+  ];
   const tatrRange = () => {
     const v = state.M.linhas.map(l => l.tatr).filter(Number.isFinite);
     return v.length ? [Math.min(...v), Math.max(...v)] : [0, 1];
   };
   const tatrColor = (t, alpha = 1) => {
-    const [lo, hi] = tatrRange();
-    const u = hi > lo ? Math.max(0, Math.min(1, (t - lo) / (hi - lo))) : 0.5;
-    const [a, b, k] = u < 0.5 ? [C_LO, C_MID, u * 2] : [C_MID, C_HI, (u - 0.5) * 2];
-    return `rgba(${lerp(a[0], b[0], k)},${lerp(a[1], b[1], k)},${lerp(a[2], b[2], k)},${alpha})`;
+    const f = TATR_FAIXAS.find(x => t < x.max) || TATR_FAIXAS[TATR_FAIXAS.length - 1];
+    const [r, g, b] = hex(f.cor);
+    return `rgba(${r},${g},${b},${alpha})`;
   };
 
   const renderAgroKpis = () => {
@@ -819,10 +823,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const renderFazChart = () => {
     const L = filteredLinhas().filter(l => Number.isFinite(l.tatr));
     const maxTc = Math.max(...state.M.linhas.map(l => l.tc), 1);
-    const [lo, hi] = tatrRange();
-    $('#tatrMin').textContent = fmt(lo, 2);
-    $('#tatrMid').textContent = fmt((lo + hi) / 2, 2);
-    $('#tatrMax').textContent = fmt(hi, 2);
+    $('#tatrMin').textContent = '10';
+    $('#tatrMid').textContent = '12';
+    $('#tatrMax').textContent = '15';
     makeChart('chFaz', {
       type: 'bubble',
       data: { datasets: L.map(l => ({
