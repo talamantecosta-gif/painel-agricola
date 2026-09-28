@@ -5,7 +5,7 @@
   "semDados": false,
   "mensagem": null,
   "unidadeHoras": "h por máquina no dia (motor ligado)",
-  "resumo": "Frente 4 foi a mais equilibrada entre colhedoras e transbordos. Os maiores impactos ficaram na Frente 5 e na Frente 2: as colhedoras perderam 2,6 h e 2,0 h aguardando transbordo. Na Frente 5 a causa principal foi a baixa disponibilidade dos transbordos (66%); na Frente 2, a falta de sincronia entre os conjuntos somada à disponibilidade baixa das colhedoras (67%).",
+  "resumo": "Frente 4 foi a mais equilibrada entre colhedoras e transbordos. Os maiores impactos ficaram na Frente 5 e na Frente 2: as colhedoras perderam 2,6 h e 2,0 h aguardando transbordo. Na Frente 5 a causa principal foi a baixa Disponibilidade Mecânica dos transbordos (66%); na Frente 2, a falta de sincronia entre os conjuntos somada à Disponibilidade Mecânica baixa das colhedoras (67%).",
   "frentes": [
     {
       "frente": "Frente 1",
@@ -24,13 +24,13 @@
         "aguardColhedora": 1.3,
         "fila": 0.7
       },
-      "analise": "Transbordos disponíveis (97,6%) ficaram 2,0 h parados aguardando colhedora ou em fila, enquanto as colhedoras operaram com eficiência baixa (78,5%) e manobra elevada (14% do produtivo). O ritmo da frente foi limitado pela colhedora, não pelo transbordo.",
+      "analise": "Transbordos com Disponibilidade Mecânica de 97,6% ficaram 2,0 h parados aguardando colhedora ou em fila, enquanto as colhedoras operaram com Eficiência do Motor baixa (78,5%) e manobra elevada (14% do produtivo). O ritmo da frente foi limitado pela colhedora, não pelo transbordo.",
       "acao": "Reduzir manobra das colhedoras (sistematização do talhão e posicionamento de entrada) e avaliar remanejar transbordo excedente."
     },
     {
       "frente": "Frente 2",
       "status": "bad",
-      "titulo": "Falta de sincronia e colhedora indisponível",
+      "titulo": "Falta de sincronia entre conjuntos",
       "colhedora": {
         "eficiencia": 88.61,
         "disponibilidade": 67.24,
@@ -44,7 +44,7 @@
         "aguardColhedora": 1.89,
         "fila": 0.71
       },
-      "analise": "Colhedoras aguardaram transbordo por 2,0 h e, ao mesmo tempo, os transbordos aguardaram colhedora por 1,9 h: os conjuntos esperaram um pelo outro. A disponibilidade das colhedoras ficou em 67% (1,1 h de manutenção corretiva), reduzindo ainda mais o corte.",
+      "analise": "Colhedoras aguardaram transbordo por 2,0 h e, ao mesmo tempo, os transbordos aguardaram colhedora por 1,9 h: os conjuntos esperaram um pelo outro. A Disponibilidade Mecânica das colhedoras ficou em 67% (1,1 h de manutenção corretiva), reduzindo ainda mais o corte.",
       "acao": "Ajustar o ciclo e o posicionamento dos transbordos junto às colhedoras e tratar a corretiva das colhedoras da frente."
     },
     {
@@ -104,7 +104,7 @@
         "aguardColhedora": 1.42,
         "fila": 0.63
       },
-      "analise": "Maior impacto do dia: colhedoras perderam 2,6 h aguardando transbordo. A disponibilidade dos transbordos foi de apenas 66%, reduzindo os conjuntos em operação. As colhedoras também tiveram disponibilidade baixa (70%).",
+      "analise": "Maior impacto do dia: colhedoras perderam 2,6 h aguardando transbordo. A Disponibilidade Mecânica dos transbordos foi de apenas 66%, reduzindo os conjuntos em operação. As colhedoras também tiveram Disponibilidade Mecânica baixa (70%).",
       "acao": "Prioridade na manutenção dos transbordos da frente e, se necessário, remanejar transbordo da Frente 1."
     }
   ]

@@ -406,15 +406,15 @@ function buildExecutive(M, frentes) {
     if (perda && perda.frente === f.frente && frentes.length > 1) s.push({ st: 'bad', key: true, txt: `Principal ofensora (${fmt(-f.diferenca / deficit * 100, 0)}%)` });
     if (Number.isFinite(f.eficiencia)) {
       const st = statusVsMeta(f.eficiencia, metas.eficiencia);
-      if (bestEf && bestEf.frente === f.frente && frentes.length > 1) s.push({ st: 'ok', key: true, txt: `Melhor eficiência ${fmtPct(f.eficiencia)}` });
-      else if (st === 'bad') s.push({ st, txt: `Eficiência crítica ${fmtPct(f.eficiencia)}` });
-      else if (st === 'warn') s.push({ st, txt: `Eficiência ${fmtPct(f.eficiencia)} < meta` });
-      else if (f.eficiencia >= metas.eficiencia + 5) s.push({ st: 'ok', txt: `Boa eficiência ${fmtPct(f.eficiencia)}` });
+      if (bestEf && bestEf.frente === f.frente && frentes.length > 1) s.push({ st: 'ok', key: true, txt: `Melhor Eficiência Operacional ${fmtPct(f.eficiencia)}` });
+      else if (st === 'bad') s.push({ st, txt: `Eficiência Operacional crítica ${fmtPct(f.eficiencia)}` });
+      else if (st === 'warn') s.push({ st, txt: `Eficiência Operacional ${fmtPct(f.eficiencia)} < meta` });
+      else if (f.eficiencia >= metas.eficiencia + 5) s.push({ st: 'ok', txt: `Boa Eficiência Operacional ${fmtPct(f.eficiencia)}` });
     }
     if (Number.isFinite(f.aderencia)) {
-      if (f.aderencia >= 0) s.push({ st: 'ok', txt: `Boa velocidade ${fmtSigned(f.aderencia, 1)}%` });
-      else if (f.aderencia < -10) s.push({ st: 'bad', txt: `Velocidade ${fmtSigned(f.aderencia, 1)}%` });
-      else if (f.aderencia < -5) s.push({ st: 'warn', txt: `Velocidade ${fmtSigned(f.aderencia, 1)}%` });
+      if (f.aderencia >= 0) s.push({ st: 'ok', txt: `Boa Aderência de Velocidade ${fmtSigned(f.aderencia, 1)}%` });
+      else if (f.aderencia < -10) s.push({ st: 'bad', txt: `Aderência de Velocidade ${fmtSigned(f.aderencia, 1)}%` });
+      else if (f.aderencia < -5) s.push({ st: 'warn', txt: `Aderência de Velocidade ${fmtSigned(f.aderencia, 1)}%` });
     }
     const iv = tg.impVeg && f.impVeg > tg.impVeg * 1.3, im = tg.impMin && f.impMin > tg.impMin * 1.3;
     if (iv && im) s.push({ st: 'warn', txt: `Impureza alta ${fmt(f.impVeg, 1)}% veg` });
@@ -720,7 +720,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
               label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y)} t`,
               afterBody: items => {
                 const f = fr[items[0].dataIndex];
-                return ['', `Diferença: ${fmtSigned(f.diferenca)} t`, `Atingimento: ${fmtPct(f.pct)}`, `Eficiência: ${fmtPct(f.eficiencia)}`, `TCH: ${fmt(f.tch, 0)} · ATR: ${fmt(f.atr, 2)}`, `Fazendas: ${f.fazendas.map(z => titleCase(z.fazenda)).join(', ')}`];
+                return ['', `Diferença: ${fmtSigned(f.diferenca)} t`, `Atingimento: ${fmtPct(f.pct)}`, `Eficiência Operacional: ${fmtPct(f.eficiencia)}`, `TCH: ${fmt(f.tch, 0)} · ATR: ${fmt(f.atr, 2)}`, `Fazendas: ${f.fazendas.map(z => titleCase(z.fazenda)).join(', ')}`];
               },
             },
           },
@@ -748,21 +748,21 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       data: {
         labels: all.map(f => f.frente),
         datasets: [
-          { type: 'bar', label: 'Dimensionada (km/h)', data: all.map(f => f.velDim), backgroundColor: '#81C784', borderRadius: 5, maxBarThickness: 26, yAxisID: 'y' },
-          { type: 'bar', label: 'Realizada (km/h)', data: all.map(f => f.velReal), backgroundColor: '#1B5E20', borderRadius: 5, maxBarThickness: 26, yAxisID: 'y' },
-          { type: 'line', label: 'Aderência (%)', data: all.map(f => f.aderencia), borderColor: '#F9A825', backgroundColor: all.map(f => f.aderencia >= 0 ? '#2E7D32' : f.aderencia >= -10 ? '#F9A825' : '#C62828'), pointRadius: 5, pointHoverRadius: 7, borderWidth: 2, borderDash: [5, 4], yAxisID: 'y2' },
+          { type: 'bar', label: 'Velocidade Dimensionada (km/h)', data: all.map(f => f.velDim), backgroundColor: '#81C784', borderRadius: 5, maxBarThickness: 26, yAxisID: 'y' },
+          { type: 'bar', label: 'Velocidade Realizada (km/h)', data: all.map(f => f.velReal), backgroundColor: '#1B5E20', borderRadius: 5, maxBarThickness: 26, yAxisID: 'y' },
+          { type: 'line', label: 'Aderência de Velocidade (%)', data: all.map(f => f.aderencia), borderColor: '#F9A825', backgroundColor: all.map(f => f.aderencia >= 0 ? '#2E7D32' : f.aderencia >= -10 ? '#F9A825' : '#C62828'), pointRadius: 5, pointHoverRadius: 7, borderWidth: 2, borderDash: [5, 4], yAxisID: 'y2' },
         ],
       },
       options: {
         interaction: { mode: 'index', intersect: false },
         scales: {
           y: { beginAtZero: true, title: { display: true, text: 'km/h' } },
-          y2: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' }, title: { display: true, text: 'aderência' } },
+          y2: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Aderência de Velocidade' } },
           x: { grid: { display: false } },
         },
         plugins: {
           legend: { position: 'bottom' },
-          tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y2' ? ` Aderência: ${fmtSigned(c.parsed.y, 2)}%` : ` ${c.dataset.label}: ${fmt(c.parsed.y, 1)}` } },
+          tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y2' ? ` Aderência de Velocidade: ${fmtSigned(c.parsed.y, 2)}%` : ` ${c.dataset.label}: ${fmt(c.parsed.y, 1)}` } },
         },
       },
     });
@@ -866,11 +866,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       { data: 'meta', title: 'Meta (t)', className: 'num', render: (v, t, r) => t === 'display' ? (v == null ? '—' : fmt(v, 0) + (r.rateio ? '<span class="tag">*</span>' : '')) : v },
       { data: 'dif', title: 'Dif. (t)', className: 'num', render: (v, t) => t === 'display' ? (v == null ? '—' : `<span class="${v >= 0 ? 't-ok' : 't-bad'}"><b>${fmtSigned(v, 0)}</b></span>`) : v },
       pctPill('pct', 'Ating.'),
-      numCol('velDim', 'Vel. Plan.', 1),
-      numCol('velReal', 'Vel. Real', 1),
-      { data: 'aderencia', title: 'Aderência', className: 'num', render: (v, t) => t === 'display' ? `<span class="${v >= 0 ? 't-ok' : v >= -10 ? 't-warn' : 't-bad'}">${fmtSigned(v, 2)}%</span>` : v },
+      numCol('velDim', 'Velocidade Dimensionada', 1),
+      numCol('velReal', 'Velocidade Realizada', 1),
+      { data: 'aderencia', title: 'Aderência de Velocidade', className: 'num', render: (v, t) => t === 'display' ? `<span class="${v >= 0 ? 't-ok' : v >= -10 ? 't-warn' : 't-bad'}">${fmtSigned(v, 2)}%</span>` : v },
       numCol('tch', 'TCH', 0),
-      efPill('eficiencia', 'Efic.'),
+      efPill('eficiencia', 'Eficiência Operacional'),
       { data: 'indisp', title: 'Indisp.', className: 'num', render: (v, t) => t === 'display' ? (Number.isFinite(v) ? `<span class="pill ${statusIndisp(v, state.M.metas.indisponibilidade)}">${fmt(v, 0)}%</span>` : '—') : (v ?? '') },
       qualCol('atr', 'ATR'),
       { data: 'tatr', title: 'TATR/ha', className: 'num', render: (v, t) => t === 'display' ? (v == null ? '<span class="muted">—</span>' : `<span class="tatr-dot" style="background:${tatrColor(v)}"></span>${fmt(v, 2)}`) : v },
@@ -1167,7 +1167,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     }
     const dt = A.data ? A.data.split('-').reverse().join('/') : '';
     $('#cxtMeta').textContent = `Análise de ${dt} · ${A.fonte || 'Power BI COA'}`;
-    res.innerHTML = `<i class="fa-solid fa-clipboard-check"></i><div><p>${escapeHtml(A.resumo || '')}</p><small>Horas = ${escapeHtml(A.unidadeHoras || 'h por máquina no dia')}. Referência de eficiência e disponibilidade: 85%.</small></div>`;
+    res.innerHTML = `<i class="fa-solid fa-clipboard-check"></i><div><p>${escapeHtml(A.resumo || '')}</p><small>Horas = ${escapeHtml(A.unidadeHoras || 'h por máquina no dia')}. Referência de Eficiência do Motor e Disponibilidade Mecânica: 85%.</small></div>`;
     const alvo = state.frente ? numFrente(state.frente) : null;
     const lista = A.frentes.filter(f => alvo == null || numFrente(f.frente) === alvo);
     const cel = (v, fn, suf) => (Number.isFinite(v) ? `<i class="sem sem--${fn(v)}"></i>${fmt(v, 1)}${suf}` : '—');
@@ -1179,9 +1179,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         <table class="cx__t">
           <thead><tr><th></th><th>Colhedora</th><th>Transbordo</th></tr></thead>
           <tbody>
-            <tr><td>Eficiência</td><td>${cel(c.eficiencia, semEq, '%')}</td><td>${cel(t.eficiencia, semEq, '%')}</td></tr>
-            <tr><td>Disponibilidade</td><td>${cel(c.disponibilidade, semEq, '%')}</td><td>${cel(t.disponibilidade, semEq, '%')}</td></tr>
-            <tr><td title="Colhedora: aguardando transbordo · Transbordo: aguardando colhedora + fila">Espera</td><td>${cel(c.aguardTransbordo, semEspera, ' h')}</td><td>${cel(espT, semEspera, ' h')}</td></tr>
+            <tr><td>Eficiência do Motor</td><td>${cel(c.eficiencia, semEq, '%')}</td><td>${cel(t.eficiencia, semEq, '%')}</td></tr>
+            <tr><td>Disponibilidade Mecânica</td><td>${cel(c.disponibilidade, semEq, '%')}</td><td>${cel(t.disponibilidade, semEq, '%')}</td></tr>
+            <tr><td title="Colhedora: aguardando transbordo · Transbordo: aguardando colhedora + fila">Aguardando</td><td>${cel(c.aguardTransbordo, semEspera, ' h')}</td><td>${cel(espT, semEspera, ' h')}</td></tr>
           </tbody>
         </table>
         <p class="cx__a">${escapeHtml(f.analise || '')}</p>
@@ -1243,12 +1243,12 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const safe = (...fns) => fns.forEach(fn => { try { fn(); } catch (e) { console.error(`[painel] falha em ${fn.name}:`, e); } });
   const renderAll = () => {
     if (!state.M) return;
-    safe(renderHeader, renderKpis, renderResumo, renderRanking, renderFrenteCharts, renderInteligencia,
+    safe(renderHeader, renderKpis, renderFrenteCharts, renderInteligencia,
       renderMaquinas, renderLogistica, renderVinhaca, renderOfensores, renderEquip, renderIndisp,
       renderAgroKpis, renderFazChart, renderTables);
   };
   const renderFiltered = () => {
-    safe(renderHeader, renderKpis, renderResumo, renderRanking, renderFrenteCharts, renderInteligencia,
+    safe(renderHeader, renderKpis, renderFrenteCharts, renderInteligencia,
       renderMaquinas, renderIndisp, renderCxt, renderAgroKpis, renderFazChart, applyTableFilters);
   };
 
@@ -1412,7 +1412,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   $('#btnClear').addEventListener('click', () => { state.frente = ''; state.fazenda = ''; state.q = ''; state.status = ''; $('#globalSearch').value = ''; $('#filterStatus').value = ''; fillFilters(); renderFiltered(); });
   $('#filterStatus').addEventListener('change', e => { state.status = e.target.value; applyTableFilters(); });
 
-  $('#rankSort').addEventListener('change', e => { state.rankSort = e.target.value; renderRanking(); });
+
 
   // Arrastar e soltar PDF
   let dragN = 0;

@@ -16,7 +16,7 @@
   <!-- DataTables -->
   <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
 
-  <link rel="stylesheet" href="style.css?v=20260928b">
+  <link rel="stylesheet" href="style.css?v=20260928c">
 </head>
 <body>
 
@@ -57,12 +57,11 @@
 
     <nav class="subnav" aria-label="Seções">
       <a href="#visao">Visão Geral</a>
-      <a href="#resumo">Resumo</a>
       <a href="#inteligencia">Inteligência</a>
-      <a href="#frentes">Frentes</a>
+      <a href="#frentes">Produção x Meta</a>
       <a href="#indisponibilidade">Indisponibilidade</a>
-      <a href="#maquinas">Máquinas</a>
       <a href="#cxt">Colhedoras x Transbordos</a>
+      <a href="#maquinas">Máquinas</a>
       <a href="#logistica">Logística</a>
       <a href="#vinhaca">Vinhaça</a>
       <a href="#ofensores">Ofensores</a>
@@ -101,18 +100,6 @@
       <div class="kpis" id="kpis" aria-label="Indicadores principais"></div>
     </section>
 
-    <!-- ============ RESUMO EXECUTIVO ============ -->
-    <section class="section" id="resumo">
-      <div class="section__head">
-        <h2><i class="fa-solid fa-bolt"></i> Resumo Executivo do Dia</h2>
-        <p class="legend-inline">
-          <span><span class="dot dot--ok"></span>Acima da meta</span>
-          <span><span class="dot dot--warn"></span>Até 10% abaixo</span>
-          <span><span class="dot dot--bad"></span>Mais de 10% abaixo</span>
-        </p>
-      </div>
-      <div class="card resumo"><div class="resumo__grid" id="resumoGrid"></div></div>
-    </section>
 
     <!-- ============ INTELIGÊNCIA OPERACIONAL ============ -->
     <section class="section" id="inteligencia">
@@ -130,27 +117,9 @@
       </div>
     </section>
 
-    <!-- ============ PERFORMANCE DAS FRENTES ============ -->
+    <!-- ============ PRODUÇÃO x META · DIFERENÇA · VELOCIDADE ============ -->
     <section class="section" id="frentes">
-      <div class="section__head">
-        <h2><i class="fa-solid fa-tractor"></i> Performance das Frentes</h2>
-        <p>Entrega x cota, desvio e velocidade de colheita por frente.</p>
-      </div>
       <div class="grid grid--2">
-        <article class="card" data-card>
-          <header class="card__head">
-            <div><h3>Ranking de Atingimento</h3><p class="hint">Cota / produção por frente</p></div>
-            <div class="card__tools">
-              <select id="rankSort" class="mini-select" aria-label="Ordenar ranking">
-                <option value="pct">% Atingimento</option>
-                <option value="dif">Diferença</option>
-                <option value="prod">Produção</option>
-              </select>
-              <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
-            </div>
-          </header>
-          <div class="ranking" id="ranking"></div>
-        </article>
         <article class="card" data-card>
           <header class="card__head">
             <div><h3>Produção x Meta</h3><p class="hint">Ctrl + roda do mouse para zoom · arraste para mover</p></div>
@@ -170,19 +139,20 @@
               <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
             </div>
           </header>
-          <div class="chart-box chart-box--sm"><canvas id="chDif"></canvas></div>
-        </article>
-        <article class="card" data-card>
-          <header class="card__head">
-            <div><h3>Velocidade de Colheita</h3><p class="hint">Dimensionada x Realizada (km/h) e % de aderência</p></div>
-            <div class="card__tools">
-              <button class="icon-btn" data-png="chVel" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
-              <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
-            </div>
-          </header>
-          <div class="chart-box chart-box--sm"><canvas id="chVel"></canvas></div>
+          <div class="chart-box"><canvas id="chDif"></canvas></div>
         </article>
       </div>
+
+      <article class="card card--wide" data-card>
+        <header class="card__head">
+          <div><h3>Velocidade de Colheita</h3><p class="hint">Velocidade Dimensionada x Velocidade Realizada (km/h) e Aderência de Velocidade (%)</p></div>
+          <div class="card__tools">
+            <button class="icon-btn" data-png="chVel" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
+            <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
+          </div>
+        </header>
+        <div class="chart-box"><canvas id="chVel"></canvas></div>
+      </article>
     </section>
 
     <!-- ============ INDISPONIBILIDADE MECÂNICA ============ -->
@@ -202,6 +172,16 @@
         <div class="kpis kpis--sm kpis--in" id="indispKpis"></div>
         <div class="chart-box chart-box--sm"><canvas id="chIndisp"></canvas></div>
       </article>
+    </section>
+
+    <!-- ============ COLHEDORAS x TRANSBORDOS (análise diária do BI) ============ -->
+    <section class="section" id="cxt">
+      <div class="section__head">
+        <h2><i class="fa-solid fa-link"></i> Colhedoras x Transbordos</h2>
+        <p id="cxtMeta">Análise do dia anterior por frente · fonte Power BI COA</p>
+      </div>
+      <div class="card cxt-resumo" id="cxtResumo"></div>
+      <div class="cxt" id="cxtGrid"></div>
     </section>
 
 
@@ -237,15 +217,6 @@
       </div>
     </section>
 
-    <!-- ============ COLHEDORAS x TRANSBORDOS (análise diária do BI) ============ -->
-    <section class="section" id="cxt">
-      <div class="section__head">
-        <h2><i class="fa-solid fa-link"></i> Colhedoras x Transbordos</h2>
-        <p id="cxtMeta">Análise do dia anterior por frente · fonte Power BI COA</p>
-      </div>
-      <div class="card cxt-resumo" id="cxtResumo"></div>
-      <div class="cxt" id="cxtGrid"></div>
-    </section>
 
 
     <!-- ============ OPERAÇÃO LOGÍSTICA ============ -->
@@ -456,6 +427,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-  <script src="script.js?v=20260928b"></script>
+  <script src="script.js?v=20260928c"></script>
 </body>
 </html>

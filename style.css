@@ -626,3 +626,8 @@ div.dt-container .dt-info, div.dt-container .dt-length, div.dt-container .dt-sea
 @media (max-width: 900px) { .cxt { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .cxt { grid-template-columns: 1fr; } }
 @media print { .cx { break-inside: avoid; page-break-inside: avoid; box-shadow: none; } }
+
+/* Card em largura total abaixo de uma grade */
+.card--wide { margin-top: var(--gap); }
+.cx__t td:first-child { white-space: normal; line-height: 1.25; padding-right: 6px; }
+.cx { overflow: hidden; }
