@@ -1149,6 +1149,54 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     });
   };
 
+  /* ---------- Render: colhedoras x transbordos (analise.json) ---------- */
+  let ANALISE = null;
+  const numFrente = n => { const m = String(n || '').match(/(\d+)/); return m ? +m[1] : null; };
+  const semEq = v => (v >= 85 ? 'ok' : v >= 76.5 ? 'warn' : 'bad');       // eficiência / disponibilidade (meta 85%)
+  const semEspera = v => (v <= 0.5 ? 'ok' : v <= 1.5 ? 'warn' : 'bad');   // horas de espera por máquina
+  const renderCxt = () => {
+    const res = $('#cxtResumo'), grid = $('#cxtGrid');
+    if (!res || !grid) return;
+    const A = ANALISE;
+    const vazio = !A || A.semDados || !Array.isArray(A.frentes) || !A.frentes.length;
+    if (vazio) {
+      $('#cxtMeta').textContent = 'Análise do dia anterior por frente · fonte Power BI COA';
+      res.innerHTML = `<p class="cxt-vazio"><i class="fa-regular fa-circle-question"></i> ${escapeHtml((A && A.mensagem) || 'Não possui dados para análise.')}</p>`;
+      grid.innerHTML = '';
+      return;
+    }
+    const dt = A.data ? A.data.split('-').reverse().join('/') : '';
+    $('#cxtMeta').textContent = `Análise de ${dt} · ${A.fonte || 'Power BI COA'}`;
+    res.innerHTML = `<i class="fa-solid fa-clipboard-check"></i><div><p>${escapeHtml(A.resumo || '')}</p><small>Horas = ${escapeHtml(A.unidadeHoras || 'h por máquina no dia')}. Referência de eficiência e disponibilidade: 85%.</small></div>`;
+    const alvo = state.frente ? numFrente(state.frente) : null;
+    const lista = A.frentes.filter(f => alvo == null || numFrente(f.frente) === alvo);
+    const cel = (v, fn, suf) => (Number.isFinite(v) ? `<i class="sem sem--${fn(v)}"></i>${fmt(v, 1)}${suf}` : '—');
+    grid.innerHTML = lista.map(f => {
+      const c = f.colhedora || {}, t = f.transbordo || {};
+      const espT = (Number(t.aguardColhedora) || 0) + (Number(t.fila) || 0);
+      return `<article class="cx">
+        <header><strong>${escapeHtml(f.frente)}</strong><span class="pill ${escapeHtml(f.status || 'warn')}">${escapeHtml(f.titulo || '')}</span></header>
+        <table class="cx__t">
+          <thead><tr><th></th><th>Colhedora</th><th>Transbordo</th></tr></thead>
+          <tbody>
+            <tr><td>Eficiência</td><td>${cel(c.eficiencia, semEq, '%')}</td><td>${cel(t.eficiencia, semEq, '%')}</td></tr>
+            <tr><td>Disponibilidade</td><td>${cel(c.disponibilidade, semEq, '%')}</td><td>${cel(t.disponibilidade, semEq, '%')}</td></tr>
+            <tr><td title="Colhedora: aguardando transbordo · Transbordo: aguardando colhedora + fila">Espera</td><td>${cel(c.aguardTransbordo, semEspera, ' h')}</td><td>${cel(espT, semEspera, ' h')}</td></tr>
+          </tbody>
+        </table>
+        <p class="cx__a">${escapeHtml(f.analise || '')}</p>
+        ${f.acao ? `<p class="cx__acao"><b>Ação:</b> ${escapeHtml(f.acao)}</p>` : ''}
+      </article>`;
+    }).join('') || '<div class="empty">A frente filtrada não consta no BI (somente Frentes 1 a 5).</div>';
+  };
+  const loadAnalise = async () => {
+    try {
+      const r = await fetch('analise.json', { cache: 'no-store' });
+      ANALISE = r.ok ? await r.json() : null;
+    } catch (e) { ANALISE = null; }
+    try { renderCxt(); } catch (e) { console.error('[painel] falha em renderCxt:', e); }
+  };
+
   /* ---------- Render: indisponibilidade mecânica ---------- */
   const renderIndisp = () => {
     const M = state.M, meta = M.metas.indisponibilidade;
@@ -1201,7 +1249,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   };
   const renderFiltered = () => {
     safe(renderHeader, renderKpis, renderResumo, renderRanking, renderFrenteCharts, renderInteligencia,
-      renderMaquinas, renderIndisp, renderAgroKpis, renderFazChart, applyTableFilters);
+      renderMaquinas, renderIndisp, renderCxt, renderAgroKpis, renderFazChart, applyTableFilters);
   };
 
   const setData = (raw, { persist = false } = {}) => {
@@ -1417,8 +1465,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   syncTop(); window.addEventListener('resize', syncTop);
 
   $('#year').textContent = new Date().getFullYear();
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadInitial);
-  else loadInitial();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { loadInitial(); loadAnalise(); });
+  else { loadInitial(); loadAnalise(); }
 }
 
 /* Exporta funções puras para testes em Node (ignorado no navegador). */

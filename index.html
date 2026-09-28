@@ -16,7 +16,7 @@
   <!-- DataTables -->
   <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
 
-  <link rel="stylesheet" href="style.css?v=20260928">
+  <link rel="stylesheet" href="style.css?v=20260928b">
 </head>
 <body>
 
@@ -62,6 +62,7 @@
       <a href="#frentes">Frentes</a>
       <a href="#indisponibilidade">Indisponibilidade</a>
       <a href="#maquinas">Máquinas</a>
+      <a href="#cxt">Colhedoras x Transbordos</a>
       <a href="#logistica">Logística</a>
       <a href="#vinhaca">Vinhaça</a>
       <a href="#ofensores">Ofensores</a>
@@ -235,6 +236,17 @@
         </article>
       </div>
     </section>
+
+    <!-- ============ COLHEDORAS x TRANSBORDOS (análise diária do BI) ============ -->
+    <section class="section" id="cxt">
+      <div class="section__head">
+        <h2><i class="fa-solid fa-link"></i> Colhedoras x Transbordos</h2>
+        <p id="cxtMeta">Análise do dia anterior por frente · fonte Power BI COA</p>
+      </div>
+      <div class="card cxt-resumo" id="cxtResumo"></div>
+      <div class="cxt" id="cxtGrid"></div>
+    </section>
+
 
     <!-- ============ OPERAÇÃO LOGÍSTICA ============ -->
     <section class="section" id="logistica">
@@ -444,6 +456,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-  <script src="script.js?v=20260928"></script>
+  <script src="script.js?v=20260928b"></script>
 </body>
 </html>

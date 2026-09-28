@@ -601,3 +601,28 @@ div.dt-container .dt-info, div.dt-container .dt-length, div.dt-container .dt-sea
 .kpis--in { margin: 0 0 8px; }
 .kpis--in .kpi { box-shadow: none; }
 @media (min-width: 1300px) { #kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+/* ---------------- Colhedoras x Transbordos (análise diária) ---------------- */
+.cxt-resumo { display: flex; flex-direction: row; gap: 12px; align-items: flex-start; padding: 12px 14px; margin-bottom: var(--gap); }
+.cxt-resumo > i { color: var(--green-700); font-size: 16px; margin-top: 2px; }
+.cxt-resumo p { margin: 0; font-size: 13px; color: var(--text-strong); line-height: 1.5; }
+.cxt-resumo small { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
+.cxt-vazio { width: 100%; text-align: center; color: var(--muted); font-weight: 600; padding: 6px 0; }
+.cxt { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--gap); }
+.cx { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cx header { display: flex; flex-direction: column; gap: 4px; }
+.cx header strong { font-size: 14px; color: var(--text-strong); }
+.cx header .pill { align-self: flex-start; min-width: 0; text-align: left; white-space: normal; line-height: 1.3; padding: 2px 8px; }
+.cx__t { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.cx__t th { padding-left: 6px !important; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); text-align: right; padding: 0 0 4px; }
+.cx__t th:first-child { text-align: left; }
+.cx__t td { padding: 4px 0; border-top: 1px solid var(--line); text-align: right; white-space: nowrap; font-weight: 700; color: var(--text-strong); }
+.cx__t td:first-child { text-align: left; font-weight: 500; color: var(--text); }
+.cx__t td .sem { margin-right: 5px; vertical-align: 0; }
+.cx__a { margin: 0; font-size: 12px; line-height: 1.45; color: var(--text); }
+.cx__acao { margin: auto 0 0; font-size: 12px; line-height: 1.4; padding: 7px 9px; border-radius: 8px; background: var(--green-50); color: var(--text-strong); }
+.cx__acao b { color: var(--green-900); }
+@media (max-width: 1300px) { .cxt { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .cxt { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .cxt { grid-template-columns: 1fr; } }
+@media print { .cx { break-inside: avoid; page-break-inside: avoid; box-shadow: none; } }
