@@ -1,22 +1,23 @@
 {
   "data": "2026-09-29",
-  "geradoEm": "2026-09-30T09:11:04-03:00",
+  "geradoEm": "2026-09-30T09:54:26-03:00",
   "fonte": "Power BI COA — pág. 4 (Colhedora de Cana) e pág. 5 (Transbordos)",
   "semDados": false,
   "mensagem": null,
-  "unidadeHoras": "h por máquina no dia (motor ligado)",
-  "resumo": "Frente 3 foi a mais equilibrada, com Disponibilidade Mecânica da colhedora de 83,95% e 11,54 h de corte, mas ainda com 1,73 h aguardando transbordo. O maior impacto do dia está na Frente 1, onde a Disponibilidade Mecânica da colhedora caiu para 49,28% (1,77 h de manutenção corretiva) e os transbordos ficaram 1,72 h aguardando colhedora. Na Frente 2 e na Frente 3, colhedoras e transbordos ficaram aguardando ao mesmo tempo, indicando falta de sincronia no ciclo e nas manobras.",
+  "unidadeHoras": "h de motor ligado no dia, conforme tabela DESC_OPERACAO do BI (na colhedora, soma das máquinas da frente)",
+  "resumo": "A Frente 4 foi a mais equilibrada do dia, com Eficiência do Motor de 94,91% e Disponibilidade Mecânica de 100%, mas manobrou demais: o Manobra X Produtivo ficou em 21,9%, mais que o dobro da meta. O maior impacto veio da Frente 1, onde a Disponibilidade Mecânica caiu para 49,28% com falhas nas colhedoras 20024 e 20121; às 12h a Eficiência do Motor chegou a 42,0%, puxada por MANUTENÇÃO CORRETIVA. A Frente 5 ficou abaixo de 85% de Eficiência do Motor em 23 das 24 horas. Nas Frentes 2, 3 e 5, a espera mais recorrente foi AGUARDANDO MANOBRA TRANSBORDO, concentrada em poucas colhedoras.",
   "frentes": [
     {
       "frente": "Frente 1",
       "status": "bad",
-      "titulo": "Manutenção da colhedora limitou frente",
+      "titulo": "Quebras de colhedora derrubaram a frente",
       "colhedora": {
         "eficiencia": 81.92,
         "disponibilidade": 49.28,
         "horasCorte": 7.93,
         "manobraProdutivo": 10.43,
-        "aguardTransbordo": 1.09
+        "aguardTransbordo": 1.09,
+        "manutencaoCorretiva": 1.77
       },
       "transbordo": {
         "eficiencia": 88.4,
@@ -24,19 +25,31 @@
         "aguardColhedora": 1.72,
         "fila": 0.54
       },
-      "analise": "A Disponibilidade Mecânica da colhedora ficou em 49,28%, com 1,77 h de manutenção corretiva e apenas 7,93 h de corte. Os transbordos, com Disponibilidade Mecânica de 94,43% e Eficiência do Motor de 88,40%, ficaram 1,72 h aguardando colhedora e 0,54 h em fila, confirmando gargalo na colhedora.",
-      "acao": "Priorizar o diagnóstico e a solução das falhas corretivas das colhedoras da Frente 1 e reduzir transbordos alocados até a Disponibilidade Mecânica se recuperar."
+      "timeline": {
+        "picosCriticos": [
+          {"hora": "12h", "eficienciaMotor": 42.0, "principaisApontamentos": ["MANUTENÇÃO CORRETIVA", "AGUARDANDO MANOBRA TRANSBORDO"]}
+        ],
+        "semRegistro": "18h às 21h"
+      },
+      "equipamentosCriticos": [
+        {"equipamento": "20121", "eficiencia": 47.71, "disponibilidade": 18.88, "horasCorte": 2.96, "destaque": "Operou só das 11h às 15h e respondeu por 0,92 h das 1,77 h de MANUTENÇÃO CORRETIVA da frente."},
+        {"equipamento": "20024", "eficiencia": 86.33, "disponibilidade": 44.77, "horasCorte": 6.24, "destaque": "Operou até 9h e saiu de operação; registrou 0,52 h de MANUTENÇÃO CORRETIVA."}
+      ],
+      "analise": "A Disponibilidade Mecânica das colhedoras ficou em 49,28%, com 1,77 h de MANUTENÇÃO CORRETIVA e só 7,93 h de corte. A 20024 parou às 9h, e a 20121, que chegou às 11h, operou com Disponibilidade Mecânica de 18,88%. Às 12h a Eficiência do Motor caiu a 42,0%, e a frente ficou sem registro das 18h às 21h. Enquanto isso, os transbordos ficaram 1,72 h aguardando colhedora.",
+      "pontoAtencao": "Entender o que aconteceu durante a operação",
+      "acao": "Levantar com a manutenção as causas das paradas das colhedoras 20024 e 20121 e confirmar o motivo da frente sem registro entre 18h e 21h."
     },
     {
       "frente": "Frente 2",
       "status": "bad",
-      "titulo": "Falta de sincronia nas manobras",
+      "titulo": "Esperas concentradas na colhedora 20119",
       "colhedora": {
         "eficiencia": 83.02,
         "disponibilidade": 77.5,
         "horasCorte": 11.04,
         "manobraProdutivo": 9.82,
-        "aguardTransbordo": 1.9
+        "aguardTransbordo": 1.9,
+        "manutencaoCorretiva": 0.74
       },
       "transbordo": {
         "eficiencia": 84.45,
@@ -44,19 +57,33 @@
         "aguardColhedora": 1.62,
         "fila": 0.62
       },
-      "analise": "A colhedora ficou 1,90 h aguardando transbordo, sendo 1,35 h aguardando manobra de transbordo, enquanto os transbordos ficaram 1,62 h aguardando colhedora e 0,62 h em fila. Com 3,28 h de manobra nos transbordos e Disponibilidade Mecânica da colhedora de 77,50%, o problema é de sincronia e manobra, não de falta de frota.",
-      "acao": "Revisar o posicionamento e a sequência de troca de transbordos no talhão para reduzir o tempo aguardando manobra de transbordo."
+      "timeline": {
+        "picosCriticos": [
+          {"hora": "18h", "eficienciaMotor": 58.0, "principaisApontamentos": ["MANUTENÇÃO CORRETIVA", "AGUARDANDO MANOBRA TRANSBORDO", "SEM APONTAMENTO"]},
+          {"hora": "10h", "eficienciaMotor": 65.2, "principaisApontamentos": ["LAVAGEM DE EQUIPAMENTO", "AGUARDANDO MANOBRA TRANSBORDO"]}
+        ],
+        "semRegistro": null
+      },
+      "equipamentosCriticos": [
+        {"equipamento": "20119", "eficiencia": 78.32, "disponibilidade": 87.17, "horasCorte": 12.91, "destaque": "Concentrou 0,95 h das 1,35 h de AGUARDANDO MANOBRA TRANSBORDO da frente; Eficiência do Motor de 23,8% às 13h e quase nula às 16h."},
+        {"equipamento": "20120", "eficiencia": 74.27, "disponibilidade": 60.0, "horasCorte": 6.98, "destaque": "Disponibilidade Mecânica de 60,00%, sem registro na frente das 14h às 18h."},
+        {"equipamento": "20121", "eficiencia": 77.07, "disponibilidade": 66.62, "horasCorte": 7.22, "destaque": "Operou na frente só até 10h, com 19,7% de Eficiência do Motor às 9h; depois foi para a Frente 1."}
+      ],
+      "analise": "As colhedoras ficaram 1,90 h aguardando transbordo, 1,35 h delas aguardando manobra de transbordo, a maior parte na 20119. Os piores horários foram 18h (58,0%), por MANUTENÇÃO CORRETIVA, e 10h (65,2%), por LAVAGEM DE EQUIPAMENTO em horário produtivo. A 20118 foi a referência da frente, com Eficiência do Motor de 93,12% e 13,30 h de corte.",
+      "pontoAtencao": "Entender o que aconteceu durante a operação",
+      "acao": "Rever com a liderança o que aconteceu com a 20119 às 13h e às 16h e tirar a lavagem do horário de pico de colheita."
     },
     {
       "frente": "Frente 3",
       "status": "bad",
-      "titulo": "Mais equilibrada, com esperas cruzadas",
+      "titulo": "Colhedora 20023 parada boa parte do dia",
       "colhedora": {
         "eficiencia": 81.35,
         "disponibilidade": 83.95,
         "horasCorte": 11.54,
         "manobraProdutivo": 9.49,
-        "aguardTransbordo": 1.73
+        "aguardTransbordo": 1.73,
+        "manutencaoCorretiva": 0.3
       },
       "transbordo": {
         "eficiencia": 85.34,
@@ -64,8 +91,86 @@
         "aguardColhedora": 1.2,
         "fila": 0.87
       },
-      "analise": "Frente com melhor Disponibilidade Mecânica da colhedora (83,95%) e maior tempo de corte (11,54 h), porém a colhedora ficou 1,73 h aguardando transbordo (1,17 h aguardando manobra de transbordo). Os transbordos, com Eficiência do Motor de 85,34%, ficaram 1,20 h aguardando colhedora e 0,87 h em fila, indicando falta de sincronia no ciclo.",
-      "acao": "Ajustar o ciclo dos transbordos (5,74 h de deslocamento vazio) e a ordem de chegada à colhedora para eliminar a fila e a espera de manobra."
+      "timeline": {
+        "picosCriticos": [
+          {"hora": "3h", "eficienciaMotor": 51.8, "principaisApontamentos": ["DESLOCAMENTO", "AGUARDANDO MANOBRA TRANSBORDO", "AGUARD. TRANSBORDO"]},
+          {"hora": "15h", "eficienciaMotor": 55.0, "principaisApontamentos": ["MANUTENÇÃO CORRETIVA", "AGUARDANDO MANOBRA TRANSBORDO"]}
+        ],
+        "semRegistro": null
+      },
+      "equipamentosCriticos": [
+        {"equipamento": "20023", "eficiencia": 71.13, "disponibilidade": 56.93, "horasCorte": 6.2, "destaque": "Sem registro das 7h às 15h; Eficiência do Motor de 52,4% às 18h."},
+        {"equipamento": "20029", "eficiencia": 86.23, "disponibilidade": 99.84, "horasCorte": 15.7, "destaque": "Melhor máquina da frente, mas concentrou 0,82 h das 1,17 h de AGUARDANDO MANOBRA TRANSBORDO."},
+        {"equipamento": "20022", "eficiencia": 86.8, "disponibilidade": 94.06, "horasCorte": 13.08, "destaque": "Eficiência do Motor de 12,3% às 3h, no mesmo horário do deslocamento da frente."}
+      ],
+      "analise": "A frente teve boa Disponibilidade Mecânica (83,95%) e 11,54 h de corte, mas a colhedora 20023 ficou sem registro das 7h às 15h e fechou com só 6,20 h de corte. Os picos críticos foram às 3h (51,8%), com DESLOCAMENTO de toda a frente, e às 15h (55,0%), com MANUTENÇÃO CORRETIVA. As colhedoras ficaram 1,73 h aguardando transbordo, enquanto os transbordos ficaram 1,20 h aguardando colhedora e 0,87 h em fila.",
+      "pontoAtencao": "Entender o que aconteceu durante a operação",
+      "acao": "Confirmar o motivo da parada da 20023 entre 7h e 15h e avaliar se o deslocamento das 3h poderia ter sido planejado para a troca de turno."
+    },
+    {
+      "frente": "Frente 4",
+      "status": "warn",
+      "titulo": "Melhor desempenho, manobra acima da meta",
+      "colhedora": {
+        "eficiencia": 94.91,
+        "disponibilidade": 100.0,
+        "horasCorte": 14.81,
+        "manobraProdutivo": 21.9,
+        "aguardTransbordo": 0.69,
+        "manutencaoCorretiva": 0.0
+      },
+      "transbordo": {
+        "eficiencia": 86.25,
+        "disponibilidade": 85.73,
+        "aguardColhedora": 1.86,
+        "fila": 0.65
+      },
+      "timeline": {
+        "picosCriticos": [
+          {"hora": "16h", "eficienciaMotor": 66.1, "principaisApontamentos": ["AGUARD. TRANSBORDO", "DESLOCAMENTO"]}
+        ],
+        "semRegistro": null
+      },
+      "equipamentosCriticos": [
+        {"equipamento": "20019", "eficiencia": 94.91, "disponibilidade": 100.0, "horasCorte": 14.81, "destaque": "Única colhedora da frente; 4,38 h de MANOBRA COLHEDORA e 2,78 h de MANOBRA AUXILIAR."}
+      ],
+      "analise": "A colhedora 20019 teve o melhor resultado do dia: Eficiência do Motor de 94,91%, Disponibilidade Mecânica de 100% e 14,81 h de corte. O ponto fraco foi a manobra: o Manobra X Produtivo ficou em 21,9%, contra a meta de 10%, com 7,16 h de manobra. A única queda relevante foi às 16h (66,1%), por AGUARD. TRANSBORDO; nos transbordos, houve 1,86 h aguardando colhedora e 0,65 h em fila.",
+      "pontoAtencao": null,
+      "acao": "Revisar o traçado e as cabeceiras do talhão para reduzir a manobra da 20019 e avaliar se há transbordo sobrando para uma única colhedora."
+    },
+    {
+      "frente": "Frente 5",
+      "status": "bad",
+      "titulo": "Eficiência do Motor baixa o dia todo",
+      "colhedora": {
+        "eficiencia": 73.79,
+        "disponibilidade": 69.76,
+        "horasCorte": 7.78,
+        "manobraProdutivo": 19.8,
+        "aguardTransbordo": 2.67,
+        "manutencaoCorretiva": 0.68
+      },
+      "transbordo": {
+        "eficiencia": 82.87,
+        "disponibilidade": 89.25,
+        "aguardColhedora": 1.97,
+        "fila": 0.6
+      },
+      "timeline": {
+        "picosCriticos": [
+          {"hora": "7h", "eficienciaMotor": 57.7, "principaisApontamentos": ["DESLOCAMENTO", "MANOBRA COLHEDORA", "MANUTENÇÃO CORRETIVA"]},
+          {"hora": "3h", "eficienciaMotor": 58.3, "principaisApontamentos": ["AGUARDANDO MANOBRA TRANSBORDO", "DESLOCAMENTO", "MANOBRA COLHEDORA"]}
+        ],
+        "semRegistro": null
+      },
+      "equipamentosCriticos": [
+        {"equipamento": "20021", "eficiencia": 71.82, "disponibilidade": 30.58, "horasCorte": 4.37, "destaque": "Só 6,8 h de motor no dia; Eficiência do Motor de 6,5% às 22h."},
+        {"equipamento": "20020", "eficiencia": 69.17, "disponibilidade": 69.32, "horasCorte": 7.21, "destaque": "Manobra X Produtivo de 25,2%; abaixo de 47% de Eficiência do Motor às 3h, 4h e 7h."},
+        {"equipamento": "20030", "eficiencia": 76.48, "disponibilidade": 97.5, "horasCorte": 10.87, "destaque": "Disponível o dia todo, mas com Eficiência do Motor de 35,7% às 20h e 55,4% às 12h."}
+      ],
+      "analise": "A Eficiência do Motor ficou abaixo de 85% em 23 das 24 horas e fechou em 73,79%, com Disponibilidade Mecânica de 69,76% e só 7,78 h de corte. As colhedoras ficaram 2,67 h aguardando transbordo, 2,04 h delas aguardando manobra de transbordo, e o Manobra X Produtivo chegou a 19,8%. As 20021 e 20020 puxaram o resultado para baixo.",
+      "pontoAtencao": "Entender o que aconteceu durante a operação",
+      "acao": "Fazer uma análise da operação da Frente 5 com a liderança local, começando pelas 20021 e 20020 e pelos horários de 3h e 7h."
     }
   ]
 }
