@@ -1,111 +1,71 @@
 {
-  "data": "2026-09-27",
-  "geradoEm": "2026-09-28T09:10:00-03:00",
+  "data": "2026-09-29",
+  "geradoEm": "2026-09-30T09:11:04-03:00",
   "fonte": "Power BI COA — pág. 4 (Colhedora de Cana) e pág. 5 (Transbordos)",
   "semDados": false,
   "mensagem": null,
   "unidadeHoras": "h por máquina no dia (motor ligado)",
-  "resumo": "Frente 4 foi a mais equilibrada entre colhedoras e transbordos. Os maiores impactos ficaram na Frente 5 e na Frente 2: as colhedoras perderam 2,6 h e 2,0 h aguardando transbordo. Na Frente 5 a causa principal foi a baixa Disponibilidade Mecânica dos transbordos (66%); na Frente 2, a falta de sincronia entre os conjuntos somada à Disponibilidade Mecânica baixa das colhedoras (67%).",
+  "resumo": "Frente 3 foi a mais equilibrada, com Disponibilidade Mecânica da colhedora de 83,95% e 11,54 h de corte, mas ainda com 1,73 h aguardando transbordo. O maior impacto do dia está na Frente 1, onde a Disponibilidade Mecânica da colhedora caiu para 49,28% (1,77 h de manutenção corretiva) e os transbordos ficaram 1,72 h aguardando colhedora. Na Frente 2 e na Frente 3, colhedoras e transbordos ficaram aguardando ao mesmo tempo, indicando falta de sincronia no ciclo e nas manobras.",
   "frentes": [
     {
       "frente": "Frente 1",
-      "status": "warn",
-      "titulo": "Gargalo na colhedora",
+      "status": "bad",
+      "titulo": "Manutenção da colhedora limitou frente",
       "colhedora": {
-        "eficiencia": 78.5,
-        "disponibilidade": 81.74,
-        "horasCorte": 10.49,
-        "manobraProdutivo": 14.0,
-        "aguardTransbordo": 0.93
+        "eficiencia": 81.92,
+        "disponibilidade": 49.28,
+        "horasCorte": 7.93,
+        "manobraProdutivo": 10.43,
+        "aguardTransbordo": 1.09
       },
       "transbordo": {
-        "eficiencia": 89.07,
-        "disponibilidade": 97.61,
-        "aguardColhedora": 1.3,
-        "fila": 0.7
+        "eficiencia": 88.4,
+        "disponibilidade": 94.43,
+        "aguardColhedora": 1.72,
+        "fila": 0.54
       },
-      "analise": "Transbordos com Disponibilidade Mecânica de 97,6% ficaram 2,0 h parados aguardando colhedora ou em fila, enquanto as colhedoras operaram com Eficiência do Motor baixa (78,5%) e manobra elevada (14% do produtivo). O ritmo da frente foi limitado pela colhedora, não pelo transbordo.",
-      "acao": "Reduzir manobra das colhedoras (sistematização do talhão e posicionamento de entrada) e avaliar remanejar transbordo excedente."
+      "analise": "A Disponibilidade Mecânica da colhedora ficou em 49,28%, com 1,77 h de manutenção corretiva e apenas 7,93 h de corte. Os transbordos, com Disponibilidade Mecânica de 94,43% e Eficiência do Motor de 88,40%, ficaram 1,72 h aguardando colhedora e 0,54 h em fila, confirmando gargalo na colhedora.",
+      "acao": "Priorizar o diagnóstico e a solução das falhas corretivas das colhedoras da Frente 1 e reduzir transbordos alocados até a Disponibilidade Mecânica se recuperar."
     },
     {
       "frente": "Frente 2",
       "status": "bad",
-      "titulo": "Falta de sincronia entre conjuntos",
+      "titulo": "Falta de sincronia nas manobras",
       "colhedora": {
-        "eficiencia": 88.61,
-        "disponibilidade": 67.24,
-        "horasCorte": 11.39,
-        "manobraProdutivo": 7.27,
-        "aguardTransbordo": 2.02
+        "eficiencia": 83.02,
+        "disponibilidade": 77.5,
+        "horasCorte": 11.04,
+        "manobraProdutivo": 9.82,
+        "aguardTransbordo": 1.9
       },
       "transbordo": {
-        "eficiencia": 85.35,
-        "disponibilidade": 86.49,
-        "aguardColhedora": 1.89,
-        "fila": 0.71
+        "eficiencia": 84.45,
+        "disponibilidade": 89.43,
+        "aguardColhedora": 1.62,
+        "fila": 0.62
       },
-      "analise": "Colhedoras aguardaram transbordo por 2,0 h e, ao mesmo tempo, os transbordos aguardaram colhedora por 1,9 h: os conjuntos esperaram um pelo outro. A Disponibilidade Mecânica das colhedoras ficou em 67% (1,1 h de manutenção corretiva), reduzindo ainda mais o corte.",
-      "acao": "Ajustar o ciclo e o posicionamento dos transbordos junto às colhedoras e tratar a corretiva das colhedoras da frente."
+      "analise": "A colhedora ficou 1,90 h aguardando transbordo, sendo 1,35 h aguardando manobra de transbordo, enquanto os transbordos ficaram 1,62 h aguardando colhedora e 0,62 h em fila. Com 3,28 h de manobra nos transbordos e Disponibilidade Mecânica da colhedora de 77,50%, o problema é de sincronia e manobra, não de falta de frota.",
+      "acao": "Revisar o posicionamento e a sequência de troca de transbordos no talhão para reduzir o tempo aguardando manobra de transbordo."
     },
     {
       "frente": "Frente 3",
-      "status": "warn",
-      "titulo": "Espera na manobra do transbordo",
-      "colhedora": {
-        "eficiencia": 81.99,
-        "disponibilidade": 79.14,
-        "horasCorte": 11.22,
-        "manobraProdutivo": 10.23,
-        "aguardTransbordo": 1.94
-      },
-      "transbordo": {
-        "eficiencia": 89.74,
-        "disponibilidade": 85.68,
-        "aguardColhedora": 1.05,
-        "fila": 0.53
-      },
-      "analise": "Colhedoras perderam 1,9 h aguardando transbordo, sendo 1,5 h aguardando a manobra do transbordo. Os transbordos também ficaram 1,1 h aguardando colhedora: a perda está na aproximação e manobra do conjunto, não na quantidade de transbordos.",
-      "acao": "Ajustar a manobra de aproximação do transbordo na colhedora (posicionamento e orientação dos operadores)."
-    },
-    {
-      "frente": "Frente 4",
-      "status": "ok",
-      "titulo": "Operação equilibrada",
-      "colhedora": {
-        "eficiencia": 85.24,
-        "disponibilidade": 83.15,
-        "horasCorte": 12.99,
-        "manobraProdutivo": 9.41,
-        "aguardTransbordo": 0.3
-      },
-      "transbordo": {
-        "eficiencia": 90.53,
-        "disponibilidade": 98.15,
-        "aguardColhedora": 0.98,
-        "fila": 0.81
-      },
-      "analise": "Melhor sincronia do dia: colhedoras aguardaram apenas 0,3 h por transbordo e registraram o maior tempo de corte (13,0 h). Os transbordos ficaram 1,8 h aguardando colhedora ou em fila, indicando folga de transbordo na frente.",
-      "acao": "Manter o ritmo das colhedoras, avaliar a folga de transbordo e rever a janela de lavagem das colhedoras (0,9 h)."
-    },
-    {
-      "frente": "Frente 5",
       "status": "bad",
-      "titulo": "Transbordo limitando a colheita",
+      "titulo": "Mais equilibrada, com esperas cruzadas",
       "colhedora": {
-        "eficiencia": 89.64,
-        "disponibilidade": 69.72,
-        "horasCorte": 12.19,
-        "manobraProdutivo": 8.27,
-        "aguardTransbordo": 2.59
+        "eficiencia": 81.35,
+        "disponibilidade": 83.95,
+        "horasCorte": 11.54,
+        "manobraProdutivo": 9.49,
+        "aguardTransbordo": 1.73
       },
       "transbordo": {
-        "eficiencia": 85.84,
-        "disponibilidade": 66.13,
-        "aguardColhedora": 1.42,
-        "fila": 0.63
+        "eficiencia": 85.34,
+        "disponibilidade": 89.77,
+        "aguardColhedora": 1.2,
+        "fila": 0.87
       },
-      "analise": "Maior impacto do dia: colhedoras perderam 2,6 h aguardando transbordo. A Disponibilidade Mecânica dos transbordos foi de apenas 66%, reduzindo os conjuntos em operação. As colhedoras também tiveram Disponibilidade Mecânica baixa (70%).",
-      "acao": "Prioridade na manutenção dos transbordos da frente e, se necessário, remanejar transbordo da Frente 1."
+      "analise": "Frente com melhor Disponibilidade Mecânica da colhedora (83,95%) e maior tempo de corte (11,54 h), porém a colhedora ficou 1,73 h aguardando transbordo (1,17 h aguardando manobra de transbordo). Os transbordos, com Eficiência do Motor de 85,34%, ficaram 1,20 h aguardando colhedora e 0,87 h em fila, indicando falta de sincronia no ciclo.",
+      "acao": "Ajustar o ciclo dos transbordos (5,74 h de deslocamento vazio) e a ordem de chegada à colhedora para eliminar a fila e a espera de manobra."
     }
   ]
 }
