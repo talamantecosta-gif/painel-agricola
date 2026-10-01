@@ -11,7 +11,7 @@
     "Aguardando Colhedora": 6,
     "Equipamento em Fila": 5
   },
-  "resumo": "Frente 05 foi o maior impacto do dia: Disponibilidade Manutenção das colhedoras em 50% e Aguardando Transbordo + Aguardando Manobra de Transbordo em 12,9%, acima do limite de 10%. Frente 01 também teve colhedoras indisponíveis (68,8%), com transbordos parados no pico das 04h. Na logística, a Frente 34 ficou 8 horas seguidas (15h–22h) com transbordos aguardando caminhão. Frente 03 teve o melhor tempo de corte, com gargalo pontual às 05h.",
+  "resumo": "Frente 05 foi o maior impacto do dia: Disponibilidade Manutenção das colhedoras em 50% e Aguardando Transbordo + Aguardando Manobra de Transbordo em 12,9%, acima do sinal de atenção de 10%. Frente 01 também teve colhedoras indisponíveis (68,8%), com transbordos parados no pico das 04h. Na logística, a Frente 34 ficou 8 horas seguidas (15h–22h) com transbordos aguardando caminhão. Frente 03 teve o melhor tempo de corte, com gargalo pontual às 05h.",
   "frentes": [
     {
       "frente": "Frente 01",
@@ -32,7 +32,7 @@
         "fila": 0.64
       },
       "alerta": null,
-      "analise": "Disponibilidade Manutenção das colhedoras em 68,8%, com 1,1 h de manutenção corretiva por máquina. Na timeline, os transbordos ficaram aguardando colhedora com pico de 87% às 04h (janela 03h–05h acima de 58%), indicando colhedoras paradas nesse intervalo. Aguardando Transbordo + Aguardando Manobra de Transbordo ficou em 3,3%, dentro do limite.",
+      "analise": "Disponibilidade Manutenção das colhedoras em 68,8%, com 1,1 h de manutenção corretiva por máquina. Na timeline, os transbordos ficaram aguardando colhedora com pico de 87% às 04h (janela 03h–05h acima de 58%), indicando colhedoras paradas nesse intervalo. Aguardando Transbordo + Aguardando Manobra de Transbordo ficou em 3,3%, abaixo do sinal de atenção de 10%.",
       "acao": "Atuar na manutenção corretiva das colhedoras 20024 e 20025 e evitar paradas simultâneas na madrugada.",
       "timeline": [
         {
@@ -388,7 +388,7 @@
         "aguardColhedora": 1.47,
         "fila": 0.64
       },
-      "alerta": "Aguardando Transbordo + Aguardando Manobra de Transbordo somaram 12,9% das horas de motor ligado (limite: 10%). O principal componente é Aguardando Manobra de Transbordo (9,9% · 2,4 h por colhedora): identificar a causa — posicionamento do transbordo, condição do talhão ou operador — e corrigir no próximo turno.",
+      "alerta": "Aguardando Transbordo + Aguardando Manobra de Transbordo somaram 12,9% das horas de motor ligado, acima de 10% (sinal de atenção, não é meta). O principal componente é Aguardando Manobra de Transbordo (9,9% · 2,4 h por colhedora): identificar a causa — posicionamento do transbordo, condição do talhão ou operador — e corrigir no próximo turno.",
       "analise": "Disponibilidade Manutenção das colhedoras em 50,2%, com apenas 5,0 h de corte por máquina. Os transbordos ficaram aguardando colhedora acima da meta em 19 das 24 horas (pico de 64% às 07h) e rodaram 7,4 h em deslocamento vazio.",
       "acao": "Prioridade 1 do dia: recuperar a disponibilidade das colhedoras e eliminar a demora na manobra de transbordo.",
       "timeline": [

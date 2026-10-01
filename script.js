@@ -1241,7 +1241,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const perda = perdas.find(p => numFrente(p.frente) === numFrente(f.frente));
       return `<article class="cx">
         <header><strong>${escapeHtml(f.frente)}</strong><span class="pill ${escapeHtml(f.status || 'warn')}">${escapeHtml(f.titulo || '')}</span></header>
-        ${f.alerta ? `<div class="cx__alerta"><i class="fa-solid fa-triangle-exclamation"></i><span>${escapeHtml(f.alerta)}</span></div>` : ''}
+        ${f.alerta ? `<div class="cx__alerta"><i class="fa-solid fa-triangle-exclamation"></i><span><b>Sinal de atenção:</b> ${escapeHtml(f.alerta)}</span></div>` : ''}
         ${temPg45 ? `<table class="cx__t">
           <thead><tr><th></th><th>Colhedora</th><th>Transbordo</th></tr></thead>
           <tbody>
