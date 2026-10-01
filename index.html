@@ -16,7 +16,7 @@
   <!-- DataTables -->
   <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
 
-  <link rel="stylesheet" href="style.css?v=20260928d">
+  <link rel="stylesheet" href="style.css?v=20261001">
 </head>
 <body>
 
@@ -155,15 +155,15 @@
       </article>
     </section>
 
-    <!-- ============ INDISPONIBILIDADE MECÂNICA ============ -->
+    <!-- ============ INDISPONIBILIDADE MANUTENÇÃO ============ -->
     <section class="section" id="indisponibilidade">
       <div class="section__head">
-        <h2><i class="fa-solid fa-screwdriver-wrench"></i> Indisponibilidade Mecânica</h2>
+        <h2><i class="fa-solid fa-screwdriver-wrench"></i> Indisponibilidade Manutenção</h2>
         <p>Equipamento parado para manutenção · meta ≤ <span class="meta-indisp">15</span>%.</p>
       </div>
       <article class="card" data-card id="indispCard">
         <header class="card__head">
-          <div><h3>Indisponibilidade Mecânica por Frente</h3><p class="hint" id="indispHint">% do tempo com equipamento parado para manutenção · meta ≤ 15%</p></div>
+          <div><h3>Indisponibilidade Manutenção por Frente</h3><p class="hint" id="indispHint">% do tempo com equipamento parado para manutenção · meta ≤ 15%</p></div>
           <div class="card__tools">
             <button class="icon-btn" data-png="chIndisp" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
             <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
@@ -171,6 +171,17 @@
         </header>
         <div class="kpis kpis--sm kpis--in" id="indispKpis"></div>
         <div class="chart-box chart-box--sm"><canvas id="chIndisp"></canvas></div>
+      </article>
+      <article class="card" data-card id="perdaCard">
+        <header class="card__head">
+          <div><h3>Produção não entregue por manutenção</h3><p class="hint" id="perdaHint">Frentes acima da meta de Indisponibilidade Manutenção · 24 h × excesso × capacidade das colhedoras</p></div>
+          <div class="card__tools">
+            <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
+          </div>
+        </header>
+        <div class="perda-resumo" id="perdaResumo"></div>
+        <div class="table-wrap"><table class="simple-table" id="perdaTable"></table></div>
+        <p class="hint" id="perdaNota"></p>
       </article>
     </section>
 
@@ -358,6 +369,7 @@
         <article class="card" data-card>
           <header class="card__head">
             <div><h3>Mapa TCH x ATR</h3><p class="hint">Bolha = produção · cor = TATR/ha</p></div>
+            <div class="chips" id="fazChips" role="group" aria-label="Filtrar mapa por frente"></div>
             <div class="card__tools">
               <button class="icon-btn" data-png="chFaz" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
               <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
@@ -427,6 +439,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-  <script src="script.js?v=20260928d"></script>
+  <script src="script.js?v=20261001"></script>
 </body>
 </html>

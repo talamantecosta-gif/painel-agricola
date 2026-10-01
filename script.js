@@ -31,6 +31,9 @@ function parseNum(str) {
 }
 const isNum = s => /^[+-]?[\d.,]+%?$/.test(String(s).trim()) && !Number.isNaN(parseNum(s));
 const near = (a, b, tol = 0.03) => Math.abs(a - b) <= tol;
+/** Nomes oficiais das frentes: "Cassia e Cassia" passou a ser a Frente 37. */
+const FRENTE_ALIAS = { 'cassia e cassia': 'Frente 37' };
+const aliasFrente = n => FRENTE_ALIAS[String(n || '').trim().toLowerCase()] || n;
 /** TATR/ha = (TCH × ATR) ÷ 1000 */
 const calcTatr = (tch, atr) => (Number.isFinite(tch) && Number.isFinite(atr) && tch > 0 && atr > 0) ? (tch * atr) / 1000 : null;
 
@@ -75,7 +78,7 @@ function parseReportItems(rawItems, info = {}) {
     turnoC: heading(/Ofensores Turno C/i),
   };
   const FRENTE_RE = /^(Frente\s*\d+|Cassia e Cassia)$/i;
-  const normFrente = s => s.replace(/\s+/g, ' ').replace(/^frente/i, 'Frente').replace(/^cassia e cassia$/i, 'Cassia e Cassia');
+  const normFrente = s => aliasFrente(s.replace(/\s+/g, ' ').replace(/^frente/i, 'Frente'));
 
   // Seção logística à qual um item pertence (cabeçalho mais próximo acima, na coluna esquerda)
   const leftHeads = [H.happening, H.aroeira, H.colhedoras].filter(Boolean);
@@ -264,6 +267,8 @@ const normOfensor = s => {
 };
 
 function buildModel(raw) {
+  // aplica o nome oficial das frentes também em dados antigos (ex.: Cassia e Cassia → Frente 37)
+  ['fazendas', 'entregaCota', 'vinhaca', 'colhedoras', 'transbordos'].forEach(k => (raw[k] || []).forEach(o => { if (o && o.frente) o.frente = aliasFrente(o.frente); }));
   const faz = raw.fazendas || [];
   const cotaMap = new Map((raw.entregaCota || []).map(e => [e.frente, e]));
   const order = [];
@@ -345,7 +350,7 @@ function totals(frentes, M = null) {
    4. INTELIGÊNCIA EXECUTIVA
    Resumo do dia, prioridades e sinais (semáforo) por frente.
    --------------------------------------------------------- */
-/** Ordem das frentes: numéricas em ordem crescente (01, 02, 03…), depois as demais (ex.: Cassia e Cassia). */
+/** Ordem das frentes: numéricas em ordem crescente (01, 02, 03…), depois as demais. */
 const frenteOrderKey = nome => {
   const m = String(nome).match(/^Frente\s*(\d+)/i);
   return m ? [0, +m[1], ''] : [1, 0, String(nome)];
@@ -357,7 +362,7 @@ const sortFrentes = list => [...list].sort((a, b) => {
 const shortFrente = n => String(n).replace(/^Frente\s*/i, 'F');
 
 /** Metas usadas no semáforo (podem ser ajustadas em dados.json → "metas"). */
-const METAS_DEFAULT = { eficiencia: 75, vinhaca: 100, disponibilidade: 90, indisponibilidade: 15 };
+const METAS_DEFAULT = { eficiencia: 75, vinhaca: 100, disponibilidade: 90, indisponibilidade: 15, colhedoras2Linhas: ['20021', '20022', '20024', '20025'], ton2Linhas: 70, ton1Linha: 30 };
 /** Indisponibilidade (quanto menor, melhor): verde ≤ meta · amarelo até 10% acima · vermelho > 10% acima. */
 const statusIndisp = (v, meta = METAS_DEFAULT.indisponibilidade) => (!Number.isFinite(v) ? 'info' : v <= meta ? 'ok' : v <= meta * 1.1 ? 'warn' : 'bad');
 /** Semáforo contra meta: verde ≥ meta · amarelo até 10% abaixo · vermelho > 10% abaixo. */
@@ -422,8 +427,8 @@ function buildExecutive(M, frentes) {
     else if (im) s.push({ st: 'warn', txt: `Impureza min. alta ${fmt(f.impMin, 2)}%` });
     if (Number.isFinite(f.indisp)) {
       const si = statusIndisp(f.indisp, metas.indisponibilidade);
-      if (si === 'bad') s.push({ st: 'bad', txt: `Indisp. mecânica ${fmt(f.indisp, 0)}%` });
-      else if (si === 'warn') s.push({ st: 'warn', txt: `Indisp. mecânica ${fmt(f.indisp, 0)}%` });
+      if (si === 'bad') s.push({ st: 'bad', txt: `Indisp. manutenção ${fmt(f.indisp, 0)}%` });
+      else if (si === 'warn') s.push({ st: 'warn', txt: `Indisp. manutenção ${fmt(f.indisp, 0)}%` });
       else if (f.indisp <= metas.indisponibilidade * 0.7) s.push({ st: 'ok', txt: `Indisp. baixa ${fmt(f.indisp, 0)}%` });
     }
     if (f.piloto === 0) s.push({ st: 'warn', txt: 'Piloto automático 0%' });
@@ -469,7 +474,7 @@ function buildExecutive(M, frentes) {
   const indTot = indispTotal(M, frentes);
   if (Number.isFinite(indTot)) {
     const acima = frentes.filter(f => statusIndisp(f.indisp, metas.indisponibilidade) !== 'ok' && Number.isFinite(f.indisp)).sort((a, b) => b.indisp - a.indisp);
-    R.push({ st: statusIndisp(indTot, metas.indisponibilidade), icon: 'fa-screwdriver-wrench', k: 'Indisponibilidade Mec.', v: `${fmt(indTot, 1)}% (meta ≤ ${metas.indisponibilidade}%)`,
+    R.push({ st: statusIndisp(indTot, metas.indisponibilidade), icon: 'fa-screwdriver-wrench', k: 'Indisponibilidade Manutenção', v: `${fmt(indTot, 1)}% (meta ≤ ${metas.indisponibilidade}%)`,
       s: acima.length ? `${acima.length} acima: ${acima.slice(0, 3).map(f => `${shortFrente(f.frente)} ${fmt(f.indisp, 0)}%`).join(', ')}` : 'todas as frentes dentro da meta' });
   }
   // Ação imediata
@@ -493,7 +498,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const STORE_KEY = 'ctt-dashboard-dados';
   const $ = sel => document.querySelector(sel);
   const $$ = sel => [...document.querySelectorAll(sel)];
-  const state = { M: null, frente: '', fazenda: '', q: '', rankSort: 'pct', log: 'happening', maq: 'colhedoras', status: '', fullCols: false };
+  const state = { M: null, frente: '', fazenda: '', q: '', rankSort: 'pct', log: 'happening', maq: 'colhedoras', status: '', fullCols: false, mapFrente: '' };
   const charts = {};
   const tables = {};
 
@@ -643,7 +648,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       kpiCard({ label: 'Atingimento da Cota', value: fmt(T.pct, 1), unit: '%', icon: 'fa-bullseye', st, sub: `${fmtSigned((T.pct || 0) - 100, 1)}% vs. cota`, bar: T.pct, barCls: st === 'ok' ? '' : st }),
       best && withCota.length > 1 ? kpiCard({ label: 'Melhor Frente', value: escapeHtml(best.frente), icon: 'fa-trophy', st: 'ok', sub: `<b>${fmtPct(best.pct)}</b> · ${fmtSigned(best.diferenca, 0)} t` }) : '',
       worst && withCota.length > 1 ? kpiCard({ label: 'Pior Frente', value: escapeHtml(worst.frente), icon: 'fa-arrow-trend-down', st: worst.status, sub: `<b>${fmtPct(worst.pct)}</b> · ${fmtSigned(worst.diferenca, 0)} t` }) : '',
-      Number.isFinite(indispTotal(M, fr)) ? kpiCard({ label: 'Indisponibilidade Mec.', value: fmt(indispTotal(M, fr), 1), unit: '%', icon: 'fa-screwdriver-wrench', st: statusIndisp(indispTotal(M, fr), M.metas.indisponibilidade), sub: `meta ≤ ${M.metas.indisponibilidade}% · ${fr.filter(f => statusIndisp(f.indisp, M.metas.indisponibilidade) === 'bad' || statusIndisp(f.indisp, M.metas.indisponibilidade) === 'warn').length} frente(s) acima` }) : '',
+      Number.isFinite(indispTotal(M, fr)) ? kpiCard({ label: 'Indisponibilidade Manutenção', value: fmt(indispTotal(M, fr), 1), unit: '%', icon: 'fa-screwdriver-wrench', st: statusIndisp(indispTotal(M, fr), M.metas.indisponibilidade), sub: `meta ≤ ${M.metas.indisponibilidade}% · ${fr.filter(f => statusIndisp(f.indisp, M.metas.indisponibilidade) === 'bad' || statusIndisp(f.indisp, M.metas.indisponibilidade) === 'warn').length} frente(s) acima` }) : '',
     ].join('');
   };
 
@@ -819,8 +824,15 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     $('#agroKpis').innerHTML = chips.map(([k, v, u]) => `<div><span>${k}</span><b>${v}${u ? `<small> ${u}</small>` : ''}</b></div>`).join('');
   };
 
+  const renderFazChips = () => {
+    const box = $('#fazChips'); if (!box) return;
+    const frentes = sortFrentes([...new Set(state.M.linhas.filter(l => Number.isFinite(l.tatr)).map(l => l.frente))]);
+    if (state.mapFrente && !frentes.includes(state.mapFrente)) state.mapFrente = '';
+    box.innerHTML = ['', ...frentes].map(f => `<button type="button" class="chip-btn ${state.mapFrente === f ? 'is-on' : ''}" data-mapfrente="${escapeHtml(f)}">${f ? escapeHtml(f) : 'Todas'}</button>`).join('');
+  };
   const renderFazChart = () => {
-    const L = filteredLinhas().filter(l => Number.isFinite(l.tatr));
+    renderFazChips();
+    const L = filteredLinhas().filter(l => Number.isFinite(l.tatr) && (!state.mapFrente || l.frente === state.mapFrente));
     const maxTc = Math.max(...state.M.linhas.map(l => l.tc), 1);
     $('#tatrMin').textContent = '10';
     $('#tatrMid').textContent = '12';
@@ -1153,6 +1165,49 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const numFrente = n => { const m = String(n || '').match(/(\d+)/); return m ? +m[1] : null; };
   const semEq = v => (v >= 85 ? 'ok' : v >= 76.5 ? 'warn' : 'bad');       // eficiência / disponibilidade (meta 85%)
   const semEspera = v => (v <= 0.5 ? 'ok' : v <= 1.5 ? 'warn' : 'bad');   // horas de espera por máquina
+  /** Colhedoras da frente: lista do BI (analise.json) ou, na falta, do relatório PDF. */
+  const colhedorasDaFrente = nome => {
+    const n = numFrente(nome);
+    const fa = ANALISE && Array.isArray(ANALISE.frentes) ? ANALISE.frentes.find(f => numFrente(f.frente) === n) : null;
+    if (fa && fa.frota && Array.isArray(fa.frota.colhedoras) && fa.frota.colhedoras.length) return { lista: fa.frota.colhedoras.map(String), fonte: 'BI' };
+    const lista = [...new Set((state.M.raw.colhedoras || []).filter(c => numFrente(c.frente) === n).map(c => String(c.maquina)))];
+    return { lista, fonte: lista.length ? 'relatório' : null };
+  };
+  /** Produção não entregue por manutenção: (indisp − meta) × 24 h × capacidade (2 linhas = 70 t/h · demais = 30 t/h). */
+  const calcPerdas = () => {
+    const M = state.M, mt = M.metas, meta = mt.indisponibilidade;
+    const dois = new Set((mt.colhedoras2Linhas || []).map(String));
+    return sortFrentes(filteredFrentes()).filter(f => Number.isFinite(f.indisp) && f.indisp > meta).map(f => {
+      const exc = f.indisp - meta, horasMaq = 24 * exc / 100;
+      const { lista, fonte } = colhedorasDaFrente(f.frente);
+      const n2 = lista.filter(c => dois.has(c)).length, n1 = lista.length - n2;
+      const cap = n2 * mt.ton2Linhas + n1 * mt.ton1Linha;
+      return { frente: f.frente, indisp: f.indisp, exc, horasMaq, lista, n2, n1, cap, horas: horasMaq * lista.length, ton: lista.length ? horasMaq * cap : null, fonte };
+    });
+  };
+  const renderPerda = () => {
+    const card = $('#perdaCard'); if (!card) return;
+    const mt = state.M.metas, P = calcPerdas();
+    const tot = sum(P.filter(p => p.ton != null), p => p.ton);
+    $('#perdaHint').textContent = `Frentes acima de ${fmt(mt.indisponibilidade, 0)}% de Indisponibilidade Manutenção · colhedora 2 linhas = ${mt.ton2Linhas} t/h · demais = ${mt.ton1Linha} t/h`;
+    if (!P.length) {
+      $('#perdaResumo').innerHTML = '<p class="cxt-vazio"><i class="fa-solid fa-circle-check"></i> Nenhuma frente acima da meta de Indisponibilidade Manutenção.</p>';
+      $('#perdaTable').innerHTML = ''; $('#perdaNota').textContent = ''; return;
+    }
+    const maior = [...P].filter(p => p.ton != null).sort((a, b) => b.ton - a.ton)[0];
+    $('#perdaResumo').innerHTML = `<div><span>Produção não entregue</span><b class="t-bad">${fmt(tot, 1)} t</b></div>
+      <div><span>Frentes acima da meta</span><b>${P.length}</b></div>
+      <div><span>Horas de colhedora paradas além da meta</span><b>${fmt(sum(P, p => p.horas), 1)} h</b></div>
+      ${maior ? `<div><span>Maior impacto</span><b>${escapeHtml(maior.frente)} · ${fmt(maior.ton, 1)} t</b></div>` : ''}`;
+    $('#perdaTable').innerHTML = `<thead><tr><th>Frente</th><th class="num">Indisp. Manutenção</th><th class="num">Acima da meta</th><th class="num">Horas paradas / colhedora</th><th>Colhedoras</th><th class="num">Capacidade</th><th class="num">Toneladas não entregues</th></tr></thead>
+      <tbody>${P.map(p => `<tr><td><b>${escapeHtml(p.frente)}</b></td><td class="num">${fmt(p.indisp, 1)}%</td><td class="num t-bad">+${fmt(p.exc, 1)} p.p.</td><td class="num">${fmt(p.horasMaq, 2)} h</td>
+        <td>${p.lista.length ? `${p.lista.length} (${p.n2 ? `${p.n2} de 2 linhas` : ''}${p.n2 && p.n1 ? ' + ' : ''}${p.n1 ? `${p.n1} de 1 linha` : ''})<span class="tag" title="${escapeHtml(p.lista.join(', '))}"> ${escapeHtml(p.lista.join(', '))}</span>` : '<span class="muted">sem frota no BI/relatório</span>'}</td>
+        <td class="num">${p.cap ? fmt(p.cap, 0) + ' t/h' : '—'}</td><td class="num"><b class="t-bad">${p.ton != null ? fmt(p.ton, 1) + ' t' : '—'}</b></td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="6">Total</td><td class="num">${fmt(tot, 1)} t</td></tr></tfoot>`;
+    const ex = P.find(p => p.ton != null);
+    $('#perdaNota').textContent = ex ? `Cálculo (${ex.frente}): (${fmt(ex.indisp, 1)}% − ${fmt(mt.indisponibilidade, 0)}%) × 24 h = ${fmt(ex.horasMaq, 2)} h por colhedora × ${ex.lista.length} colhedora(s) = ${fmt(ex.horas, 2)} h · capacidade ${fmt(ex.cap, 0)} t/h → ${fmt(ex.ton, 1)} t. Frota de colhedoras conforme a página 16 do BI (ou o relatório, na falta).` : '';
+  };
+
   const renderCxt = () => {
     const res = $('#cxtResumo'), grid = $('#cxtGrid');
     if (!res || !grid) return;
@@ -1166,37 +1221,52 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     }
     const dt = A.data ? A.data.split('-').reverse().join('/') : '';
     $('#cxtMeta').textContent = `Análise de ${dt} · ${A.fonte || 'Power BI COA'}`;
-    res.innerHTML = `<i class="fa-solid fa-clipboard-check"></i><div><p>${escapeHtml(A.resumo || '')}</p><small>Horas = ${escapeHtml(A.unidadeHoras || 'h por máquina no dia')}. Referência de Eficiência do Motor e Disponibilidade Mecânica: 85%.</small></div>`;
+    const perdas = calcPerdas();
+    const totPerda = sum(perdas.filter(p => p.ton != null), p => p.ton);
+    res.innerHTML = `<i class="fa-solid fa-clipboard-check"></i><div><p>${escapeHtml(A.resumo || '')}${totPerda ? ` <b>Manutenção acima da meta: ${fmt(totPerda, 1)} t não entregues.</b>` : ''}</p><small>Horas = ${escapeHtml(A.unidadeHoras || 'h por máquina no dia')}. Referência de Eficiência do Motor e Disponibilidade Manutenção: 85%. Timeline (pág. 16): % de cada hora, com meta por indicador.</small></div>`;
     const alvo = state.frente ? numFrente(state.frente) : null;
-    const lista = A.frentes.filter(f => alvo == null || numFrente(f.frente) === alvo);
+    const lista = sortFrentes(A.frentes.map(f => ({ ...f, frente: aliasFrente(f.frente) }))).filter(f => alvo == null || numFrente(f.frente) === alvo);
     const cel = (v, fn, suf) => (Number.isFinite(v) ? `<i class="sem sem--${fn(v)}"></i>${fmt(v, 1)}${suf}` : '—');
+    const tlRow = t => {
+      if (!t || t.picoHora == null) return `<tr><td>${escapeHtml(t ? t.indicador : '')}</td><td colspan="2" class="muted">sem registro</td></tr>`;
+      const st = t.picoValor > t.meta ? (t.horasAcimaMeta >= 3 ? 'bad' : 'warn') : 'ok';
+      return `<tr><td>${escapeHtml(t.indicador)} <small>· ${escapeHtml(t.equipamento)}</small></td>
+        <td><i class="sem sem--${st}"></i>${escapeHtml(t.picoHora)} · ${fmt(t.picoValor, 1)}%</td>
+        <td>${t.horasAcimaMeta ? `${t.horasAcimaMeta} h acima de ${fmt(t.meta, 0)}%${t.faixas && t.faixas.length ? ` <small>(${escapeHtml(t.faixas.join(', '))})</small>` : ''}` : `<span class="muted">dentro da meta (${fmt(t.meta, 0)}%)</span>`}</td></tr>`;
+    };
     grid.innerHTML = lista.map(f => {
       const c = f.colhedora || {}, t = f.transbordo || {};
+      const temPg45 = !!(f.colhedora || f.transbordo);
       const espT = (Number(t.aguardColhedora) || 0) + (Number(t.fila) || 0);
+      const perda = perdas.find(p => numFrente(p.frente) === numFrente(f.frente));
       return `<article class="cx">
         <header><strong>${escapeHtml(f.frente)}</strong><span class="pill ${escapeHtml(f.status || 'warn')}">${escapeHtml(f.titulo || '')}</span></header>
-        <table class="cx__t">
+        ${f.alerta ? `<div class="cx__alerta"><i class="fa-solid fa-triangle-exclamation"></i><span>${escapeHtml(f.alerta)}</span></div>` : ''}
+        ${temPg45 ? `<table class="cx__t">
           <thead><tr><th></th><th>Colhedora</th><th>Transbordo</th></tr></thead>
           <tbody>
             <tr><td>Eficiência do Motor</td><td>${cel(c.eficiencia, semEq, '%')}</td><td>${cel(t.eficiencia, semEq, '%')}</td></tr>
-            <tr><td>Disponibilidade Mecânica</td><td>${cel(c.disponibilidade, semEq, '%')}</td><td>${cel(t.disponibilidade, semEq, '%')}</td></tr>
-            <tr><td title="Colhedora: aguardando transbordo · Transbordo: aguardando colhedora + fila">Aguardando</td><td>${cel(c.aguardTransbordo, semEspera, ' h')}</td><td>${cel(espT, semEspera, ' h')}</td></tr>
+            <tr><td>Disponibilidade Manutenção</td><td>${cel(c.disponibilidade, semEq, '%')}</td><td>${cel(t.disponibilidade, semEq, '%')}</td></tr>
+            <tr><td title="Colhedora: aguardando transbordo + aguardando manobra de transbordo · Transbordo: aguardando colhedora + fila">Aguardando</td><td>${cel(c.aguardTransbordo, semEspera, ' h')}</td><td>${cel(espT, semEspera, ' h')}</td></tr>
           </tbody>
-        </table>
+        </table>` : ''}
+        ${Array.isArray(f.timeline) && f.timeline.length ? `<div class="cx__tl"><span class="cx__tl-h"><i class="fa-regular fa-clock"></i> Timeline · picos do dia</span>
+          <table class="cx__tlt"><tbody>${f.timeline.map(tlRow).join('')}</tbody></table></div>` : ''}
         <p class="cx__a">${escapeHtml(f.analise || '')}</p>
+        ${perda && perda.ton != null ? `<p class="cx__perda"><i class="fa-solid fa-screwdriver-wrench"></i> Manutenção ${fmt(perda.indisp, 1)}% (+${fmt(perda.exc, 1)} p.p. da meta): <b>${fmt(perda.ton, 1)} t não entregues</b></p>` : ''}
         ${f.acao ? `<p class="cx__acao"><b>Ação:</b> ${escapeHtml(f.acao)}</p>` : ''}
       </article>`;
-    }).join('') || '<div class="empty">A frente filtrada não consta no BI (somente Frentes 1 a 5).</div>';
+    }).join('') || '<div class="empty">A frente filtrada não consta no BI.</div>';
   };
   const loadAnalise = async () => {
     try {
       const r = await fetch('analise.json', { cache: 'no-store' });
       ANALISE = r.ok ? await r.json() : null;
     } catch (e) { ANALISE = null; }
-    try { renderCxt(); } catch (e) { console.error('[painel] falha em renderCxt:', e); }
+    try { renderCxt(); renderPerda(); } catch (e) { console.error('[painel] falha em renderCxt/renderPerda:', e); }
   };
 
-  /* ---------- Render: indisponibilidade mecânica ---------- */
+  /* ---------- Render: indisponibilidade manutenção ---------- */
   const renderIndisp = () => {
     const M = state.M, meta = M.metas.indisponibilidade;
     const card = $('#indisponibilidade');
@@ -1243,12 +1313,12 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const renderAll = () => {
     if (!state.M) return;
     safe(renderHeader, renderKpis, renderFrenteCharts, renderInteligencia,
-      renderMaquinas, renderLogistica, renderVinhaca, renderOfensores, renderEquip, renderIndisp,
+      renderMaquinas, renderLogistica, renderVinhaca, renderOfensores, renderEquip, renderIndisp, renderPerda, renderCxt,
       renderAgroKpis, renderFazChart, renderTables);
   };
   const renderFiltered = () => {
     safe(renderHeader, renderKpis, renderFrenteCharts, renderInteligencia,
-      renderMaquinas, renderIndisp, renderCxt, renderAgroKpis, renderFazChart, applyTableFilters);
+      renderMaquinas, renderIndisp, renderPerda, renderCxt, renderAgroKpis, renderFazChart, applyTableFilters);
   };
 
   const setData = (raw, { persist = false } = {}) => {
@@ -1389,6 +1459,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   document.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.id === 'filterAlertClear') { $('#btnClear').click(); return; }
+    if (b.dataset.mapfrente !== undefined) { state.mapFrente = b.dataset.mapfrente; renderFazChart(); return; }
     if (b.dataset.png) exportPng(b.dataset.png);
     if (b.dataset.csv) exportCsv(b.dataset.csv);
     if (b.dataset.reset) charts[b.dataset.reset]?.resetZoom?.();

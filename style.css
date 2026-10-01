@@ -631,3 +631,41 @@ div.dt-container .dt-info, div.dt-container .dt-length, div.dt-container .dt-sea
 .card--wide { margin-top: var(--gap); }
 .cx__t td:first-child { white-space: normal; line-height: 1.25; padding-right: 6px; }
 .cx { overflow: hidden; }
+
+/* ---------------- Mapa TCH x ATR: botões de frente ---------------- */
+.card__head .chips { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; justify-content: center; align-self: center; }
+.chip-btn {
+  height: 24px; padding: 0 9px; border-radius: 99px; border: 1px solid var(--line); background: var(--white);
+  font-size: 11px; font-weight: 600; color: var(--text); cursor: pointer; white-space: nowrap;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.chip-btn:hover { border-color: var(--green-300); background: var(--green-50); color: var(--green-900); }
+.chip-btn.is-on { background: var(--green-900); border-color: var(--green-900); color: #fff; }
+
+/* ---------------- Produção não entregue por manutenção ---------------- */
+#perdaCard { margin-top: var(--gap); }
+.perda-resumo { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 6px; margin-bottom: 10px; }
+.perda-resumo > div { background: var(--bg); border-radius: 8px; padding: 7px 10px; min-width: 0; }
+.perda-resumo span { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.perda-resumo b { font-size: 15px; color: var(--text-strong); }
+.perda-resumo .cxt-vazio { grid-column: 1 / -1; }
+#perdaTable .tag { display: block; margin: 0; font-weight: 500; }
+#perdaNota { margin-top: 8px; }
+@media (max-width: 760px) { .perda-resumo { grid-template-columns: 1fr 1fr; } }
+
+/* ---------------- Colhedoras x Transbordos: alerta, timeline e perda ---------------- */
+.cx__alerta { display: flex; gap: 7px; align-items: flex-start; font-size: 11.5px; line-height: 1.4; padding: 7px 9px; border-radius: 8px; background: var(--bad-bg); color: #8E1B1B; border: 1px solid #FFCDD2; }
+.cx__alerta i { color: var(--bad); margin-top: 2px; }
+.cx__tl { border-top: 1px solid var(--line); padding-top: 6px; }
+.cx__tl-h { display: block; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 3px; }
+.cx__tlt { width: 100%; border-collapse: collapse; font-size: 11px; }
+.cx__tlt td { padding: 3px 0; vertical-align: top; border-bottom: 1px dashed var(--line); }
+.cx__tlt td:first-child { color: var(--text); padding-right: 6px; }
+.cx__tlt td:first-child small { color: var(--muted); }
+.cx__tlt td:nth-child(2) { font-weight: 700; color: var(--text-strong); white-space: nowrap; padding-right: 6px; }
+.cx__tlt td:nth-child(3) small { color: var(--muted); }
+.cx__tlt .sem { margin-right: 4px; vertical-align: 0; }
+.cx__perda { margin: 0; font-size: 11.5px; padding: 6px 9px; border-radius: 8px; background: #FFF7F7; color: var(--text-strong); }
+.cx__perda i { color: var(--bad); margin-right: 4px; }
+.cxt { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
+@media (max-width: 560px) { .cxt { grid-template-columns: 1fr; } }
