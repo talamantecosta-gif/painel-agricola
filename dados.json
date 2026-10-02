@@ -1,358 +1,337 @@
 {
   "meta": {
-    "dataRelatorio": "2026-09-30",
+    "dataRelatorio": "2026-10-01",
     "titulo": "Gerenciamento Diário",
-    "arquivo": "Relatório 30-09-2026.pdf",
+    "arquivo": "Relatório 01-10-2026.pdf",
     "origem": "Gerencial.xlsm",
     "autor": "Talamante Gomes Costa Neto",
-    "importadoEm": "2026-10-01T11:39:57.665Z"
+    "importadoEm": "2026-10-02T10:23:22.738Z"
   },
   "fazendas": [
     {
       "frente": "Frente 01",
       "codFaz": "1092",
       "fazenda": "FAZ POUSO ALEGRE",
-      "velDim": 3.2,
+      "velDim": 3.4,
       "velReal": 0,
       "aderencia": -100,
-      "piloto": 84.6,
-      "tch": 92,
-      "tiroMedio": 1100,
-      "eficiencia": 83.1,
-      "tc": 1753.82,
-      "anlTon": 21,
-      "tcCarga": 73.1,
+      "piloto": 91,
+      "tch": 116,
+      "tiroMedio": 0,
+      "eficiencia": 84.8,
+      "tc": 633.47,
+      "anlTon": 17.9,
+      "tcCarga": 26.4,
       "distMed": 13.6,
-      "fibra": 13.55,
-      "atr": 135.05,
-      "impMin": 0.44,
-      "impVeg": 7.91,
-      "indisp": 31.4
+      "fibra": 13.13,
+      "atr": 142.4,
+      "impMin": 0.51,
+      "impVeg": 0,
+      "indisp": 37.1
     },
     {
       "frente": "Frente 02",
       "codFaz": "1091",
       "fazenda": "FAZ POUSO ALEGRE",
       "velDim": 4.1,
-      "velReal": 3.1,
-      "aderencia": -24.39,
-      "piloto": 44.7,
-      "tch": 100,
-      "tiroMedio": 244,
-      "eficiencia": 85.1,
-      "tc": 1224.22,
-      "anlTon": 15.3,
-      "tcCarga": 51,
+      "velReal": 3.3,
+      "aderencia": -19.51,
+      "piloto": 49.5,
+      "tch": 68,
+      "tiroMedio": 863,
+      "eficiencia": 78.2,
+      "tc": 1070.65,
+      "anlTon": 21.4,
+      "tcCarga": 44.6,
       "distMed": 10.8,
-      "fibra": 13.2,
-      "atr": 130.86,
-      "impMin": 0.82,
-      "impVeg": 0,
-      "indisp": 23.9
-    },
-    {
-      "frente": "Frente 02",
-      "codFaz": "1089",
-      "fazenda": "FAZ SANTO ANTONIO",
-      "velDim": 4.1,
-      "velReal": 3.1,
-      "aderencia": -24.39,
-      "piloto": 92.6,
-      "tch": 100,
-      "tiroMedio": 244,
-      "eficiencia": 85.1,
-      "tc": 177.2,
-      "anlTon": 0,
-      "tcCarga": 7.4,
-      "distMed": 14.1,
-      "fibra": 0,
-      "atr": 0,
-      "impMin": 0,
-      "impVeg": 0,
-      "indisp": 23.9
-    },
-    {
-      "frente": "Frente 03",
-      "codFaz": "3065",
-      "fazenda": "VAZANTE GLEBA H",
-      "velDim": 3.65,
-      "velReal": 0,
-      "aderencia": -100,
-      "piloto": 76.8,
-      "tch": 85,
-      "tiroMedio": 920,
-      "eficiencia": 69.3,
-      "tc": 1837.5,
-      "anlTon": 13.6,
-      "tcCarga": 76.6,
-      "distMed": 31.6,
-      "fibra": 12.59,
-      "atr": 137.67,
-      "impMin": 0.44,
-      "impVeg": 8.79,
-      "indisp": 8.2
+      "fibra": 13.46,
+      "atr": 133.29,
+      "impMin": 0.58,
+      "impVeg": 11.99,
+      "indisp": 18.2
     },
     {
       "frente": "Frente 04",
       "codFaz": "1103",
       "fazenda": "FAZ PRIMAVERA",
-      "velDim": 3.9,
-      "velReal": 4,
-      "aderencia": 2.56,
-      "piloto": 80.7,
-      "tch": 76,
-      "tiroMedio": 402,
-      "eficiencia": 77.1,
-      "tc": 1496.01,
-      "anlTon": 34,
-      "tcCarga": 62.3,
-      "distMed": 58.6,
-      "fibra": 12.63,
-      "atr": 144.89,
-      "impMin": 0.52,
-      "impVeg": 8.57,
+      "velDim": 4,
+      "velReal": 4.4,
+      "aderencia": 10,
+      "piloto": 78.6,
+      "tch": 87,
+      "tiroMedio": 623,
+      "eficiencia": 65.2,
+      "tc": 2203.72,
+      "anlTon": 20.8,
+      "tcCarga": 91.8,
+      "distMed": 59.3,
+      "fibra": 12.35,
+      "atr": 155.55,
+      "impMin": 0.4,
+      "impVeg": 8.61,
       "indisp": 3.8
+    },
+    {
+      "frente": "Frente 05",
+      "codFaz": "1087",
+      "fazenda": "FAZ PALMA DA BABILÔNIA (BACURI)",
+      "velDim": 4.25,
+      "velReal": 3.9,
+      "aderencia": -8.24,
+      "piloto": 41.2,
+      "tch": 71,
+      "tiroMedio": 0,
+      "eficiencia": 71.9,
+      "tc": 1145.91,
+      "anlTon": 23.2,
+      "tcCarga": 47.7,
+      "distMed": 36.2,
+      "fibra": 12.88,
+      "atr": 147.72,
+      "impMin": 0.61,
+      "impVeg": 8.03,
+      "indisp": 23.3
     },
     {
       "frente": "Frente 05",
       "codFaz": "2137",
       "fazenda": "FAZ GAIA",
-      "velDim": 2.7,
-      "velReal": 4.2,
-      "aderencia": 55.56,
-      "piloto": 0.9,
-      "tch": 119.5,
-      "tiroMedio": 345,
-      "eficiencia": 64.4,
-      "tc": 336.77,
-      "anlTon": 8.4,
-      "tcCarga": 14,
+      "velDim": 4.3,
+      "velReal": 3.9,
+      "aderencia": -8.24,
+      "piloto": 0,
+      "tch": 71,
+      "tiroMedio": 0,
+      "eficiencia": 71.9,
+      "tc": 352.4,
+      "anlTon": 18.3,
+      "tcCarga": 14.7,
       "distMed": 27.7,
-      "fibra": 13.55,
-      "atr": 142.03,
-      "impMin": 0.64,
-      "impVeg": 8.29,
-      "indisp": 49.9
+      "fibra": 12.7,
+      "atr": 150.15,
+      "impMin": 0.61,
+      "impVeg": 0,
+      "indisp": 23.3
     },
     {
       "frente": "Frente 05",
       "codFaz": "1113",
       "fazenda": "FAZ SANTA RITA DE CÁSSIA",
-      "velDim": 2.7,
-      "velReal": 4.2,
-      "aderencia": 55.56,
-      "piloto": 72.6,
-      "tch": 119.5,
-      "tiroMedio": 345,
-      "eficiencia": 64.4,
-      "tc": 1152.3,
-      "anlTon": 8.3,
-      "tcCarga": 48,
-      "distMed": 40.1,
-      "fibra": 11.83,
-      "atr": 142.75,
-      "impMin": 0.64,
+      "velDim": 4.3,
+      "velReal": 3.9,
+      "aderencia": -8.24,
+      "piloto": 0,
+      "tch": 71,
+      "tiroMedio": 0,
+      "eficiencia": 71.9,
+      "tc": 82.37,
+      "anlTon": 89.3,
+      "tcCarga": 3.4,
+      "distMed": 39.6,
+      "fibra": 11.67,
+      "atr": 154.3,
+      "impMin": 0.61,
       "impVeg": 0,
-      "indisp": 49.9
+      "indisp": 23.3
     },
     {
       "frente": "Frente 11",
       "codFaz": "2009",
       "fazenda": "FAZ POUSO ALEGRE",
       "velDim": 3.8,
-      "velReal": 3.9,
-      "aderencia": 2.63,
-      "piloto": 5.6,
-      "tch": 123,
-      "tiroMedio": 1890,
-      "eficiencia": 47.5,
-      "tc": 3157.65,
-      "anlTon": 14.4,
-      "tcCarga": 131.6,
+      "velReal": 0,
+      "aderencia": -100,
+      "piloto": 36.9,
+      "tch": 89,
+      "tiroMedio": 0,
+      "eficiencia": 47,
+      "tc": 2880.1,
+      "anlTon": 20.3,
+      "tcCarga": 120,
       "distMed": 8.1,
-      "fibra": 11.51,
-      "atr": 139.02,
-      "impMin": 0.36,
-      "impVeg": 5.03,
-      "indisp": 13.5
+      "fibra": 11.92,
+      "atr": 138.64,
+      "impMin": 0.59,
+      "impVeg": 4.68,
+      "indisp": 16.9
     },
     {
       "frente": "Frente 13",
-      "codFaz": "2142",
-      "fazenda": "ESTÂNCIA FÊNIX",
+      "codFaz": "2147",
+      "fazenda": "FAZ BURITI FECHADO",
       "velDim": 4.4,
-      "velReal": 5,
-      "aderencia": 13.64,
-      "piloto": 83.3,
+      "velReal": 0,
+      "aderencia": -100,
+      "piloto": 58.7,
       "tch": 63,
-      "tiroMedio": 541,
-      "eficiencia": 22.8,
-      "tc": 628.81,
-      "anlTon": 27.3,
-      "tcCarga": 26.2,
-      "distMed": 21.1,
-      "fibra": 12.01,
-      "atr": 132.13,
-      "impMin": 0,
-      "impVeg": 6.61,
-      "indisp": 68.7
+      "tiroMedio": 0,
+      "eficiencia": 47,
+      "tc": 410.72,
+      "anlTon": 37.5,
+      "tcCarga": 17.1,
+      "distMed": 23.1,
+      "fibra": 13.71,
+      "atr": 142.56,
+      "impMin": 0.28,
+      "impVeg": 0,
+      "indisp": 75.7
     },
     {
       "frente": "Frente 34",
       "codFaz": "1105",
       "fazenda": "FAZ PIRAPITINGA",
-      "velDim": 2.3,
+      "velDim": 3,
       "velReal": 0,
       "aderencia": -100,
-      "piloto": 86.5,
+      "piloto": 99.7,
       "tch": 122,
       "tiroMedio": 0,
-      "eficiencia": 90.8,
-      "tc": 556.96,
-      "anlTon": 12,
-      "tcCarga": 23.2,
-      "distMed": 107.8,
-      "fibra": 12.35,
-      "atr": 156.74,
-      "impMin": 0.57,
-      "impVeg": 4.74,
-      "indisp": 51.5
+      "eficiencia": 93.2,
+      "tc": 190.19,
+      "anlTon": 33.2,
+      "tcCarga": 7.9,
+      "distMed": 107.9,
+      "fibra": 12.89,
+      "atr": 126.31,
+      "impMin": 0,
+      "impVeg": 0,
+      "indisp": 2
     },
     {
       "frente": "Frente 37",
       "codFaz": "2094",
       "fazenda": "FAZ SANTO EXPEDITO",
       "velDim": 4.6,
-      "velReal": 3.9,
-      "aderencia": -15.22,
-      "piloto": 59.1,
-      "tch": 83,
-      "tiroMedio": 1059,
-      "eficiencia": 87.1,
-      "tc": 2892.22,
-      "anlTon": 31.9,
-      "tcCarga": 120.5,
-      "distMed": 16.1,
-      "fibra": 12.49,
-      "atr": 148.85,
-      "impMin": 0.42,
-      "impVeg": 5.07,
-      "indisp": 4.7
+      "velReal": 0,
+      "aderencia": -100,
+      "piloto": 77.9,
+      "tch": 97,
+      "tiroMedio": 0,
+      "eficiencia": 90.6,
+      "tc": 2437.93,
+      "anlTon": 22.4,
+      "tcCarga": 101.6,
+      "distMed": 16,
+      "fibra": 12.32,
+      "atr": 150.58,
+      "impMin": 0.47,
+      "impVeg": 6.28,
+      "indisp": 15.2
     }
   ],
   "totalGeral": {
-    "velDim": 3.6,
-    "velReal": 2.9,
-    "aderencia": -21.28,
-    "piloto": 62.5,
-    "tch": 98.5,
-    "tiroMedio": 644.6,
-    "eficiencia": 70.6,
-    "tc": 15213.46,
-    "anlTon": 20.1,
-    "tcCarga": 633.89,
-    "distMed": 25.4,
-    "fibra": 12.5,
-    "atr": 142.01,
-    "impMin": 0.47,
-    "impVeg": 6.92,
-    "indisp": 30
+    "velDim": 4,
+    "velReal": 1.9,
+    "aderencia": -53.42,
+    "piloto": 53.4,
+    "tch": 85.5,
+    "tiroMedio": 148.6,
+    "eficiencia": 72.2,
+    "tc": 11407.46,
+    "anlTon": 22.4,
+    "tcCarga": 475.31,
+    "distMed": 26.1,
+    "fibra": 12.52,
+    "atr": 145.52,
+    "impMin": 0.51,
+    "impVeg": 7.59,
+    "indisp": 24
   },
   "entregaCota": [
     {
       "frente": "Frente 01",
-      "producao": 1753.82,
-      "cota": 3011.32,
-      "diferenca": -1257.5
+      "producao": 633.47,
+      "cota": 3307.47,
+      "diferenca": -2674
     },
     {
       "frente": "Frente 02",
-      "producao": 1401.42,
-      "cota": 2963.93,
-      "diferenca": -1562.51
+      "producao": 1070.65,
+      "cota": 1692.53,
+      "diferenca": -621.88
     },
     {
       "frente": "Frente 03",
-      "producao": 1837.5,
-      "cota": 2066.16,
-      "diferenca": -228.66
+      "producao": 0,
+      "cota": 3029.99,
+      "diferenca": -3029.99
     },
     {
       "frente": "Frente 04",
-      "producao": 1496.01,
-      "cota": 2046.97,
-      "diferenca": -550.96
+      "producao": 2203.72,
+      "cota": 1887.95,
+      "diferenca": 315.77
     },
     {
       "frente": "Frente 05",
-      "producao": 1489.07,
-      "cota": 2952.07,
-      "diferenca": -1463
+      "producao": 1580.68,
+      "cota": 3232.9,
+      "diferenca": -1652.22
     },
     {
       "frente": "Frente 11",
-      "producao": 3157.65,
+      "producao": 2880.1,
       "cota": 3033.79,
-      "diferenca": 123.86
+      "diferenca": -153.69
     },
     {
       "frente": "Frente 13",
-      "producao": 628.81,
-      "cota": 596.16,
-      "diferenca": 32.65
+      "producao": 410.72,
+      "cota": 485.76,
+      "diferenca": -75.04
     },
     {
       "frente": "Frente 34",
-      "producao": 556.96,
+      "producao": 190.19,
       "cota": 2870.4,
-      "diferenca": -2313.44
+      "diferenca": -2680.21
     },
     {
       "frente": "Frente 37",
-      "producao": 2892.22,
+      "producao": 2437.93,
       "cota": 2539.2,
-      "diferenca": 353.02
+      "diferenca": -101.27
     }
   ],
   "totalEntrega": {
-    "producao": 15213.46,
+    "producao": 11407.46,
     "cota": 22080,
-    "diferenca": -6866.54
+    "diferenca": -10672.54
   },
   "logistica": {
     "happening": {
       "composicao": [
         {
           "tipo": "Rodotrem",
-          "tc": 4725.15,
-          "cargas": 148,
-          "tcv": 63.853,
-          "dist": 34.1
+          "tc": 3969.06,
+          "cargas": 120,
+          "tcv": 67.272,
+          "dist": 40.8
         },
         {
           "tipo": "Tritrem",
-          "tc": 2710.9,
+          "tc": 2587.58,
           "cargas": 78,
-          "tcv": 104.265,
-          "dist": 8.8
+          "tcv": 99.522,
+          "dist": 10.3
         }
       ],
       "total": {
-        "tc": 7436.05,
-        "cargas": 226,
-        "tcv": 74.361,
-        "dist": 24.9
+        "tc": 6556.64,
+        "cargas": 198,
+        "tcv": 77.137,
+        "dist": 28.8
       },
       "frota": {
         "operacao": {
-          "cavalos": 22,
-          "rodotrem": 37,
+          "cavalos": 21,
+          "rodotrem": 31,
           "tritrem": 7
         },
         "manutencao": {
-          "cavalos": 2,
-          "rodotrem": 5,
-          "tritrem": 0
+          "cavalos": 0,
+          "rodotrem": 3,
+          "tritrem": 1
         }
       }
     },
@@ -360,24 +339,24 @@
       "composicao": [
         {
           "tipo": "Rodotrem",
-          "tc": 1581.42,
-          "cargas": 46,
-          "tcv": 68.757,
-          "dist": 72
+          "tc": 708.77,
+          "cargas": 20,
+          "tcv": 70.877,
+          "dist": 70.4
         },
         {
           "tipo": "Tritrem",
-          "tc": 6195.99,
-          "cargas": 186,
-          "tcv": 99.935,
-          "dist": 14.1
+          "tc": 4142.05,
+          "cargas": 126,
+          "tcv": 98.62,
+          "dist": 14.3
         }
       ],
       "total": {
-        "tc": 7777.41,
-        "cargas": 232,
-        "tcv": 91.499,
-        "dist": 25.8
+        "tc": 4850.82,
+        "cargas": 146,
+        "tcv": 93.285,
+        "dist": 22.5
       },
       "frota": {
         "operacao": {
@@ -407,331 +386,224 @@
     {
       "frente": "Frente 03",
       "dimensionado": 57,
-      "realizado": 54.82,
-      "diferenca": -2.18
+      "realizado": 34.97,
+      "diferenca": -22.03
     },
     {
       "frente": "Frente 04",
-      "dimensionado": 34,
-      "realizado": 11.42,
-      "diferenca": -22.58
+      "dimensionado": 26,
+      "realizado": 7.13,
+      "diferenca": -18.87
     },
     {
       "frente": "Frente 05",
-      "dimensionado": 27,
-      "realizado": 1.6,
-      "diferenca": -25.4
+      "dimensionado": 31,
+      "realizado": 7.09,
+      "diferenca": -23.91
     },
     {
       "frente": "Frente 06",
-      "dimensionado": 28,
-      "realizado": 5.62,
-      "diferenca": -22.38
+      "dimensionado": 19,
+      "realizado": 22.79,
+      "diferenca": 3.79
     }
   ],
   "ofensores": {
     "A": [
-      "Aguardando insumos",
       "Abastecimento do implemento",
       "Fatores climáticos",
-      "Aguardando insumos"
+      "Fatores climáticos",
+      "Fatores climáticos"
     ],
     "B": [
-      "Abastecimento do implemento",
-      "Aguardando mecanico / Fatores climáticos / Aguardando ordens",
-      "Aguardando insumos / Fatores climáticos",
-      "Fatores climáticos"
+      "Fatores climáticos",
+      "Fatores climáticos / Aguardando insumos",
+      "Fatores climáticos / Falta operador",
+      "Abastecimento do implemento / Aguardando insumos"
     ],
     "C": [
       "Fatores climáticos",
       "Fatores climáticos",
-      "Fatores climáticos"
+      "Fatores climáticos",
+      "Fatores climáticos / Abastecimento do implemento"
     ]
   },
   "colhedoras": [
     {
       "frente": "Frente 01",
-      "maquina": "20024",
-      "tc": 1128.8,
-      "cargas": 66
-    },
-    {
-      "frente": "Frente 01",
       "maquina": "20025",
-      "tc": 625.1,
-      "cargas": 38
-    },
-    {
-      "frente": "Frente 02",
-      "maquina": "20118",
-      "tc": 496,
-      "cargas": 31
-    },
-    {
-      "frente": "Frente 02",
-      "maquina": "20120",
-      "tc": 596,
-      "cargas": 38
+      "tc": 633.5,
+      "cargas": 42
     },
     {
       "frente": "Frente 02",
       "maquina": "20119",
-      "tc": 309.4,
-      "cargas": 21
+      "tc": 372.3,
+      "cargas": 26
     },
     {
-      "frente": "Frente 03",
-      "maquina": "20029",
-      "tc": 549.1,
-      "cargas": 33
+      "frente": "Frente 02",
+      "maquina": "20120",
+      "tc": 324.5,
+      "cargas": 23
     },
     {
-      "frente": "Frente 03",
-      "maquina": "20022",
-      "tc": 772.3,
-      "cargas": 47
-    },
-    {
-      "frente": "Frente 03",
-      "maquina": "20023",
-      "tc": 516,
-      "cargas": 31
-    },
-    {
-      "frente": "Frente 04",
-      "maquina": "20019",
-      "tc": 683.2,
-      "cargas": 37
+      "frente": "Frente 02",
+      "maquina": "20118",
+      "tc": 373.9,
+      "cargas": 25
     },
     {
       "frente": "Frente 04",
       "maquina": "20026",
-      "tc": 512.7,
-      "cargas": 27
+      "tc": 525.2,
+      "cargas": 29
+    },
+    {
+      "frente": "Frente 04",
+      "maquina": "20019",
+      "tc": 846.8,
+      "cargas": 45
     },
     {
       "frente": "Frente 04",
       "maquina": "20027",
-      "tc": 300.1,
-      "cargas": 18
-    },
-    {
-      "frente": "Frente 05",
-      "maquina": "20021",
-      "tc": 398.8,
-      "cargas": 20
+      "tc": 831.7,
+      "cargas": 47
     },
     {
       "frente": "Frente 05",
       "maquina": "20020",
-      "tc": 623,
-      "cargas": 38
+      "tc": 846.5,
+      "cargas": 54
     },
     {
       "frente": "Frente 05",
-      "maquina": "20030",
-      "tc": 467.3,
-      "cargas": 26
+      "maquina": "20028",
+      "tc": 381.8,
+      "cargas": 24
+    },
+    {
+      "frente": "Frente 05",
+      "maquina": "20021",
+      "tc": 352.4,
+      "cargas": 19
     }
   ],
   "transbordos": [
     {
       "frente": "Frente 01",
-      "maquina": "10128",
-      "tc": 319.19,
+      "maquina": "10164",
+      "tc": 289.78,
       "cargas": 19
     },
     {
       "frente": "Frente 01",
-      "maquina": "10164",
-      "tc": 307.53,
-      "cargas": 18
-    },
-    {
-      "frente": "Frente 01",
-      "maquina": "10168",
-      "tc": 184.83,
-      "cargas": 11
-    },
-    {
-      "frente": "Frente 01",
       "maquina": "10163",
-      "tc": 144.37,
+      "tc": 139.02,
       "cargas": 9
-    },
-    {
-      "frente": "Frente 01",
-      "maquina": "10170",
-      "tc": 258.28,
-      "cargas": 16
     },
     {
       "frente": "Frente 01",
       "maquina": "10145",
-      "tc": 159.13,
-      "cargas": 9
-    },
-    {
-      "frente": "Frente 01",
-      "maquina": "10167",
-      "tc": 380.49,
-      "cargas": 22
-    },
-    {
-      "frente": "Frente 02",
-      "maquina": "30074",
-      "tc": 271.95,
-      "cargas": 17
+      "tc": 204.67,
+      "cargas": 14
     },
     {
       "frente": "Frente 02",
       "maquina": "30140",
-      "tc": 238.15,
+      "tc": 217.35,
       "cargas": 16
     },
     {
       "frente": "Frente 02",
-      "maquina": "30141",
-      "tc": 206.71,
-      "cargas": 14
+      "maquina": "30100",
+      "tc": 220.54,
+      "cargas": 15
     },
     {
       "frente": "Frente 02",
       "maquina": "30075",
-      "tc": 267.28,
-      "cargas": 18
+      "tc": 193.09,
+      "cargas": 13
+    },
+    {
+      "frente": "Frente 02",
+      "maquina": "30074",
+      "tc": 202.37,
+      "cargas": 14
     },
     {
       "frente": "Frente 02",
       "maquina": "30073",
-      "tc": 157.6,
-      "cargas": 10
-    },
-    {
-      "frente": "Frente 02",
-      "maquina": "30100",
-      "tc": 259.73,
-      "cargas": 15
-    },
-    {
-      "frente": "Frente 03",
-      "maquina": "10104",
-      "tc": 254.6,
-      "cargas": 15
-    },
-    {
-      "frente": "Frente 03",
-      "maquina": "10178",
-      "tc": 239.58,
-      "cargas": 15
-    },
-    {
-      "frente": "Frente 03",
-      "maquina": "10105",
-      "tc": 267.18,
-      "cargas": 17
-    },
-    {
-      "frente": "Frente 03",
-      "maquina": "10177",
-      "tc": 289.15,
-      "cargas": 17
-    },
-    {
-      "frente": "Frente 03",
-      "maquina": "30061",
-      "tc": 265.69,
-      "cargas": 17
-    },
-    {
-      "frente": "Frente 03",
-      "maquina": "30057",
-      "tc": 250.67,
-      "cargas": 15
-    },
-    {
-      "frente": "Frente 03",
-      "maquina": "10179",
-      "tc": 270.63,
-      "cargas": 15
-    },
-    {
-      "frente": "Frente 04",
-      "maquina": "10114",
-      "tc": 261.04,
-      "cargas": 14
-    },
-    {
-      "frente": "Frente 04",
-      "maquina": "10115",
-      "tc": 380.59,
-      "cargas": 18
-    },
-    {
-      "frente": "Frente 04",
-      "maquina": "10127",
-      "tc": 154.42,
-      "cargas": 9
-    },
-    {
-      "frente": "Frente 04",
-      "maquina": "10155",
-      "tc": 276.9,
-      "cargas": 17
-    },
-    {
-      "frente": "Frente 04",
-      "maquina": "10139",
-      "tc": 220.53,
-      "cargas": 12
+      "tc": 237.3,
+      "cargas": 16
     },
     {
       "frente": "Frente 04",
       "maquina": "10138",
-      "tc": 202.53,
+      "tc": 362.63,
+      "cargas": 21
+    },
+    {
+      "frente": "Frente 04",
+      "maquina": "10114",
+      "tc": 480.26,
+      "cargas": 24
+    },
+    {
+      "frente": "Frente 04",
+      "maquina": "10139",
+      "tc": 346.61,
+      "cargas": 20
+    },
+    {
+      "frente": "Frente 04",
+      "maquina": "10115",
+      "tc": 512.77,
+      "cargas": 29
+    },
+    {
+      "frente": "Frente 04",
+      "maquina": "10155",
+      "tc": 501.45,
+      "cargas": 27
+    },
+    {
+      "frente": "Frente 05",
+      "maquina": "30085",
+      "tc": 269.21,
+      "cargas": 17
+    },
+    {
+      "frente": "Frente 05",
+      "maquina": "30167",
+      "tc": 209.9,
+      "cargas": 13
+    },
+    {
+      "frente": "Frente 05",
+      "maquina": "30143",
+      "tc": 192.38,
       "cargas": 12
     },
     {
       "frente": "Frente 05",
       "maquina": "30059",
-      "tc": 187,
-      "cargas": 11
-    },
-    {
-      "frente": "Frente 05",
-      "maquina": "30084",
-      "tc": 137.72,
-      "cargas": 9
-    },
-    {
-      "frente": "Frente 05",
-      "maquina": "30142",
-      "tc": 246.1,
-      "cargas": 15
+      "tc": 216.73,
+      "cargas": 14
     },
     {
       "frente": "Frente 05",
       "maquina": "30166",
-      "tc": 277.06,
-      "cargas": 13
-    },
-    {
-      "frente": "Frente 05",
-      "maquina": "30085",
-      "tc": 187.88,
-      "cargas": 12
+      "tc": 475.14,
+      "cargas": 27
     },
     {
       "frente": "Frente 05",
       "maquina": "30065",
-      "tc": 272.84,
-      "cargas": 16
-    },
-    {
-      "frente": "Frente 05",
-      "maquina": "30143",
-      "tc": 180.47,
-      "cargas": 10
+      "tc": 217.32,
+      "cargas": 14
     }
   ],
   "metas": {
