@@ -1004,9 +1004,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const fo = d.frota?.operacao || {}, fm = d.frota?.manutencao || {};
     const opN = sum(Object.values(fo)), manN = sum(Object.values(fm));
     const dispLog = opN + manN ? opN / (opN + manN) * 100 : null;
+    const shr = v => tot.tc ? ` <span class="kpi__share" title="Participação no Total Entregue">${fmtPct((v || 0) / tot.tc * 100, 2)}</span>` : '';
     $('#logKpis').innerHTML = [
-      kpiCard({ label: 'Rodotrem', value: fmt(rod.tc), unit: 'TC', icon: 'fa-truck-moving', sub: `<b>${fmt(rod.cargas, 0)}</b> viagens · ${fmt(rod.tcv, 1)} TC/v` }),
-      kpiCard({ label: 'Tritrem', value: fmt(tri.tc), unit: 'TC', icon: 'fa-trailer', sub: `<b>${fmt(tri.cargas, 0)}</b> viagens · ${fmt(tri.tcv, 1)} TC/v` }),
+      kpiCard({ label: 'Rodotrem' + shr(rod.tc), value: fmt(rod.tc), unit: 'TC', icon: 'fa-truck-moving', sub: `<b>${fmt(rod.cargas, 0)}</b> viagens · ${fmt(rod.tcv, 1)} TC/v` }),
+      kpiCard({ label: 'Tritrem' + shr(tri.tc), value: fmt(tri.tc), unit: 'TC', icon: 'fa-trailer', sub: `<b>${fmt(tri.cargas, 0)}</b> viagens · ${fmt(tri.tcv, 1)} TC/v` }),
       kpiCard({ label: 'Total Entregue', value: fmt(tot.tc), unit: 'TC', icon: 'fa-route', sub: `<b>${fmt(tot.cargas, 0)}</b> viagens · ${fmt(tot.tcv, 1)} TC/v` }),
       kpiCard({ label: 'Distância Média', value: fmt(tot.dist, 1), unit: 'km', icon: 'fa-road', sub: `Rodo ${fmt(rod.dist, 1)} · Tri ${fmt(tri.dist, 1)} km` }),
       kpiCard({ st: statusVsMeta(dispLog, state.M.metas.disponibilidade), label: 'Frota Operando', value: fmt((fo.cavalos || 0), 0), unit: 'cavalos', icon: 'fa-truck-front', sub: `${fo.rodotrem || 0} rodo · ${fo.tritrem || 0} tri · <b class="t-bad">${manN}</b> manut. · disp. ${fmtPct(dispLog, 0)}` }),

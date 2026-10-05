@@ -669,3 +669,5 @@ div.dt-container .dt-info, div.dt-container .dt-length, div.dt-container .dt-sea
 .cx__perda i { color: var(--bad); margin-right: 4px; }
 .cxt { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
 @media (max-width: 560px) { .cxt { grid-template-columns: 1fr; } }
+
+.kpi__share{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:#E8F5E9;color:#1B5E20;font-size:.78rem;font-weight:700;letter-spacing:0}
