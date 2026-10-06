@@ -589,7 +589,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     try { download(name, JSON.stringify(await Acesso.encryptJson(obj), null, 1), 'application/json'); }
     catch (e) { toast(`<i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(e.message)}`, 5000); }
   };
-  const avisoSemProtecao = nome => toast(`<i class="fa-solid fa-lock-open"></i> ${nome} está publicado sem proteção — baixe pelo painel e publique a versão protegida`, 6500);
 
   /* ---------- Filtros ---------- */
   const filteredFrentes = () => {
@@ -1276,7 +1275,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const loadAnalise = async () => {
     try {
       const r = await fetch('analise.json', { cache: 'no-store' });
-      if (r.ok) { const x = await Acesso.readJson(await r.json()); ANALISE = x.data; if (!x.protegido) avisoSemProtecao('analise.json'); }
+      if (r.ok) { const x = await Acesso.readJson(await r.json()); ANALISE = x.data; }
       else ANALISE = null;
     } catch (e) { console.warn('[painel] analise.json:', e.message); ANALISE = null; }
     try { renderCxt(); renderPerda(); } catch (e) { console.error('[painel] falha em renderCxt/renderPerda:', e); }
@@ -1443,7 +1442,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     let remote = null;
     try {
       const r = await fetch('dados.json', { cache: 'no-store' });
-      if (r.ok) { const x = await Acesso.readJson(await r.json()); remote = x.data; if (!x.protegido) setTimeout(() => avisoSemProtecao('dados.json'), 800); }
+      if (r.ok) { const x = await Acesso.readJson(await r.json()); remote = x.data; }
     } catch (e) { console.warn('[painel] dados.json:', e.message); /* file://, offline ou chave diferente */ }
     // usa o relatório mais recente entre o publicado (dados.json) e o importado neste navegador
     let use = remote, fromCache = false;
