@@ -571,11 +571,25 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   /* ---------- Armazenamento local ---------- */
+  // cópia local do último relatório importado — sempre criptografada com a chave do painel
   const store = {
-    get() { try { const s = localStorage.getItem(STORE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } },
-    set(d) { try { localStorage.setItem(STORE_KEY, JSON.stringify(d)); } catch (e) { /* sem storage */ } },
+    async get() {
+      try {
+        const s = localStorage.getItem(STORE_KEY); if (!s) return null;
+        const o = JSON.parse(s);
+        if (!Acesso.isProtected(o)) { localStorage.removeItem(STORE_KEY); return null; } // cópia antiga sem proteção
+        return await Acesso.decryptJson(o);
+      } catch (e) { return null; }
+    },
+    async set(d) { try { localStorage.setItem(STORE_KEY, JSON.stringify(await Acesso.encryptJson(d))); } catch (e) { /* sem storage */ } },
     clear() { try { localStorage.removeItem(STORE_KEY); } catch (e) { /* sem storage */ } },
   };
+  /** Baixa um JSON já protegido (criptografado) para publicar no GitHub. */
+  const downloadProtected = async (name, obj) => {
+    try { download(name, JSON.stringify(await Acesso.encryptJson(obj), null, 1), 'application/json'); }
+    catch (e) { toast(`<i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(e.message)}`, 5000); }
+  };
+  const avisoSemProtecao = nome => toast(`<i class="fa-solid fa-lock-open"></i> ${nome} está publicado sem proteção — baixe pelo painel e publique a versão protegida`, 6500);
 
   /* ---------- Filtros ---------- */
   const filteredFrentes = () => {
@@ -1262,8 +1276,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const loadAnalise = async () => {
     try {
       const r = await fetch('analise.json', { cache: 'no-store' });
-      ANALISE = r.ok ? await r.json() : null;
-    } catch (e) { ANALISE = null; }
+      if (r.ok) { const x = await Acesso.readJson(await r.json()); ANALISE = x.data; if (!x.protegido) avisoSemProtecao('analise.json'); }
+      else ANALISE = null;
+    } catch (e) { console.warn('[painel] analise.json:', e.message); ANALISE = null; }
     try { renderCxt(); renderPerda(); } catch (e) { console.error('[painel] falha em renderCxt/renderPerda:', e); }
   };
 
@@ -1374,12 +1389,21 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     if (!file) return;
     const isJson = /\.json$/i.test(file.name) || file.type === 'application/json';
     const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
-    if (!isJson && !isPdf) return toast('Envie um arquivo PDF do relatório ou um dados.json');
+    if (!isJson && !isPdf) return toast('Envie o PDF do relatório, o dados.json ou o analise.json');
     modal('Importando relatório', `<div class="spinner"></div><p style="text-align:center">Lendo <b>${escapeHtml(file.name)}</b>…</p>`);
     try {
       let parsed;
       if (isJson) {
-        parsed = JSON.parse(await file.text());
+        parsed = (await Acesso.readJson(JSON.parse(await file.text()))).data;
+        if (parsed && Array.isArray(parsed.frentes) && !parsed.fazendas && ('fonte' in parsed || 'semDados' in parsed)) {
+          // analise.json gerado pela tarefa agendada → aplica e baixa a versão protegida
+          ANALISE = parsed;
+          try { renderCxt(); renderPerda(); } catch (e) { console.error(e); }
+          await downloadProtected('analise.json', parsed);
+          closeModal();
+          toast('<i class="fa-solid fa-lock"></i> analise.json protegido baixado — publique no GitHub', 5000);
+          return;
+        }
       } else {
         const { items, info } = await extractPdfItems(file);
         parsed = parseReportItems(items, info);
@@ -1404,7 +1428,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         <ul class="check-list">${v.checks.map(([n, ok, det]) => `<li><i class="fa-solid ${ok ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i><span>${n}${det ? ` <span class="muted">· ${det}</span>` : ''}${ok ? '' : ' <span class="muted">(não encontrado)</span>'}</span></li>`).join('')}</ul>
         <p class="hint" style="margin-top:12px">Os números ficam salvos neste navegador. Para publicar para todos no GitHub Pages, baixe o <b>dados.json</b> e substitua o arquivo no repositório.</p>`,
         [
-          { html: '<i class="fa-solid fa-file-code"></i> Aplicar e baixar dados.json', onClick: () => { setData(parsed, { persist: true }); download('dados.json', JSON.stringify(parsed, null, 2), 'application/json'); closeModal(); toast('<i class="fa-solid fa-check"></i> Painel atualizado'); } },
+          { html: '<i class="fa-solid fa-file-code"></i> Aplicar e baixar dados.json', onClick: () => { setData(parsed, { persist: true }); downloadProtected('dados.json', parsed); closeModal(); toast('<i class="fa-solid fa-check"></i> Painel atualizado'); } },
           { html: '<i class="fa-solid fa-check"></i> Aplicar', primary: true, onClick: () => { setData(parsed, { persist: true }); closeModal(); toast('<i class="fa-solid fa-check"></i> Painel atualizado com o novo relatório'); } },
         ]);
     } catch (err) {
@@ -1415,12 +1439,12 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
   /* ---------- Carga inicial ---------- */
   const loadInitial = async () => {
-    const cached = store.get();
+    const cached = await store.get();
     let remote = null;
     try {
       const r = await fetch('dados.json', { cache: 'no-store' });
-      if (r.ok) remote = await r.json();
-    } catch (e) { /* file:// ou offline */ }
+      if (r.ok) { const x = await Acesso.readJson(await r.json()); remote = x.data; if (!x.protegido) setTimeout(() => avisoSemProtecao('dados.json'), 800); }
+    } catch (e) { console.warn('[painel] dados.json:', e.message); /* file://, offline ou chave diferente */ }
     // usa o relatório mais recente entre o publicado (dados.json) e o importado neste navegador
     let use = remote, fromCache = false;
     if (cached && (!remote || (cached.meta?.dataRelatorio || '') > (remote.meta?.dataRelatorio || '') ||
@@ -1441,10 +1465,16 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
   /* ---------- Eventos ---------- */
   $('#btnImport').addEventListener('click', () => $('#fileInput').click());
-  $('#fileInput').addEventListener('change', e => { handleFile(e.target.files[0]); e.target.value = ''; });
+  const handleFiles = async files => {
+    // analise.json primeiro (sem perguntas); o PDF/dados.json por último (abre a confirmação)
+    const list = [...(files || [])].sort((a, b) => (/\.pdf$/i.test(a.name) ? 1 : 0) - (/\.pdf$/i.test(b.name) ? 1 : 0));
+    for (const f of list) await handleFile(f);
+  };
+  $('#fileInput').addEventListener('change', e => { handleFiles(e.target.files); e.target.value = ''; });
+  $('#btnSair').addEventListener('click', () => { Acesso.logout(); store.clear(); location.reload(); });
   $('#btnJson').addEventListener('click', () => {
     if (!state.M) return toast('Sem dados para exportar');
-    download('dados.json', JSON.stringify(state.M.raw, null, 2), 'application/json');
+    downloadProtected('dados.json', state.M.raw);
   });
   $('#btnCsvAll').addEventListener('click', () => exportCsv('tblGer'));
   $('#btnPrint').addEventListener('click', () => { preparePrint(); setTimeout(() => { window.print(); setTimeout(restorePrint, 500); }, 150); });
@@ -1490,7 +1520,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   window.addEventListener('dragenter', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { dragN++; $('#dropzone').classList.add('is-on'); } });
   window.addEventListener('dragleave', () => { dragN = Math.max(0, dragN - 1); if (!dragN) $('#dropzone').classList.remove('is-on'); });
   window.addEventListener('dragover', e => e.preventDefault());
-  window.addEventListener('drop', e => { e.preventDefault(); dragN = 0; $('#dropzone').classList.remove('is-on'); handleFile(e.dataTransfer.files[0]); });
+  window.addEventListener('drop', e => { e.preventDefault(); dragN = 0; $('#dropzone').classList.remove('is-on'); handleFiles(e.dataTransfer.files); });
 
   // Impressão: mostra todas as linhas e ajusta gráficos
   // Os gráficos viram imagens estáticas antes de imprimir: evita páginas em branco
@@ -1536,8 +1566,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   syncTop(); window.addEventListener('resize', syncTop);
 
   $('#year').textContent = new Date().getFullYear();
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { loadInitial(); loadAnalise(); });
-  else { loadInitial(); loadAnalise(); }
+  // só carrega os dados depois do login
+  Acesso.gate().then(user => {
+    const b = $('#btnSair'); if (b) b.title = `Sair (${user})`;
+    loadInitial(); loadAnalise();
+  });
 }
 
 /* Exporta funções puras para testes em Node (ignorado no navegador). */

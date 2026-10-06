@@ -16,9 +16,9 @@
   <!-- DataTables -->
   <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
 
-  <link rel="stylesheet" href="style.css?v=20261005b">
+  <link rel="stylesheet" href="style.css?v=20261006b">
 </head>
-<body>
+<body class="auth-locked">
 
   <!-- ================= TOPO ================= -->
   <header class="topbar" id="topo">
@@ -36,10 +36,10 @@
 
       <div class="toolbar" role="toolbar" aria-label="Ações">
         <span class="report-chip" id="reportChip" title="Relatório carregado"><i class="fa-regular fa-file-lines"></i><span>—</span></span>
-        <button class="btn btn--primary" id="btnImport" title="Importar o PDF do relatório diário e atualizar o painel">
+        <button class="btn btn--primary" id="btnImport" title="Importar o PDF do relatório diário (e/ou o analise.json da tarefa agendada)">
           <i class="fa-solid fa-file-arrow-up"></i><span>Importar PDF</span>
         </button>
-        <button class="btn" id="btnJson" title="Baixar dados.json com os números atuais (para publicar no GitHub)">
+        <button class="btn" id="btnJson" title="Baixar dados.json protegido com os números atuais (para publicar no GitHub)">
           <i class="fa-solid fa-file-code"></i><span>dados.json</span>
         </button>
         <button class="btn" id="btnCsvAll" title="Exportar tabela gerencial em CSV">
@@ -51,7 +51,10 @@
         <button class="btn btn--icon" id="btnFull" title="Tela cheia">
           <i class="fa-solid fa-expand"></i>
         </button>
-        <input type="file" id="fileInput" accept=".pdf,.json,application/pdf,application/json" hidden>
+        <button class="btn btn--icon" id="btnSair" title="Sair">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
+        <input type="file" id="fileInput" accept=".pdf,.json,application/pdf,application/json" multiple hidden>
       </div>
     </div>
 
@@ -420,7 +423,7 @@
 
   <!-- Overlay de arrastar/soltar e modal -->
   <div class="dropzone" id="dropzone" aria-hidden="true">
-    <div><i class="fa-solid fa-file-pdf"></i><p>Solte o PDF do relatório para atualizar o painel</p></div>
+    <div><i class="fa-solid fa-file-pdf"></i><p>Solte o PDF do relatório e/ou o analise.json</p></div>
   </div>
   <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
     <div class="modal__box">
@@ -439,6 +442,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-  <script src="script.js?v=20261005b"></script>
+  <script src="acesso.js?v=20261006b"></script>
+  <script src="script.js?v=20261006b"></script>
 </body>
 </html>

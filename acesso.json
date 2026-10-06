@@ -1,0 +1,80 @@
+{
+ "_comentario": "Usuários liberados do painel. Gerado em acessos.html — não edite à mão.",
+ "versao": 2,
+ "verificacao": {
+  "iv": "0TI2XCUD2IC7HaJn",
+  "ct": "6uW2102py8c9hqAccXNUgLpK3VKV0SuWaA=="
+ },
+ "usuarios": [
+  {
+   "id": "08ccfdedb90229b30a129c85c7f080b2cba6e69baaf4f29f098d5f45e1b2d7ab",
+   "salt": "Cea271xWePeD6LrT+nxuqA==",
+   "iter": 310000,
+   "iv": "QbvD84eQLV62D6iD",
+   "chave": "TjDzMJD5qeK8cCo16YDLC8MAAeIPvQ+cOPF1HGB0bhRnVC3lsK98s92YfjcoVyPH",
+   "criadoEm": "2026-10-06T18:49:19.695Z"
+  },
+  {
+   "id": "f852e67830c5731c616decd48cbb0ca639caf81e3418ea9c4e8a3d2ec9a6e3c1",
+   "salt": "tYAk8sCh3mzOU72kNX3BuA==",
+   "iter": 310000,
+   "iv": "UqBtaZzhKIqNeot/",
+   "chave": "ekUzD95VIWYS5+mfQ4gDBtpXV052LMxo0DXWeCbeMtywi/AJobtQSFcIi+b9LRgz",
+   "criadoEm": "2026-10-06T18:49:19.758Z"
+  },
+  {
+   "id": "a3593381a5296b169a4426ce36de48477d9309a2824c380642fb18e37caf9beb",
+   "salt": "EZ3TxzTSnQlwbof0pW5/5Q==",
+   "iter": 310000,
+   "iv": "a8+oOBPC+xTheMhu",
+   "chave": "yoq83oEWKzgG1mQqhPLRGVGFefo4ow7sI3HaN7waHljCOnSSaFvXOK/sv9+/KZyt",
+   "criadoEm": "2026-10-06T18:49:19.811Z"
+  },
+  {
+   "id": "64d8db0151ec36276fdad60eb07cacb281557f38d8251d93cfd9dae493665070",
+   "salt": "oM8cw4GqyooI+H4aBF7tTg==",
+   "iter": 310000,
+   "iv": "3YSjWQy3qkFCyRKZ",
+   "chave": "4tmAvVQdjYkDQichfMBGReg5njrJeM07dMP8vQu+PB+KFs9K55PfG2fOUo27rFYy",
+   "criadoEm": "2026-10-06T18:49:19.854Z"
+  },
+  {
+   "id": "7aabc11d4a52b1c0e8f4d950853d8fad9ecdf161024b9d1651aaae4f145dbc84",
+   "salt": "DzDO/gY5FU94juvhzvoExA==",
+   "iter": 310000,
+   "iv": "Kri7vu83y2Xz5C3B",
+   "chave": "/VCATWjhgrBmkMuUFbXx/lOys7vjcu3Cz9fD2G1j4IEhaKmdMHL9B3r6FO3J0Qlo",
+   "criadoEm": "2026-10-06T18:49:19.903Z"
+  },
+  {
+   "id": "9815d6064bcabcc44b8b45246a2051e1e8b6d75a61eb2112716b5f7167061f1b",
+   "salt": "GEjbF2nS05dF4Z+HlTZCHw==",
+   "iter": 310000,
+   "iv": "mo7qpWGYQDtAauX0",
+   "chave": "eEcfiTp3KXtg7DkACP5CcnYADeHV39Xk6RZYNX99Z/hy+Ln4pjXabENM7IwVwZnQ",
+   "criadoEm": "2026-10-06T18:49:19.951Z"
+  },
+  {
+   "id": "bc4a294d48305c019f386697eb01bffbc68cf9f7741d2270ec75de0289392a1a",
+   "salt": "5RENRJJYloLkJa+TtTsPOA==",
+   "iter": 310000,
+   "iv": "/jAaEuuHwyga23X7",
+   "chave": "RBqJTM0GrQGbBA3APCUniVNzscUsJXUM87mNvX6lVsp0Lbw6XlOr2+2FKV+gK61b",
+   "criadoEm": "2026-10-06T18:49:19.994Z"
+  },
+  {
+   "id": "6519f161ab93076eeecb44819b442f12548757bbaadf0a6d25660a2900cd329c",
+   "salt": "oDdG6hr52gBHWrD2EBM6BA==",
+   "iter": 310000,
+   "iv": "h86rw1BsmBnzuiO+",
+   "chave": "80TuWlHmUQUdJjhsNQLBvB4fZClFKUPRIzN6CPEHuaFU9DEQzXpel4BxoksfMqsX",
+   "criadoEm": "2026-10-06T18:49:20.043Z"
+  }
+ ],
+ "nomes": {
+  "protegido": "aes-gcm-v1",
+  "aviso": "ConteÃºdo protegido â€” abra pelo painel com um usuÃ¡rio liberado.",
+  "iv": "eChe4RPs2nsM8j3O",
+  "ct": "ayqbWgPnrOsA1uzhjHW8fWvbRJTY0CgiI5HUmY/xcNPOlcHojjU/4LMs49cvgJdeXbjYwgkkpoCBTiZ5XEsQUvQeptoPCV2BOndLggLxDC82enalX3anWN/v8y5Tql3gkScIy4zJaQp4/6MjGhFFSlX2ZtgCMSDQMJ84MoVzUuQ4TSQBwVkKDG1nYCSomAEnAkLYJ8PRSqzlmY1/VMISGfpwn5OO6+J+eaV3+Wx7pg4EvwxqjwFHeR9LYBTzVIXqq/VB7svf8VFYZD3AtTL6VkWmLeszvfANvjLtwOq3XwYySvkUXVSvyCCfbBWs6+gco+zlWVIH4N0/p5bQDS7S+xeGJgIz+rcXacaimPo/lXA3J74lnW3LD4X8JIxyd3tNIRDRRXTDBwas30S5ZN5joZptGGmR5ovVSzeplwYhvKXRjLeaa4wfsakcon6WynSqvnruK07P4EmAi0eadJ/2FeTKVGfV49g2UjTqGitnYVo5WQHqBd/oFXKAIDMLbvDDL8cQapVWJOypwvhg7TW2IxytGheJEQXR1MQ53IXCxBnVN3e6TLz/AomMjp6+Tm+t3CCEsWYC/VFOxLgiaO63PxZy9FNx1l0HqaOYUjT5LRFwzu6iOVo3WP3pZP8eAVbdFdf9mTDX/zfcbVb/TAOxkSfJ/ttfMOhClQZWSQtmyk4THPr8jXRxEp6jdbl0YFzLQ/THuEhExEFRJOYKrYQ2yzXDAEQirRHl0ZtQCXWSqWOKzD7oKAcoVRDvnTiyiaX7xUglVCalhVq6UrNfkdNpTDIBvsh83pjoyOwLNhyx+j92jWGCZcLzZWxOPASFpC2QV1/0AIa1fQdQBnGpeRXuMq0h+5XiPrWoDchNwqZmVVPCaOsLA6QkKDsISPGuVYTCQgzy"
+ }
+}

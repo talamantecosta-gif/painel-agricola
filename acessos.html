@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Gerenciar Acessos · Gerenciamento Diário</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="style.css?v=20261006b">
+  <style>
+    body { background: #F4F7F5; }
+    .adm { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+    .adm__head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .adm__head img { width: 40px; height: 40px; object-fit: contain; }
+    .adm__head h1 { font-size: 1.25rem; margin: 0; color: #1F2A24; }
+    .adm__head small { color: #6B7A72; }
+    .adm__head a { margin-left: auto; text-decoration: none; }
+    .box { background: #fff; border: 1px solid #E3E8E4; border-radius: 14px; padding: 18px 18px 16px; margin-bottom: 16px; }
+    .box h2 { font-size: 1rem; margin: 0 0 4px; color: #1F2A24; display: flex; align-items: center; gap: 8px; }
+    .box h2 i { color: var(--green-700); }
+    .box > p { margin: 0 0 14px; color: #6B7A72; font-size: .86rem; line-height: 1.5; }
+    .row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
+    @media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
+    .fld { display: grid; gap: 6px; font-size: .8rem; font-weight: 600; color: #46524B; }
+    .fld input { font: inherit; font-weight: 500; font-size: .92rem; padding: 9px 11px; border: 1px solid #D5DDD7; border-radius: 10px; background: #FAFCFA; width: 100%; box-sizing: border-box; }
+    .fld input:focus { outline: 3px solid rgba(46,125,50,.25); border-color: var(--green-700); background: #fff; }
+    .pwrow { display: flex; gap: 6px; }
+    table.us { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    table.us th, table.us td { text-align: left; padding: 9px 8px; border-bottom: 1px solid #EEF2EF; }
+    table.us th { font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; color: #6B7A72; }
+    table.us td:last-child { text-align: right; }
+    .pend { display: none; align-items: center; gap: 10px; flex-wrap: wrap; background: #FFF8E1; border: 1px solid #F9E0A0; color: #6D5200; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-size: .88rem; }
+    .pend.is-on { display: flex; }
+    .pend .btn { margin-left: auto; }
+    .msg { font-size: .85rem; margin: 10px 0 0; }
+    .msg.bad { color: #C62828; } .msg.ok { color: var(--green-700); }
+    ol.passos { margin: 0; padding-left: 20px; font-size: .88rem; color: #46524B; line-height: 1.7; }
+    code { background: #F1F4F2; padding: 1px 6px; border-radius: 6px; font-size: .85em; }
+  </style>
+</head>
+<body class="auth-locked">
+  <main class="adm" id="app"></main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="acesso.js?v=20261006b"></script>
+  <script>
+  (async () => {
+    const A = window.Acesso, $ = s => document.querySelector(s), esc = A.esc;
+    const toast = (h, ms = 3500) => { const t = $('#toast'); t.innerHTML = h; t.classList.add('is-on'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('is-on'), ms); };
+    const download = (name, obj) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 1)], { type: 'application/json' })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); };
+    const genPass = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'; const r = crypto.getRandomValues(new Uint32Array(12)); return [...r].map(x => c[x % c.length]).join('').replace(/(.{4})(?!$)/g, '$1-'); };
+    let cfg = await A.loadConfig(), pendente = false;
+
+    const shell = inner => {
+      document.body.classList.remove('auth-locked');
+      $('#app').innerHTML = `<header class="adm__head"><img src="assets/logo-icon.png" alt="" onerror="this.remove()"><div><h1>Gerenciar acessos</h1><small>Usuários liberados do painel Gerenciamento Diário</small></div><a class="btn" href="./"><i class="fa-solid fa-chart-column"></i><span>Abrir painel</span></a></header>${inner}`;
+    };
+
+    /* ---------- Primeiro acesso ---------- */
+    if (!cfg) {
+      shell(`<section class="box"><h2><i class="fa-solid fa-user-shield"></i>Criar o primeiro acesso</h2>
+        <p>Ainda não existe <code>acesso.json</code> no site. Crie o seu usuário de administrador — com ele você libera os demais depois.</p>
+        <form id="fNew" class="row" autocomplete="off">
+          <label class="fld">Usuário<input name="u" required placeholder="ex.: talamante"></label>
+          <label class="fld">Senha (mín. 8)<input name="p" type="password" required minlength="8" autocomplete="new-password"></label>
+          <button class="btn btn--primary" type="submit"><i class="fa-solid fa-check"></i><span>Criar</span></button>
+        </form><p class="msg bad" id="mNew" hidden></p></section>`);
+      $('#fNew').addEventListener('submit', async e => {
+        e.preventDefault(); const f = e.target;
+        if (!A.checkPass(f.p.value)) { $('#mNew').textContent = 'A senha precisa ter pelo menos 8 caracteres.'; $('#mNew').hidden = false; return; }
+        cfg = await A.createConfig(f.u.value, f.p.value); pendente = true; manager(true);
+      });
+      return;
+    }
+
+    /* ---------- Login do administrador ---------- */
+    A.config = cfg;
+    await A.gate();
+    manager(false);
+
+    /* ---------- Painel de gestão ---------- */
+    function manager(novo) {
+      shell(`
+        <div class="pend" id="pend"><i class="fa-solid fa-triangle-exclamation"></i><span>Alterações ainda não publicadas. Baixe o <b>acesso.json</b> e substitua no GitHub.</span>
+          <button class="btn btn--primary" id="bDown"><i class="fa-solid fa-download"></i><span>Baixar acesso.json</span></button></div>
+        ${novo ? `<section class="box"><h2><i class="fa-solid fa-list-check"></i>Para ativar o login</h2><ol class="passos">
+          <li>Clique em <b>Baixar acesso.json</b> (aviso amarelo acima).</li>
+          <li>Em <b>Proteger arquivos</b> (abaixo), selecione o <code>dados.json</code> e o <code>analise.json</code> atuais e baixe as versões protegidas.</li>
+          <li>No GitHub, envie <code>acesso.json</code>, <code>dados.json</code> e <code>analise.json</code> protegidos (junto com <code>acesso.js</code>, <code>acessos.html</code>, <code>index.html</code>, <code>script.js</code> e <code>style.css</code>).</li></ol></section>` : ''}
+        <section class="box"><h2><i class="fa-solid fa-users"></i>Usuários liberados</h2>
+          <p>Só quem está nesta lista consegue entrar no painel e ler os números.</p>
+          <table class="us"><thead><tr><th>Usuário</th><th>Criado em</th><th></th></tr></thead><tbody id="tb"></tbody></table></section>
+        <section class="box"><h2><i class="fa-solid fa-user-plus"></i>Liberar usuário</h2>
+          <p>Para trocar a senha de alguém, cadastre o mesmo usuário com a nova senha.</p>
+          <form id="fAdd" class="row" autocomplete="off">
+            <label class="fld">Usuário<input name="u" required placeholder="ex.: joao.silva"></label>
+            <label class="fld">Senha (mín. 8)<span class="pwrow"><input name="p" required minlength="8" autocomplete="new-password"><button type="button" class="btn btn--icon" id="bGen" title="Gerar senha forte"><i class="fa-solid fa-wand-magic-sparkles"></i></button></span></label>
+            <button class="btn btn--primary" type="submit"><i class="fa-solid fa-plus"></i><span>Liberar</span></button>
+          </form><p class="msg" id="mAdd" hidden></p></section>
+        <section class="box"><h2><i class="fa-solid fa-lock"></i>Proteger arquivos</h2>
+          <p>Selecione o <code>dados.json</code> e/ou o <code>analise.json</code> sem proteção — o painel baixa as versões criptografadas, com o mesmo nome, prontas para o GitHub. (No dia a dia, o botão <b>Importar PDF</b> do painel já faz isso.)</p>
+          <label class="btn"><i class="fa-solid fa-file-shield"></i><span>Selecionar arquivos .json</span><input type="file" id="fProt" accept=".json,application/json" multiple hidden></label>
+          <p class="msg" id="mProt" hidden></p></section>`);
+      const pend = () => $('#pend').classList.toggle('is-on', pendente);
+      const draw = async () => {
+        const us = (await A.listUsers(cfg)).sort((a, b) => a.nome.localeCompare(b.nome));
+        $('#tb').innerHTML = us.map(u => `<tr><td><b>${esc(u.nome)}</b>${u.nome === String(A.user || '').toLowerCase() ? ' <span class="muted">(você)</span>' : ''}</td><td>${u.criadoEm ? new Date(u.criadoEm).toLocaleDateString('pt-BR') : '—'}</td>
+          <td><button class="btn btn--icon" data-rm="${esc(u.id)}" data-nome="${esc(u.nome)}" title="Remover acesso"><i class="fa-solid fa-user-minus"></i></button></td></tr>`).join('');
+        pend();
+      };
+      draw();
+      $('#bDown').addEventListener('click', () => { download('acesso.json', cfg); pendente = false; pend(); toast('<i class="fa-solid fa-check"></i> acesso.json baixado — substitua no GitHub'); });
+      $('#bGen').addEventListener('click', () => { $('#fAdd').p.value = genPass(); });
+      $('#tb').addEventListener('click', async e => {
+        const b = e.target.closest('[data-rm]'); if (!b) return;
+        if (cfg.usuarios.length === 1) return toast('Mantenha pelo menos um usuário');
+        if (!confirm(`Remover o acesso de "${b.dataset.nome}"?`)) return;
+        cfg = await A.removeUser(cfg, b.dataset.rm); A.config = cfg; pendente = true; draw();
+      });
+      $('#fAdd').addEventListener('submit', async e => {
+        e.preventDefault(); const f = e.target, m = $('#mAdd');
+        try {
+          cfg = await A.addUser(cfg, f.u.value, f.p.value); A.config = cfg; pendente = true; draw();
+          m.className = 'msg ok'; m.innerHTML = `Usuário <b>${esc(f.u.value.trim().toLowerCase())}</b> liberado. Anote a senha e envie para a pessoa: <code>${esc(f.p.value)}</code>`; m.hidden = false; f.reset();
+        } catch (err) { m.className = 'msg bad'; m.textContent = err.message; m.hidden = false; }
+      });
+      $('#fProt').addEventListener('change', async e => {
+        const m = $('#mProt'), ok = [];
+        for (const file of e.target.files) {
+          try { const r = await A.readJson(JSON.parse(await file.text())); download(file.name.replace(/\s*\(\d+\)(?=\.json$)/i, ''), await A.encryptJson(r.data)); ok.push(file.name); }
+          catch (err) { m.className = 'msg bad'; m.textContent = `${file.name}: ${err.message}`; m.hidden = false; }
+        }
+        if (ok.length) { m.className = 'msg ok'; m.textContent = `Protegido(s): ${ok.join(', ')}. Envie para o GitHub.`; m.hidden = false; }
+        e.target.value = '';
+      });
+    }
+  })();
+  </script>
+</body>
+</html>
