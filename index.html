@@ -16,7 +16,7 @@
   <!-- DataTables -->
   <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
 
-  <link rel="stylesheet" href="style.css?v=20261009a">
+  <link rel="stylesheet" href="style.css?v=20261009b">
 </head>
 <body class="auth-locked">
 
@@ -66,9 +66,9 @@
       <a href="#cxt">Colhedoras x Transbordos</a>
       <a href="#maquinas">Máquinas</a>
       <a href="#logistica">Logística</a>
+      <a href="#equipamentos">Equipamentos</a>
       <a href="#vinhaca">Vinhaça</a>
       <a href="#ofensores">Ofensores</a>
-      <a href="#equipamentos">Equipamentos</a>
       <a href="#fazendas">Fazendas</a>
     </nav>
   </header>
@@ -208,7 +208,7 @@
       <div class="grid grid--maq">
         <article class="card" data-card>
           <header class="card__head">
-            <div><h3 id="maqTitle">Produção por Colhedora</h3><p class="hint">Cor por frente · tooltip com cargas e t/carga</p></div>
+            <div><h3 id="maqTitle">Produção por Colhedora</h3><p class="hint" id="maqHint">Cor por frente · tooltip com cargas e t/carga</p></div>
             <div class="card__tools">
               <button class="icon-btn" data-png="chMaq" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
               <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
@@ -286,6 +286,28 @@
       </div>
     </section>
 
+    <!-- ============ EQUIPAMENTOS ============ -->
+    <section class="section" id="equipamentos">
+      <div class="section__head">
+        <h2><i class="fa-solid fa-screwdriver-wrench"></i> Equipamentos</h2>
+        <p>Operação, manutenção e disponibilidade.</p>
+      </div>
+      <div class="grid grid--equip">
+        <div class="equip" id="equipCards"></div>
+        <article class="card" data-card>
+          <header class="card__head">
+            <div><h3>Operação x Manutenção</h3><p class="hint" id="equipHint">Quantidade de equipamentos</p></div>
+            <div class="card__tools">
+              <button class="icon-btn" data-png="chEquip" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
+              <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
+            </div>
+          </header>
+          <div class="chart-box chart-box--sm"><canvas id="chEquip"></canvas></div>
+        </article>
+      </div>
+    
+    </section>
+
     <!-- ============ VINHAÇA ============ -->
     <section class="section" id="vinhaca">
       <div class="section__head">
@@ -334,28 +356,6 @@
           <div class="chart-box chart-box--sm"><canvas id="chOfe"></canvas></div>
         </article>
       </div>
-    </section>
-
-    <!-- ============ EQUIPAMENTOS ============ -->
-    <section class="section" id="equipamentos">
-      <div class="section__head">
-        <h2><i class="fa-solid fa-screwdriver-wrench"></i> Equipamentos</h2>
-        <p>Operação, manutenção e disponibilidade.</p>
-      </div>
-      <div class="grid grid--equip">
-        <div class="equip" id="equipCards"></div>
-        <article class="card" data-card>
-          <header class="card__head">
-            <div><h3>Operação x Manutenção</h3><p class="hint" id="equipHint">Quantidade de equipamentos</p></div>
-            <div class="card__tools">
-              <button class="icon-btn" data-png="chEquip" title="Exportar PNG"><i class="fa-solid fa-image"></i></button>
-              <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
-            </div>
-          </header>
-          <div class="chart-box chart-box--sm"><canvas id="chEquip"></canvas></div>
-        </article>
-      </div>
-    
     </section>
 
     <!-- ============ CTT · FAZENDAS E TABELA GERENCIAL ============ -->
@@ -428,7 +428,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-  <script src="acesso.js?v=20261009a"></script>
-  <script src="script.js?v=20261009a"></script>
+  <script src="acesso.js?v=20261009b"></script>
+  <script src="script.js?v=20261009b"></script>
 </body>
 </html>

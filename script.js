@@ -362,7 +362,7 @@ const sortFrentes = list => [...list].sort((a, b) => {
 const shortFrente = n => String(n).replace(/^Frente\s*/i, 'F');
 
 /** Metas usadas no semáforo (podem ser ajustadas em dados.json → "metas"). */
-const METAS_DEFAULT = { eficiencia: 75, vinhaca: 100, disponibilidade: 90, indisponibilidade: 15, colhedoras2Linhas: ['20021', '20022', '20024', '20025'], ton2Linhas: 70, ton1Linha: 30 };
+const METAS_DEFAULT = { eficiencia: 75, vinhaca: 100, disponibilidade: 90, indisponibilidade: 15, colhedoras2Linhas: ['20021', '20022', '20024', '20025'], ton2Linhas: 70, ton1Linha: 30, metaColhedora1Linha: 760, metaColhedora2Linhas: 1240 };
 /** Indisponibilidade (quanto menor, melhor): verde ≤ meta · amarelo até 10% acima · vermelho > 10% acima. */
 const statusIndisp = (v, meta = METAS_DEFAULT.indisponibilidade) => (!Number.isFinite(v) ? 'info' : v <= meta ? 'ok' : v <= meta * 1.1 ? 'warn' : 'bad');
 /** Semáforo contra meta: verde ≥ meta · amarelo até 10% abaixo · vermelho > 10% abaixo. */
@@ -944,7 +944,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const frentes = sortFrentes([...new Set(all.map(m => m.frente))]);
     const color = fr => PALETTE[frentes.indexOf(fr) % PALETTE.length];
     const nome = state.maq === 'colhedoras' ? 'Colhedora' : 'Transbordo';
+    // Colhedoras: meta diária por máquina (1 linha = 760 t · 2 linhas = 1.240 t) → verde atingiu / vermelho não atingiu
+    const MT = state.M.metas, isColh = state.maq === 'colhedoras';
+    const dois = new Set((MT.colhedoras2Linhas || []).map(String));
+    const metaMaq = m => (dois.has(String(m.maquina)) ? MT.metaColhedora2Linhas : MT.metaColhedora1Linha);
+    const C_OK = '#2E7D32', C_BAD = '#C62828';
+    const barColor = m => (isColh ? (m.tc >= metaMaq(m) ? C_OK : C_BAD) : color(m.frente));
     $('#maqTitle').textContent = `Produção por ${nome}`;
+    $('#maqHint').textContent = isColh ? 'Verde = atingiu a meta diária · vermelho = abaixo · traço = meta da colhedora' : 'Cor por frente · tooltip com cargas e t/carga';
     const tc = sum(list, m => m.tc), cg = sum(list, m => m.cargas);
     const sorted = [...list].sort((a, b) => b.tc - a.tc);
     const best = sorted[0], worst = sorted[sorted.length - 1];
@@ -958,20 +965,31 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
     makeChart('chMaq', {
       type: 'bar',
-      data: { labels: sorted.map(m => m.maquina), datasets: [{ label: 'Produção (t)', data: sorted.map(m => m.tc), backgroundColor: sorted.map(m => color(m.frente)), borderRadius: 4, maxBarThickness: 30 }] },
+      data: { labels: sorted.map(m => m.maquina), datasets: [{ label: 'Produção (t)', data: sorted.map(m => m.tc), backgroundColor: sorted.map(barColor), borderRadius: 4, maxBarThickness: 30 }] },
       options: {
         layout: { padding: { top: 22 } },
-        scales: { y: { beginAtZero: true, ticks: { callback: v => fmt(v, 0) } }, x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 90, minRotation: sorted.length > 16 ? 60 : 0, font: { size: 10.5 } } } },
+        scales: { y: { beginAtZero: true, suggestedMax: isColh && sorted.length ? Math.max(...sorted.map(metaMaq)) * 1.05 : undefined, ticks: { callback: v => fmt(v, 0) } }, x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 90, minRotation: sorted.length > 16 ? 60 : 0, font: { size: 10.5 } } } },
         plugins: {
           legend: { display: false },
           valueLabels: { enabled: sorted.length <= 16 && window.innerWidth > 700, format: v => fmt(v, 0) },
-          tooltip: { callbacks: { title: it => `${nome} ${sorted[it[0].dataIndex].maquina}`, label: c => { const m = sorted[c.dataIndex]; return [` ${m.frente}`, ` ${fmt(m.tc, 2)} t · ${m.cargas} cargas`, ` ${fmt(m.tc / m.cargas, 1)} t/carga`]; } } },
+          tooltip: { callbacks: { title: it => `${nome} ${sorted[it[0].dataIndex].maquina}`, label: c => { const m = sorted[c.dataIndex]; const l = [` ${m.frente}`, ` ${fmt(m.tc, 2)} t · ${m.cargas} cargas`, ` ${fmt(m.tc / m.cargas, 1)} t/carga`];
+            if (isColh) { const mm = metaMaq(m); l.push(` Meta ${fmt(mm, 0)} t/dia (${dois.has(String(m.maquina)) ? '2 linhas' : '1 linha'}) · ${fmt(m.tc / mm * 100, 1)}%`); }
+            return l; } } },
         },
       },
       plugins: [{ id: 'legendFrentes', afterDraw(c) {
         const { ctx, chartArea: a } = c; ctx.save(); ctx.font = '600 10.5px Inter, sans-serif';
-        let x = a.right; const used = frentes.filter(f => sorted.some(m => m.frente === f)).reverse();
-        used.forEach(f => { const w = ctx.measureText(f).width; x -= w + 20; ctx.fillStyle = color(f); ctx.fillRect(x, a.top - 16, 9, 9); ctx.fillStyle = '#455A64'; ctx.fillText(f, x + 12, a.top - 8); });
+        if (isColh) {
+          // marca da meta sobre cada barra
+          const meta = c.getDatasetMeta(0); ctx.strokeStyle = '#263238'; ctx.lineWidth = 2; ctx.setLineDash([]);
+          meta.data.forEach((b, i) => { const y = c.scales.y.getPixelForValue(metaMaq(sorted[i])); if (y < a.top || y > a.bottom) return; const w = (b.width || 20) / 2 + 4; ctx.beginPath(); ctx.moveTo(b.x - w, y); ctx.lineTo(b.x + w, y); ctx.stroke(); });
+          const items = [[C_OK, 'Atingiu a meta', 'box'], [C_BAD, 'Abaixo da meta', 'box'], ['#263238', `Meta: 1 linha ${fmt(MT.metaColhedora1Linha, 0)} t · 2 linhas ${fmt(MT.metaColhedora2Linhas, 0)} t`, 'line']].reverse();
+          let x = a.right;
+          items.forEach(([cl, t, k]) => { const w = ctx.measureText(t).width; x -= w + 22; ctx.fillStyle = cl; if (k === 'line') ctx.fillRect(x - 2, a.top - 13, 13, 2.5); else ctx.fillRect(x, a.top - 16, 9, 9); ctx.fillStyle = '#455A64'; ctx.fillText(t, x + 14, a.top - 8); });
+        } else {
+          let x = a.right; const used = frentes.filter(f => sorted.some(m => m.frente === f)).reverse();
+          used.forEach(f => { const w = ctx.measureText(f).width; x -= w + 20; ctx.fillStyle = color(f); ctx.fillRect(x, a.top - 16, 9, 9); ctx.fillStyle = '#455A64'; ctx.fillText(f, x + 12, a.top - 8); });
+        }
         ctx.restore();
       } }],
     });
