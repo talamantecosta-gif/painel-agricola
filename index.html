@@ -16,7 +16,7 @@
   <!-- DataTables -->
   <link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.dataTables.min.css">
 
-  <link rel="stylesheet" href="style.css?v=20261006c">
+  <link rel="stylesheet" href="style.css?v=20261009a">
 </head>
 <body class="auth-locked">
 
@@ -60,7 +60,7 @@
 
     <nav class="subnav" aria-label="Seções">
       <a href="#visao">Visão Geral</a>
-      <a href="#inteligencia">Inteligência</a>
+      <a href="#tabela">Tabela Gerencial</a>
       <a href="#frentes">Produção x Meta</a>
       <a href="#indisponibilidade">Indisponibilidade</a>
       <a href="#cxt">Colhedoras x Transbordos</a>
@@ -69,7 +69,7 @@
       <a href="#vinhaca">Vinhaça</a>
       <a href="#ofensores">Ofensores</a>
       <a href="#equipamentos">Equipamentos</a>
-      <a href="#tabela">Tabela Gerencial</a>
+      <a href="#fazendas">Fazendas</a>
     </nav>
   </header>
 
@@ -100,24 +100,21 @@
     <section class="section section--first" id="visao">
       <div class="hero" id="hero"></div>
       <div class="filter-alert" id="filterAlert" hidden></div>
-      <div class="kpis" id="kpis" aria-label="Indicadores principais"></div>
     </section>
 
 
-    <!-- ============ INTELIGÊNCIA OPERACIONAL ============ -->
-    <section class="section" id="inteligencia">
-      <div class="section__head">
-        <h2><i class="fa-solid fa-brain"></i> Inteligência Operacional</h2>
-        <p class="legend-inline">
-          <span><i class="fa-solid fa-circle-check t-ok"></i> positivo</span>
-          <span><i class="fa-solid fa-triangle-exclamation t-warn"></i> atenção</span>
-          <span><i class="fa-solid fa-circle-xmark t-bad"></i> crítico</span>
-        </p>
-      </div>
-      <div class="card intel">
-        <div class="prio" id="prio"></div>
-        <div class="ftiles" id="ftiles"></div>
-      </div>
+    <!-- ============ TABELA GERENCIAL ============ -->
+    <section class="section" id="tabela">
+      <article class="card card--table" data-card>
+        <header class="card__head">
+          <div><h3>Tabela Gerencial Completa</h3><p class="hint">Busca instantânea · clique no cabeçalho para ordenar</p></div>
+          <div class="card__tools">
+            <button class="btn btn--sm" data-csv="tblGer"><i class="fa-solid fa-file-csv"></i><span>Exportar CSV</span></button>
+            <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
+          </div>
+        </header>
+        <div class="table-wrap"><table id="tblGer" class="display compact nowrap" style="width:100%"></table></div>
+      </article>
     </section>
 
     <!-- ============ PRODUÇÃO x META · DIFERENÇA · VELOCIDADE ============ -->
@@ -177,14 +174,13 @@
       </article>
       <article class="card" data-card id="perdaCard">
         <header class="card__head">
-          <div><h3>Produção não entregue por manutenção</h3><p class="hint" id="perdaHint">Frentes acima da meta de Indisponibilidade Manutenção · 24 h × excesso × capacidade das colhedoras</p></div>
+          <div><h3>Produção não entregue por manutenção</h3><p class="hint" id="perdaHint">Frentes acima da meta de Indisponibilidade Manutenção</p></div>
           <div class="card__tools">
             <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
           </div>
         </header>
         <div class="perda-resumo" id="perdaResumo"></div>
         <div class="table-wrap"><table class="simple-table" id="perdaTable"></table></div>
-        <p class="hint" id="perdaNota"></p>
       </article>
     </section>
 
@@ -363,9 +359,9 @@
     </section>
 
     <!-- ============ CTT · FAZENDAS E TABELA GERENCIAL ============ -->
-    <section class="section" id="tabela">
+    <section class="section" id="fazendas">
       <div class="section__head">
-        <h2><i class="fa-solid fa-table-list"></i> CTT · Fazendas e Tabela Gerencial</h2>
+        <h2><i class="fa-solid fa-table-list"></i> CTT · Fazendas</h2>
         <p>Pesquise e filtre pela barra do topo. <span class="note">* Meta de frentes com mais de uma fazenda rateada pela produção.</span></p>
       </div>
       <div class="grid grid--faz">
@@ -391,16 +387,6 @@
         </article>
       </div>
 
-      <article class="card card--table" data-card style="margin-top: var(--gap)">
-        <header class="card__head">
-          <div><h3>Tabela Gerencial Completa</h3><p class="hint">Busca instantânea · clique no cabeçalho para ordenar</p></div>
-          <div class="card__tools">
-            <button class="btn btn--sm" data-csv="tblGer"><i class="fa-solid fa-file-csv"></i><span>Exportar CSV</span></button>
-            <button class="icon-btn" data-full title="Tela cheia"><i class="fa-solid fa-expand"></i></button>
-          </div>
-        </header>
-        <div class="table-wrap"><table id="tblGer" class="display compact nowrap" style="width:100%"></table></div>
-      </article>
     </section>
   </main>
 
@@ -442,7 +428,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
-  <script src="acesso.js?v=20261006c"></script>
-  <script src="script.js?v=20261006c"></script>
+  <script src="acesso.js?v=20261009a"></script>
+  <script src="script.js?v=20261009a"></script>
 </body>
 </html>

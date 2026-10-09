@@ -728,3 +728,6 @@ body.auth-locked > *:not(.auth):not(script) { display: none !important; }
   .auth .footer__inner { justify-content: center; text-align: center; }
 }
 @media print { .auth { display: none; } #btnSair { display: none; } }
+
+/* Cabeçalhos longos da Tabela Gerencial: quebra em 2 linhas com largura padronizada */
+table.dataTable thead th.col-wrap { white-space: normal !important; width: 112px; min-width: 112px; max-width: 112px; line-height: 1.25; vertical-align: bottom; }

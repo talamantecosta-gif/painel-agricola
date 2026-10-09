@@ -657,7 +657,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       hs('Eficiência Operacional', fmtPct(T.eficiencia), stEf, `meta ${M.metas.eficiencia}%`),
       hs('Frentes', T.n),
     ].join('');
-    $('#kpis').innerHTML = [
+    if ($('#kpis')) $('#kpis').innerHTML = [
       kpiCard({ label: 'Atingimento da Cota', value: fmt(T.pct, 1), unit: '%', icon: 'fa-bullseye', st, sub: `${fmtSigned((T.pct || 0) - 100, 1)}% vs. cota`, bar: T.pct, barCls: st === 'ok' ? '' : st }),
       best && withCota.length > 1 ? kpiCard({ label: 'Melhor Frente', value: escapeHtml(best.frente), icon: 'fa-trophy', st: 'ok', sub: `<b>${fmtPct(best.pct)}</b> · ${fmtSigned(best.diferenca, 0)} t` }) : '',
       worst && withCota.length > 1 ? kpiCard({ label: 'Pior Frente', value: escapeHtml(worst.frente), icon: 'fa-arrow-trend-down', st: worst.status, sub: `<b>${fmtPct(worst.pct)}</b> · ${fmtSigned(worst.diferenca, 0)} t` }) : '',
@@ -681,6 +681,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
   /* Inteligência operacional: prioridades + sinais por frente */
   const renderInteligencia = () => {
+    if (!$('#prio')) return;
     const E = buildExecutive(state.M, filteredFrentes());
     $('#prio').innerHTML = E.prio.map((p, i) => `
       <div class="prio__it prio__it--${p.st}">
@@ -890,11 +891,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       { data: 'meta', title: 'Meta (t)', className: 'num', render: (v, t, r) => t === 'display' ? (v == null ? '—' : fmt(v, 0) + (r.rateio ? '<span class="tag">*</span>' : '')) : v },
       { data: 'dif', title: 'Dif. (t)', className: 'num', render: (v, t) => t === 'display' ? (v == null ? '—' : `<span class="${v >= 0 ? 't-ok' : 't-bad'}"><b>${fmtSigned(v, 0)}</b></span>`) : v },
       pctPill('pct', 'Ating.'),
-      numCol('velDim', 'Velocidade Dimensionada', 1),
-      numCol('velReal', 'Velocidade Realizada', 1),
-      { data: 'aderencia', title: 'Aderência de Velocidade', className: 'num', render: (v, t) => t === 'display' ? `<span class="${v >= 0 ? 't-ok' : v >= -10 ? 't-warn' : 't-bad'}">${fmtSigned(v, 2)}%</span>` : v },
+      { ...numCol('velDim', 'Velocidade Dimensionada', 1), className: 'num col-wrap' },
+      { ...numCol('velReal', 'Velocidade Realizada', 1), className: 'num col-wrap' },
+      { data: 'aderencia', title: 'Aderência de Velocidade', className: 'num col-wrap', render: (v, t) => t === 'display' ? `<span class="${v >= 0 ? 't-ok' : v >= -10 ? 't-warn' : 't-bad'}">${fmtSigned(v, 2)}%</span>` : v },
       numCol('tch', 'TCH', 0),
-      efPill('eficiencia', 'Eficiência Operacional'),
+      { ...efPill('eficiencia', 'Eficiência Operacional'), className: 'num col-wrap' },
       { data: 'indisp', title: 'Indisp.', className: 'num', render: (v, t) => t === 'display' ? (Number.isFinite(v) ? `<span class="pill ${statusIndisp(v, state.M.metas.indisponibilidade)}">${fmt(v, 0)}%</span>` : '—') : (v ?? '') },
       qualCol('atr', 'ATR'),
       { data: 'tatr', title: 'TATR/ha', className: 'num', render: (v, t) => t === 'display' ? (v == null ? '<span class="muted">—</span>' : `<span class="tatr-dot" style="background:${tatrColor(v)}"></span>${fmt(v, 2)}`) : v },
@@ -1203,10 +1204,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const card = $('#perdaCard'); if (!card) return;
     const mt = state.M.metas, P = calcPerdas();
     const tot = sum(P.filter(p => p.ton != null), p => p.ton);
-    $('#perdaHint').textContent = `Frentes acima de ${fmt(mt.indisponibilidade, 0)}% de Indisponibilidade Manutenção · colhedora 2 linhas = ${mt.ton2Linhas} t/h · demais = ${mt.ton1Linha} t/h`;
+    $('#perdaHint').textContent = `Frentes acima de ${fmt(mt.indisponibilidade, 0)}% de Indisponibilidade Manutenção`;
     if (!P.length) {
       $('#perdaResumo').innerHTML = '<p class="cxt-vazio"><i class="fa-solid fa-circle-check"></i> Nenhuma frente acima da meta de Indisponibilidade Manutenção.</p>';
-      $('#perdaTable').innerHTML = ''; $('#perdaNota').textContent = ''; return;
+      $('#perdaTable').innerHTML = ''; return;
     }
     const maior = [...P].filter(p => p.ton != null).sort((a, b) => b.ton - a.ton)[0];
     $('#perdaResumo').innerHTML = `<div><span>Produção não entregue</span><b class="t-bad">${fmt(tot, 1)} t</b></div>
@@ -1219,7 +1220,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         <td class="num">${p.cap ? fmt(p.cap, 0) + ' t/h' : '—'}</td><td class="num"><b class="t-bad">${p.ton != null ? fmt(p.ton, 1) + ' t' : '—'}</b></td></tr>`).join('')}</tbody>
       <tfoot><tr><td colspan="6">Total</td><td class="num">${fmt(tot, 1)} t</td></tr></tfoot>`;
     const ex = P.find(p => p.ton != null);
-    $('#perdaNota').textContent = ex ? `Cálculo (${ex.frente}): (${fmt(ex.indisp, 1)}% − ${fmt(mt.indisponibilidade, 0)}%) × 24 h = ${fmt(ex.horasMaq, 2)} h por colhedora × ${ex.lista.length} colhedora(s) = ${fmt(ex.horas, 2)} h · capacidade ${fmt(ex.cap, 0)} t/h → ${fmt(ex.ton, 1)} t. Frota de colhedoras conforme a página 16 do BI (ou o relatório, na falta).` : '';
   };
 
   const renderCxt = () => {
@@ -1451,7 +1451,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       use = cached; fromCache = true;
     }
     if (!use) {
-      $('#kpis').innerHTML = `<div class="skeleton-msg"><i class="fa-solid fa-file-arrow-up" style="font-size:28px;color:var(--green-700)"></i>
+      $('#hero').innerHTML = `<div class="skeleton-msg"><i class="fa-solid fa-file-arrow-up" style="font-size:28px;color:var(--green-700)"></i>
         <h3 style="margin:10px 0 4px">Nenhum dado carregado</h3>
         <p>Não foi possível ler <b>dados.json</b> (ao abrir o arquivo direto do computador o navegador bloqueia a leitura).<br>
         Publique no GitHub Pages / use um servidor local, ou clique em <b>Importar PDF</b> para carregar o relatório.</p></div>`;
