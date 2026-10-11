@@ -1255,7 +1255,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     $('#cxtMeta').textContent = `Análise de ${dt} · ${A.fonte || 'Power BI COA'}`;
     const perdas = calcPerdas();
     const totPerda = sum(perdas.filter(p => p.ton != null), p => p.ton);
-    res.innerHTML = `<i class="fa-solid fa-clipboard-check"></i><div><p>${escapeHtml(A.resumo || '')}${totPerda ? ` <b>Manutenção acima da meta: ${fmt(totPerda, 1)} t não entregues.</b>` : ''}</p><small>Horas = ${escapeHtml(A.unidadeHoras || 'h por máquina no dia')}. Referência de Eficiência do Motor e Disponibilidade Manutenção: 85%. Timeline (pág. 16): % de cada hora, com meta por indicador.</small></div>`;
+    res.innerHTML = `<i class="fa-solid fa-clipboard-check"></i><div><p>${escapeHtml(A.resumo || '')}${totPerda ? ` <b>Manutenção acima da meta: ${fmt(totPerda, 1)} t não entregues.</b>` : ''}</p></div>`;
     const alvo = state.frente ? numFrente(state.frente) : null;
     const lista = sortFrentes(A.frentes.map(f => ({ ...f, frente: aliasFrente(f.frente) }))).filter(f => alvo == null || numFrente(f.frente) === alvo);
     const cel = (v, fn, suf) => (Number.isFinite(v) ? `<i class="sem sem--${fn(v)}"></i>${fmt(v, 1)}${suf}` : '—');
