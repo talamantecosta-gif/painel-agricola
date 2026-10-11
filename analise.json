@@ -1,6 +1,6 @@
 {
  "data": "2026-10-10",
- "geradoEm": "2026-10-11T09:09:57-03:00",
+ "geradoEm": "2026-10-11T13:42:19-03:00",
  "fonte": "Solinftec SGPA — Relatório de Variáveis Operacionais (COA)",
  "semDados": false,
  "mensagem": null,
@@ -11,7 +11,7 @@
   "Aguardando Colhedora": 6,
   "Equipamento em Fila": 5
  },
- "resumo": "Frentes próprias: o maior impacto foi colhedora aguardando transbordo na madrugada. A Frente 05 (18,4%) ficou sem o transbordo 30143, parado 18,4 h em manutenção, e a Frente 04 (16,9%) teve problema de alocação dos transbordos das 00h às 06h. Enquanto isso, a Frente 01 tinha transbordo sobrando: 6 transbordos para 2 colhedoras, em fila acima da referência nas 24 horas. Terceiros: 5 equipamentos ficaram o dia todo sem trabalhar — colhedoras 961073 (Frente 11) e 961022 (Frente 13) e transbordos 961024 (Frente 13), 961330 e 961331 (Frente 34). No total, as máquinas ficaram 141,6 h paradas com motor ligado (11,8% do motor ligado), a maior parte com transbordo aguardando colhedora; a Frente 11 teve o maior volume (28,4 h).",
+ "resumo": "Frentes próprias: o maior impacto foi colhedora aguardando transbordo na madrugada. A Frente 05 (18,4%) ficou sem o transbordo 30143, parado 18,4 h em manutenção, e a Frente 04 (16,9%) teve problema de alocação dos transbordos das 00h às 06h. Enquanto isso, a Frente 01 tinha transbordo sobrando: 6 transbordos para 2 colhedoras, em fila acima da referência nas 24 horas. Aguardando Caminhão: faltou caminhão nas Frentes 04 (07h–08h), 05 (13h e 18h) e 37 (23h); nas Frentes 11, 03 e 02 os transbordos apontaram Aguardando Caminhão enquanto as colhedoras apontaram Aguardando Transbordo, uma possível divergência de apontamento a conferir. Terceiros: 5 equipamentos ficaram o dia todo sem trabalhar — colhedoras 961073 (Frente 11) e 961022 (Frente 13) e transbordos 961024 (Frente 13), 961330 e 961331 (Frente 34). No total, as máquinas ficaram 141,6 h paradas com motor ligado (11,8% do motor ligado), a maior parte com transbordo aguardando colhedora; a Frente 11 teve o maior volume (28,4 h).",
  "frentes": [
   {
    "frente": "Frente 01",
@@ -32,6 +32,12 @@
     "fila": 4.58
    },
    "alerta": null,
+   "alertaCaminhao": null,
+   "aguardandoCaminhao": {
+    "faltaCaminhao": [],
+    "possivelDivergencia": [],
+    "soTransbordo": []
+   },
    "timeline": [
     {
      "indicador": "Aguardando Transbordo",
@@ -159,6 +165,62 @@
     "fila": 1.8
    },
    "alerta": "Aguardando Transbordo + Aguardando Manobra de Transbordo somaram 11,5% das horas apontadas das colhedoras, acima do sinal de atenção de 10% (sinal de atenção, não é meta). O principal componente é Aguardando Transbordo (10,8% · 1,75 h por colhedora), com 4 horas seguidas acima da referência das 15h às 18h e pico de 40% às 22h: identificar a causa — transbordos 30141 e 30100 em manutenção corretiva e transbordos aguardando caminhão às 16h e 21h–22h — e corrigir no próximo turno.",
+   "alertaCaminhao": "Possível divergência de apontamento: às 16h e 21h–22h os transbordos (30140, 30142 e 30100) apontaram Aguardando Caminhão (até 0,7 h somadas às 21h), mas as colhedoras (20120 e 20118) apontaram Aguardando Transbordo no mesmo horário, e não Aguardando Caminhão. Conferir com os operadores qual foi a espera real.",
+   "aguardandoCaminhao": {
+    "faltaCaminhao": [],
+    "possivelDivergencia": [
+     {
+      "hora": "16h",
+      "transbordoAguardCaminhao": 0.5,
+      "transbordos": {
+       "30064": 0.2,
+       "30073": 0.1,
+       "30140": 0.1,
+       "30142": 0.1
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.2,
+      "colhedorasAguardTransbordo": {
+       "20120": 0.2
+      }
+     },
+     {
+      "hora": "21h",
+      "transbordoAguardCaminhao": 0.7,
+      "transbordos": {
+       "30100": 0.2,
+       "30140": 0.1,
+       "30141": 0.2,
+       "30142": 0.2
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.4,
+      "colhedorasAguardTransbordo": {
+       "20120": 0.4
+      }
+     },
+     {
+      "hora": "22h",
+      "transbordoAguardCaminhao": 0.6,
+      "transbordos": {
+       "30100": 0.1,
+       "30140": 0.3,
+       "30141": 0.1,
+       "30142": 0.1
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.9,
+      "colhedorasAguardTransbordo": {
+       "20118": 0.4,
+       "20120": 0.5
+      }
+     }
+    ],
+    "soTransbordo": []
+   },
    "timeline": [
     {
      "indicador": "Aguardando Transbordo",
@@ -272,7 +334,7 @@
      "30142"
     ]
    },
-   "analise": "A colhedora 20120 ficou 5,6 h em manutenção corretiva (Disponibilidade Manutenção de 73,7%) e puxou a frente para 84,2%. As colhedoras ficaram aguardando transbordo 11,5% do tempo, com 4 horas seguidas acima da referência das 15h às 18h e pico de 40% às 22h. Nesse período, os transbordos 30141 e 30100 também estavam em manutenção (3,3 h e 2,2 h). Parado com motor ligado: 4,2 h nas colhedoras e 14,6 h nos transbordos, 6,3 h delas aguardando colhedora.",
+   "analise": "A colhedora 20120 ficou 5,6 h em manutenção corretiva (Disponibilidade Manutenção de 73,7%) e puxou a frente para 84,2%. As colhedoras ficaram aguardando transbordo 11,5% do tempo, com 4 horas seguidas acima da referência das 15h às 18h e pico de 40% às 22h. Nesse período, os transbordos 30141 e 30100 também estavam em manutenção (3,3 h e 2,2 h). Às 21h–22h os transbordos apontaram Aguardando Caminhão enquanto as colhedoras apontaram Aguardando Transbordo; é preciso confirmar qual foi a espera real. Parado com motor ligado: 4,2 h nas colhedoras e 14,6 h nos transbordos, 6,3 h delas aguardando colhedora.",
    "acao": "Fechar a causa da corretiva da 20120 e liberar os transbordos 30141 e 30100 antes do turno da tarde."
   },
   {
@@ -294,6 +356,129 @@
     "fila": 1.81
    },
    "alerta": "Aguardando Transbordo + Aguardando Manobra de Transbordo somaram 12,9% das horas apontadas das colhedoras, acima do sinal de atenção de 10% (sinal de atenção, não é meta). O principal componente é Aguardando Transbordo (10,7% · 2,29 h por colhedora), concentrado das 03h às 06h, com pico de 35% às 06h: identificar a causa — Falta Operador nos transbordos (11,3 h) e transbordos aguardando caminhão — e corrigir no próximo turno.",
+   "alertaCaminhao": "Possível divergência de apontamento: às 06h–07h, 14h, 18h e 20h os transbordos (10104, 10105 e 10179) apontaram Aguardando Caminhão (até 0,8 h somadas às 14h), mas as colhedoras (20022 e 20029) apontaram Aguardando Transbordo no mesmo horário, e não Aguardando Caminhão. Conferir com os operadores qual foi a espera real.",
+   "aguardandoCaminhao": {
+    "faltaCaminhao": [],
+    "possivelDivergencia": [
+     {
+      "hora": "06h",
+      "transbordoAguardCaminhao": 0.3,
+      "transbordos": {
+       "10104": 0.1,
+       "10105": 0.1,
+       "30057": 0.1
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.7,
+      "colhedorasAguardTransbordo": {
+       "20022": 0.5,
+       "20029": 0.2
+      }
+     },
+     {
+      "hora": "07h",
+      "transbordoAguardCaminhao": 0.6,
+      "transbordos": {
+       "10105": 0.2,
+       "10179": 0.4
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.2,
+      "colhedorasAguardTransbordo": {
+       "20022": 0.2
+      }
+     },
+     {
+      "hora": "14h",
+      "transbordoAguardCaminhao": 0.8,
+      "transbordos": {
+       "10104": 0.3,
+       "10105": 0.2,
+       "10179": 0.1,
+       "30057": 0.2
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.3,
+      "colhedorasAguardTransbordo": {
+       "20022": 0.3
+      }
+     },
+     {
+      "hora": "18h",
+      "transbordoAguardCaminhao": 0.3,
+      "transbordos": {
+       "10105": 0.2,
+       "10178": 0.1
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.2,
+      "colhedorasAguardTransbordo": {
+       "20029": 0.2
+      }
+     },
+     {
+      "hora": "20h",
+      "transbordoAguardCaminhao": 0.4,
+      "transbordos": {
+       "10104": 0.4
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.3,
+      "colhedorasAguardTransbordo": {
+       "20022": 0.3
+      }
+     }
+    ],
+    "soTransbordo": [
+     {
+      "hora": "10h",
+      "transbordoAguardCaminhao": 0.7,
+      "transbordos": {
+       "10104": 0.1,
+       "10177": 0.3,
+       "30057": 0.3
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0,
+      "colhedorasAguardTransbordo": {}
+     },
+     {
+      "hora": "11h",
+      "transbordoAguardCaminhao": 1.5,
+      "transbordos": {
+       "10104": 0.3,
+       "10177": 0.2,
+       "10178": 0.2,
+       "10179": 0.3,
+       "30057": 0.4,
+       "30061": 0.1
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0,
+      "colhedorasAguardTransbordo": {}
+     },
+     {
+      "hora": "15h",
+      "transbordoAguardCaminhao": 0.7,
+      "transbordos": {
+       "10177": 0.2,
+       "10178": 0.4,
+       "30057": 0.1
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0,
+      "colhedorasAguardTransbordo": {}
+     }
+    ]
+   },
    "timeline": [
     {
      "indicador": "Aguardando Transbordo",
@@ -408,7 +593,7 @@
      "30061"
     ]
    },
-   "analise": "A colhedora 20022, de 2 linhas (~70 t/h), ficou 5,7 h em manutenção corretiva e parou das 21h às 23h; nessas horas os transbordos ficaram aguardando colhedora (pico de 25% às 22h). Na madrugada foi o contrário: das 03h às 06h as colhedoras ficaram aguardando transbordo, com pico de 35% às 06h. Os transbordos tiveram 11,3 h de Falta Operador e 5,9 h aguardando caminhão (picos às 10h–11h e 14h–15h). Parado com motor ligado: 14,0 h nos transbordos, 6,2 h aguardando colhedora.",
+   "analise": "A colhedora 20022, de 2 linhas (~70 t/h), ficou 5,7 h em manutenção corretiva e parou das 21h às 23h; nessas horas os transbordos ficaram aguardando colhedora (pico de 25% às 22h). Na madrugada foi o contrário: das 03h às 06h as colhedoras ficaram aguardando transbordo, com pico de 35% às 06h. Às 06h–07h, no pico dessa espera, os transbordos apontaram Aguardando Caminhão e as colhedoras Aguardando Transbordo; é preciso confirmar qual foi a espera real. Os transbordos tiveram ainda 11,3 h de Falta Operador. Parado com motor ligado: 14,0 h nos transbordos, 6,2 h aguardando colhedora.",
    "acao": "Cobrir a Falta Operador dos transbordos na madrugada e priorizar a liberação da 20022 na oficina."
   },
   {
@@ -430,6 +615,69 @@
     "fila": 1.73
    },
    "alerta": "Aguardando Transbordo + Aguardando Manobra de Transbordo somaram 16,9% das horas apontadas das colhedoras, acima do sinal de atenção de 10% (sinal de atenção, não é meta). O principal componente é Aguardando Transbordo (15,5% · 2,31 h por colhedora), concentrado das 00h às 06h, com pico de 43% às 04h: identificar a causa — alocação dos transbordos nas colhedoras e tempo de descarga no basculamento — e corrigir no próximo turno.",
+   "alertaCaminhao": "Falta de caminhão: às 07h–08h os transbordos (10127, 10155 e 30074) e as colhedoras (20019 e 20026) apontaram Aguardando Caminhão ao mesmo tempo; a frente possivelmente parou por falta de caminhão. Verificar com a logística o motivo da falta nesse horário. Possível divergência de apontamento: às 04h os transbordos (10155 e 30074) apontaram Aguardando Caminhão (0,6 h somadas), mas as colhedoras (20019, 20026 e 20027) apontaram Aguardando Transbordo no mesmo horário, e não Aguardando Caminhão. Conferir com os operadores qual foi a espera real.",
+   "aguardandoCaminhao": {
+    "faltaCaminhao": [
+     {
+      "hora": "07h",
+      "transbordoAguardCaminhao": 0.6,
+      "transbordos": {
+       "10127": 0.4,
+       "10155": 0.1,
+       "30074": 0.1
+      },
+      "colhedoraAguardCaminhao": 0.3,
+      "colhedorasAguardCaminhao": {
+       "20019": 0.2,
+       "20026": 0.1
+      },
+      "colhedoraAguardTransbordo": 0.1,
+      "colhedorasAguardTransbordo": {
+       "20027": 0.1
+      }
+     },
+     {
+      "hora": "08h",
+      "transbordoAguardCaminhao": 0.7,
+      "transbordos": {
+       "10115": 0.2,
+       "10127": 0.1,
+       "10155": 0.2,
+       "30074": 0.2
+      },
+      "colhedoraAguardCaminhao": 0.3,
+      "colhedorasAguardCaminhao": {
+       "20019": 0.1,
+       "20026": 0.2
+      },
+      "colhedoraAguardTransbordo": 0.5,
+      "colhedorasAguardTransbordo": {
+       "20019": 0.1,
+       "20026": 0.1,
+       "20027": 0.3
+      }
+     }
+    ],
+    "possivelDivergencia": [
+     {
+      "hora": "04h",
+      "transbordoAguardCaminhao": 0.6,
+      "transbordos": {
+       "10155": 0.4,
+       "30074": 0.2
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 1.3,
+      "colhedorasAguardTransbordo": {
+       "20019": 0.6,
+       "20026": 0.4,
+       "20027": 0.3
+      }
+     }
+    ],
+    "soTransbordo": []
+   },
    "timeline": [
     {
      "indicador": "Aguardando Transbordo",
@@ -544,8 +792,8 @@
      "30075"
     ]
    },
-   "analise": "As colhedoras ficaram aguardando transbordo 16,9% do tempo, o maior valor entre as frentes próprias depois da Frente 05. Foram 7 horas seguidas acima da referência, das 00h às 06h, com pico de 43% às 04h; a 20026 ficou 4,4 h e a 20019 2,7 h aguardando. Ao mesmo tempo, das 01h às 03h, os transbordos também ficaram aguardando colhedora e tiveram 4,1 h aguardando basculamento: há transbordo disponível, mas mal distribuído entre as colhedoras. A frente já estava em 16,5% em 08/10.",
-   "acao": "Revisar a alocação dos transbordos nas colhedoras na madrugada e o tempo de descarga no basculamento."
+   "analise": "As colhedoras ficaram aguardando transbordo 16,9% do tempo, o maior valor entre as frentes próprias depois da Frente 05. Foram 7 horas seguidas acima da referência, das 00h às 06h, com pico de 43% às 04h; a 20026 ficou 4,4 h e a 20019 2,7 h aguardando. Ao mesmo tempo, das 01h às 03h, os transbordos também ficaram aguardando colhedora e tiveram 4,1 h aguardando basculamento: há transbordo disponível, mas mal distribuído entre as colhedoras. Às 07h e 08h a frente parou por falta de caminhão: transbordos e as colhedoras 20019 e 20026 apontaram Aguardando Caminhão juntos. A frente já estava em 16,5% em 08/10.",
+   "acao": "Revisar a alocação dos transbordos nas colhedoras na madrugada e verificar com a logística a falta de caminhão das 07h–08h."
   },
   {
    "frente": "Frente 05",
@@ -566,6 +814,52 @@
     "fila": 2.21
    },
    "alerta": "Aguardando Transbordo + Aguardando Manobra de Transbordo somaram 18,4% das horas apontadas das colhedoras, acima do sinal de atenção de 10% (sinal de atenção, não é meta). O principal componente é Aguardando Transbordo (13,2% · 3,03 h por colhedora), concentrado das 01h às 07h, com pico de 32% às 02h: identificar a causa — transbordo 30143 com 18,4 h de manutenção corretiva e 30059 com 5,8 h de corretiva — e corrigir no próximo turno.",
+   "alertaCaminhao": "Falta de caminhão: às 13h e 18h os transbordos (30084, 30167 e 30166) e as colhedoras (20021, 20020 e 20028) apontaram Aguardando Caminhão ao mesmo tempo; a frente possivelmente parou por falta de caminhão. Verificar com a logística o motivo da falta nesse horário.",
+   "aguardandoCaminhao": {
+    "faltaCaminhao": [
+     {
+      "hora": "13h",
+      "transbordoAguardCaminhao": 1.3,
+      "transbordos": {
+       "30059": 0.1,
+       "30084": 0.5,
+       "30166": 0.2,
+       "30167": 0.5
+      },
+      "colhedoraAguardCaminhao": 0.5,
+      "colhedorasAguardCaminhao": {
+       "20020": 0.2,
+       "20021": 0.2,
+       "20028": 0.1
+      },
+      "colhedoraAguardTransbordo": 0.4,
+      "colhedorasAguardTransbordo": {
+       "20020": 0.1,
+       "20021": 0.2,
+       "20028": 0.1
+      }
+     },
+     {
+      "hora": "18h",
+      "transbordoAguardCaminhao": 0.4,
+      "transbordos": {
+       "30065": 0.3,
+       "30166": 0.1
+      },
+      "colhedoraAguardCaminhao": 0.1,
+      "colhedorasAguardCaminhao": {
+       "20021": 0.1
+      },
+      "colhedoraAguardTransbordo": 0.3,
+      "colhedorasAguardTransbordo": {
+       "20020": 0.2,
+       "20021": 0.1
+      }
+     }
+    ],
+    "possivelDivergencia": [],
+    "soTransbordo": []
+   },
    "timeline": [
     {
      "indicador": "Aguardando Transbordo",
@@ -678,7 +972,7 @@
      "30167"
     ]
    },
-   "analise": "Foi a frente própria com mais colhedora aguardando transbordo: 18,4% do tempo, com 7 horas seguidas acima da referência das 01h às 07h e pico de 32% às 02h. A causa principal é a falta de transbordo: o 30143 ficou 18,4 h em manutenção corretiva e o 30059 mais 5,8 h, o que derrubou a Disponibilidade Manutenção dos transbordos para 79,2%. As colhedoras ficaram 6,6 h paradas com motor ligado, 2,8 h delas aguardando manobra de transbordo. A 20021 (2 linhas) teve 2,3 h de corretiva.",
+   "analise": "Foi a frente própria com mais colhedora aguardando transbordo: 18,4% do tempo, com 7 horas seguidas acima da referência das 01h às 07h e pico de 32% às 02h. A causa principal é a falta de transbordo: o 30143 ficou 18,4 h em manutenção corretiva e o 30059 mais 5,8 h, o que derrubou a Disponibilidade Manutenção dos transbordos para 79,2%. As colhedoras ficaram 6,6 h paradas com motor ligado, 2,8 h delas aguardando manobra de transbordo. A 20021 (2 linhas) teve 2,3 h de corretiva. Às 13h e às 18h faltou caminhão: transbordos e colhedoras apontaram Aguardando Caminhão juntos.",
    "acao": "Priorizar a liberação do 30143 na oficina e, até lá, reforçar a frente com transbordo vindo da Frente 01."
   },
   {
@@ -700,6 +994,174 @@
     "fila": 2.68
    },
    "alerta": "Aguardando Transbordo + Aguardando Manobra de Transbordo somaram 11,2% das horas apontadas das colhedoras, acima do sinal de atenção de 10% (sinal de atenção, não é meta). O principal componente é Aguardando Manobra de Transbordo (6,1% · 1,23 h por colhedora), com Aguardando Transbordo acima da referência às 15h e às 17h: identificar a causa — alocação dos transbordos nas colhedoras e transbordos 961138 e 961164 indisponíveis — e corrigir no próximo turno.",
+   "alertaCaminhao": "Possível divergência de apontamento: às 00h–02h, 07h, 13h–14h, 16h e 19h–21h os transbordos (961258, 961269 e 961268) apontaram Aguardando Caminhão (até 1,7 h somadas às 02h), mas as colhedoras (961248, 961247 e 960753) apontaram Aguardando Transbordo no mesmo horário, e não Aguardando Caminhão. Conferir com os operadores qual foi a espera real.",
+   "aguardandoCaminhao": {
+    "faltaCaminhao": [],
+    "possivelDivergencia": [
+     {
+      "hora": "00h",
+      "transbordoAguardCaminhao": 0.7,
+      "transbordos": {
+       "961257": 0.1,
+       "961258": 0.5,
+       "961267": 0.1
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.5,
+      "colhedorasAguardTransbordo": {
+       "961247": 0.2,
+       "961248": 0.3
+      }
+     },
+     {
+      "hora": "01h",
+      "transbordoAguardCaminhao": 0.8,
+      "transbordos": {
+       "961257": 0.2,
+       "961269": 0.6
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.5,
+      "colhedorasAguardTransbordo": {
+       "961247": 0.1,
+       "961248": 0.4
+      }
+     },
+     {
+      "hora": "02h",
+      "transbordoAguardCaminhao": 1.7,
+      "transbordos": {
+       "961257": 1,
+       "961267": 0.1,
+       "961269": 0.6
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.8,
+      "colhedorasAguardTransbordo": {
+       "961248": 0.8
+      }
+     },
+     {
+      "hora": "07h",
+      "transbordoAguardCaminhao": 0.8,
+      "transbordos": {
+       "961258": 0.2,
+       "961268": 0.2,
+       "961269": 0.4
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.6,
+      "colhedorasAguardTransbordo": {
+       "960753": 0.1,
+       "961074": 0.2,
+       "961247": 0.2,
+       "961248": 0.1
+      }
+     },
+     {
+      "hora": "13h",
+      "transbordoAguardCaminhao": 1.0,
+      "transbordos": {
+       "961258": 0.4,
+       "961268": 0.6
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.2,
+      "colhedorasAguardTransbordo": {
+       "961247": 0.2
+      }
+     },
+     {
+      "hora": "14h",
+      "transbordoAguardCaminhao": 1.2,
+      "transbordos": {
+       "961164": 0.5,
+       "961258": 0.3,
+       "961267": 0.1,
+       "961268": 0.3
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.9,
+      "colhedorasAguardTransbordo": {
+       "961247": 0.4,
+       "961248": 0.5
+      }
+     },
+     {
+      "hora": "16h",
+      "transbordoAguardCaminhao": 1.2,
+      "transbordos": {
+       "961164": 0.1,
+       "961258": 0.7,
+       "961267": 0.2,
+       "961268": 0.2
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.8,
+      "colhedorasAguardTransbordo": {
+       "960753": 0.2,
+       "961074": 0.2,
+       "961247": 0.1,
+       "961248": 0.3
+      }
+     },
+     {
+      "hora": "19h",
+      "transbordoAguardCaminhao": 0.3,
+      "transbordos": {
+       "961140": 0.1,
+       "961267": 0.2
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.5,
+      "colhedorasAguardTransbordo": {
+       "961247": 0.4,
+       "961248": 0.1
+      }
+     },
+     {
+      "hora": "20h",
+      "transbordoAguardCaminhao": 0.4,
+      "transbordos": {
+       "961140": 0.1,
+       "961268": 0.3
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.6,
+      "colhedorasAguardTransbordo": {
+       "961247": 0.1,
+       "961248": 0.5
+      }
+     },
+     {
+      "hora": "21h",
+      "transbordoAguardCaminhao": 1.1,
+      "transbordos": {
+       "961164": 0.5,
+       "961267": 0.6
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.7,
+      "colhedorasAguardTransbordo": {
+       "960753": 0.3,
+       "961074": 0.2,
+       "961247": 0.1,
+       "961248": 0.1
+      }
+     }
+    ],
+    "soTransbordo": []
+   },
    "timeline": [
     {
      "indicador": "Aguardando Transbordo",
@@ -818,8 +1280,8 @@
      "961269"
     ]
    },
-   "analise": "A colhedora 961073 ficou 24 h como Equipamento Inativo e derrubou a Eficiência do Motor das colhedoras para 68,1%. Nos transbordos, o 961138 ficou 16,5 h em manutenção corretiva e o 961164 teve Disponibilidade Manutenção de 52,8%; houve ainda 10,5 h aguardando borracheiro. Mesmo assim, os transbordos ficaram aguardando colhedora 10 horas seguidas, das 00h às 09h (pico de 34% às 03h). Foi a frente com mais tempo parado com motor ligado: 18,1 h nos transbordos e 10,3 h nas colhedoras, 4,9 h delas aguardando manobra de transbordo.",
-   "acao": "Cobrar do terceiro a colhedora 961073 em operação, a liberação do 961138 e o desligamento do motor nas esperas."
+   "analise": "A colhedora 961073 ficou 24 h como Equipamento Inativo e derrubou a Eficiência do Motor das colhedoras para 68,1%. Nos transbordos, o 961138 ficou 16,5 h em manutenção corretiva e o 961164 teve Disponibilidade Manutenção de 52,8%; houve ainda 10,5 h aguardando borracheiro. Os transbordos apontaram 9,6 h aguardando caminhão, mas em 10 horas do dia as colhedoras apontaram Aguardando Transbordo no mesmo horário, o que é uma possível divergência de apontamento. Os transbordos também ficaram aguardando colhedora das 00h às 09h (pico de 34% às 03h). Foi a frente com mais tempo parado com motor ligado: 18,1 h nos transbordos e 10,3 h nas colhedoras, 4,9 h delas aguardando manobra de transbordo.",
+   "acao": "Cobrar do terceiro a colhedora 961073 em operação e a liberação do 961138, e conferir com os operadores os apontamentos de Aguardando Caminhão."
   },
   {
    "frente": "Frente 13",
@@ -840,6 +1302,73 @@
     "fila": 3.75
    },
    "alerta": null,
+   "alertaCaminhao": "Possível divergência de apontamento: às 08h os transbordos (960932) apontaram Aguardando Caminhão (0,7 h somadas), mas as colhedoras (960931 e 960783) apontaram Aguardando Transbordo no mesmo horário, e não Aguardando Caminhão. Conferir com os operadores qual foi a espera real.",
+   "aguardandoCaminhao": {
+    "faltaCaminhao": [],
+    "possivelDivergencia": [
+     {
+      "hora": "08h",
+      "transbordoAguardCaminhao": 0.7,
+      "transbordos": {
+       "960932": 0.7
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.4,
+      "colhedorasAguardTransbordo": {
+       "960783": 0.1,
+       "960931": 0.3
+      }
+     }
+    ],
+    "soTransbordo": [
+     {
+      "hora": "00h",
+      "transbordoAguardCaminhao": 0.6,
+      "transbordos": {
+       "960932": 0.6
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0,
+      "colhedorasAguardTransbordo": {}
+     },
+     {
+      "hora": "01h",
+      "transbordoAguardCaminhao": 1,
+      "transbordos": {
+       "960932": 1
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0,
+      "colhedorasAguardTransbordo": {}
+     },
+     {
+      "hora": "02h",
+      "transbordoAguardCaminhao": 1,
+      "transbordos": {
+       "960932": 1
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0,
+      "colhedorasAguardTransbordo": {}
+     },
+     {
+      "hora": "03h",
+      "transbordoAguardCaminhao": 0.4,
+      "transbordos": {
+       "960932": 0.2,
+       "961277": 0.2
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0,
+      "colhedorasAguardTransbordo": {}
+     }
+    ]
+   },
    "timeline": [
     {
      "indicador": "Aguardando Transbordo",
@@ -970,6 +1499,48 @@
     "fila": 1.8
    },
    "alerta": null,
+   "alertaCaminhao": null,
+   "aguardandoCaminhao": {
+    "faltaCaminhao": [],
+    "possivelDivergencia": [],
+    "soTransbordo": [
+     {
+      "hora": "16h",
+      "transbordoAguardCaminhao": 0.3,
+      "transbordos": {
+       "961328": 0.3
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0.1,
+      "colhedorasAguardTransbordo": {
+       "961326": 0.1
+      }
+     },
+     {
+      "hora": "17h",
+      "transbordoAguardCaminhao": 0.3,
+      "transbordos": {
+       "961328": 0.3
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0,
+      "colhedorasAguardTransbordo": {}
+     },
+     {
+      "hora": "18h",
+      "transbordoAguardCaminhao": 0.3,
+      "transbordos": {
+       "961397": 0.3
+      },
+      "colhedoraAguardCaminhao": 0,
+      "colhedorasAguardCaminhao": {},
+      "colhedoraAguardTransbordo": 0,
+      "colhedorasAguardTransbordo": {}
+     }
+    ]
+   },
    "timeline": [
     {
      "indicador": "Aguardando Transbordo",
@@ -1101,6 +1672,30 @@
     "fila": 0.05
    },
    "alerta": null,
+   "alertaCaminhao": "Falta de caminhão: às 23h os transbordos (961376, 961375 e 961396) e as colhedoras (961395) apontaram Aguardando Caminhão ao mesmo tempo; a frente possivelmente parou por falta de caminhão. Verificar com a logística o motivo da falta nesse horário.",
+   "aguardandoCaminhao": {
+    "faltaCaminhao": [
+     {
+      "hora": "23h",
+      "transbordoAguardCaminhao": 0.7,
+      "transbordos": {
+       "961375": 0.2,
+       "961376": 0.3,
+       "961396": 0.2
+      },
+      "colhedoraAguardCaminhao": 0.1,
+      "colhedorasAguardCaminhao": {
+       "961395": 0.1
+      },
+      "colhedoraAguardTransbordo": 0.2,
+      "colhedorasAguardTransbordo": {
+       "961395": 0.2
+      }
+     }
+    ],
+    "possivelDivergencia": [],
+    "soTransbordo": []
+   },
    "timeline": [
     {
      "indicador": "Aguardando Transbordo",
@@ -1204,7 +1799,7 @@
      "961396"
     ]
    },
-   "analise": "Foi a melhor frente de colhedoras do dia: 16,5 h de corte cada e Disponibilidade Manutenção de 99,2%. Os transbordos ficaram aguardando colhedora 16 horas acima da referência, com pico de 44% às 21h. O transbordo 961374 teve 10,6 h Sem Apontamento. As colhedoras ficaram 2,8 h paradas com motor ligado aguardando manobra de transbordo, principalmente a 961378 e a 961395.",
+   "analise": "Foi a melhor frente de colhedoras do dia: 16,5 h de corte cada e Disponibilidade Manutenção de 99,2%. Os transbordos ficaram aguardando colhedora 16 horas acima da referência, com pico de 44% às 21h. O transbordo 961374 teve 10,6 h Sem Apontamento. Às 23h faltou caminhão: transbordos e a colhedora 961395 apontaram Aguardando Caminhão juntos. As colhedoras ficaram 2,8 h paradas com motor ligado aguardando manobra de transbordo, principalmente a 961378 e a 961395.",
    "acao": "Cobrar do terceiro o apontamento do 961374 e a alocação dos transbordos nas colhedoras para reduzir a espera."
   }
  ]
