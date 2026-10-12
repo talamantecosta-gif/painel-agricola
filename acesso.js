@@ -134,7 +134,7 @@
     const ano = new Date().getFullYear();
     el.innerHTML = `
       <header class="topbar"><div class="topbar__inner">
-        <span class="brand"><span class="brand__logo"><img src="assets/logo-icon.png" alt="" onerror="this.remove()"></span>
+        <span class="brand"><span class="brand__logo"><img src="logo-icon.png" alt="" onerror="this.remove()"></span>
           <span class="brand__text"><strong>Gerenciamento Diário</strong><small>Centro de Operações Agrícolas</small></span></span>
         <span class="report-chip"><i class="fa-solid fa-lock"></i><span>Acesso restrito</span></span>
       </div></header>
@@ -154,13 +154,13 @@
             </ul>
           </div>
           <div class="auth__panel">
-            <img class="auth__logo" src="assets/logo.png" alt="Bioenergética Aroeira" onerror="this.remove()">
+            <img class="auth__logo" src="logo.png" alt="Bioenergética Aroeira" onerror="this.remove()">
             ${inner}
           </div>
         </section>
       </main>
       <footer class="footer"><div class="footer__inner">
-        <div class="footer__brand"><span class="brand__logo brand__logo--lg"><img src="assets/logo.png" alt="Bioenergética Aroeira" onerror="this.remove()"></span>
+        <div class="footer__brand"><span class="brand__logo brand__logo--lg"><img src="logo.png" alt="Bioenergética Aroeira" onerror="this.remove()"></span>
           <div><strong>Gerenciamento Diário · Operação Agrícola</strong><small>Bioenergética Aroeira</small></div></div>
         <p class="copyright">© ${ano} Talamante. Todos os direitos reservados.</p>
       </div></footer>`;

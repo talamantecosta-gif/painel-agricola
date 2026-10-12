@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
   <title>Gerenciar Acessos · Gerenciamento Diário</title>
-  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="style.css?v=20261012b">
@@ -45,7 +45,7 @@
   <main class="adm" id="app"></main>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="acesso.js?v=20261012b"></script>
+  <script src="acesso.js?v=20261012c"></script>
   <script>
   (async () => {
     const A = window.Acesso, $ = s => document.querySelector(s), esc = A.esc;
@@ -56,7 +56,7 @@
 
     const shell = inner => {
       document.body.classList.remove('auth-locked');
-      $('#app').innerHTML = `<header class="adm__head"><img src="assets/logo-icon.png" alt="" onerror="this.remove()"><div><h1>Gerenciar acessos</h1><small>Usuários liberados do painel Gerenciamento Diário</small></div><a class="btn" href="./"><i class="fa-solid fa-chart-column"></i><span>Abrir painel</span></a></header>${inner}`;
+      $('#app').innerHTML = `<header class="adm__head"><img src="logo-icon.png" alt="" onerror="this.remove()"><div><h1>Gerenciar acessos</h1><small>Usuários liberados do painel Gerenciamento Diário</small></div><a class="btn" href="./"><i class="fa-solid fa-chart-column"></i><span>Abrir painel</span></a></header>${inner}`;
     };
 
     /* ---------- Primeiro acesso ---------- */
