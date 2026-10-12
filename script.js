@@ -506,7 +506,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
   /* ---------- Chart.js defaults ---------- */
   if (window.Chart) {
-    Chart.defaults.font.family = '"Inter", system-ui, sans-serif';
+    Chart.defaults.font.family = '"Archivo", system-ui, sans-serif';
     Chart.defaults.font.size = 12;
     Chart.defaults.color = '#455A64';
     Chart.defaults.borderColor = '#E3E9E4';
@@ -526,7 +526,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       afterDatasetsDraw(c, _a, opts) {
         if (!opts || !opts.enabled) return;
         const { ctx } = c; ctx.save();
-        ctx.font = '600 10.5px Inter, sans-serif'; ctx.fillStyle = opts.color || '#263238'; ctx.textAlign = 'center';
+        ctx.font = '600 10.5px Archivo, sans-serif'; ctx.fillStyle = opts.color || '#263238'; ctx.textAlign = 'center';
         c.data.datasets.forEach((ds, di) => {
           if (opts.datasets && !opts.datasets.includes(di)) return;
           const meta = c.getDatasetMeta(di); if (meta.hidden) return;
@@ -650,12 +650,18 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const worst = [...withCota].sort((a, b) => a.pct - b.pct)[0];
     const st = statusOf(T.pct || 0), stEf = statusVsMeta(T.eficiencia, M.metas.eficiencia);
     const hs = (k, v, stt = '', title = '') => `<div class="hstat" title="${escapeHtml(title)}"><span>${stt ? `<i class="sem sem--${stt}"></i>` : ''}${k}</span><strong>${v}</strong></div>`;
-    $('#hero').innerHTML = [
-      hs('Total Produzido', `${fmt(T.producao)} t`, st),
-      hs('Total da Cota', `${fmt(T.cota)} t`),
-      hs(T.diferenca < 0 ? 'Diferença (faltou)' : 'Diferença', `${fmtSigned(T.diferenca)} t`, st),
-      hs('Eficiência Operacional', fmtPct(T.eficiencia), stEf, `meta ${M.metas.eficiencia}%`),
-      hs('Frentes', T.n),
+    // Placar do dia: 5 indicadores com uma linha de contexto cada
+    const pct = T.cota ? T.producao / T.cota * 100 : 0;
+    const naCota = fr.filter(f => f.cota && f.pct >= 100).length, comCota = fr.filter(f => f.cota).length;
+    const metaEf = M.metas.eficiencia;
+    const pi = (k, v, sub, stt = '', extra = '') => `<div class="pl-item${stt ? ' is-' + stt : ''}"><span class="pl-k">${k}</span><strong>${v}</strong>${extra}<span class="pl-s">${stt ? `<i class="sem sem--${stt}"></i>` : ''}${sub}</span></div>`;
+    const hero = $('#hero'); hero.classList.add('placar');
+    hero.innerHTML = [
+      pi('Total produzido', `${fmt(T.producao)} t`, `<b>${fmt(pct, 1)}%</b> da cota`, st, `<span class="pl-bar"><i style="width:${Math.min(100, pct)}%"></i></span>`),
+      pi('Total da cota', `${fmt(T.cota)} t`, `${comCota} frentes com cota`),
+      pi(T.diferenca < 0 ? 'Diferença (faltou)' : 'Diferença', `${fmtSigned(T.diferenca)} t`, `${fmtSigned(pct - 100, 1)} p.p. vs. cota`, st),
+      pi('Eficiência operacional', fmtPct(T.eficiencia), `meta ${fmt(metaEf, 0)}%`, stEf),
+      pi('Frentes', T.n, `${naCota} na cota · ${comCota - naCota} abaixo`),
     ].join('');
     if ($('#kpis')) $('#kpis').innerHTML = [
       kpiCard({ label: 'Atingimento da Cota', value: fmt(T.pct, 1), unit: '%', icon: 'fa-bullseye', st, sub: `${fmtSigned((T.pct || 0) - 100, 1)}% vs. cota`, bar: T.pct, barCls: st === 'ok' ? '' : st }),
@@ -978,7 +984,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         },
       },
       plugins: [{ id: 'legendFrentes', afterDraw(c) {
-        const { ctx, chartArea: a } = c; ctx.save(); ctx.font = '600 10.5px Inter, sans-serif';
+        const { ctx, chartArea: a } = c; ctx.save(); ctx.font = '600 10.5px Archivo, sans-serif';
         if (isColh) {
           // marca da meta sobre cada barra
           const meta = c.getDatasetMeta(0); ctx.strokeStyle = '#263238'; ctx.lineWidth = 2; ctx.setLineDash([]);
@@ -1057,7 +1063,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       type: 'doughnut',
       data: { labels: ['Happening', 'Aroeira'], datasets: [{ data: [th, ta], backgroundColor: ['#2E7D32', '#A5D6A7'], borderColor: '#fff', borderWidth: 3 }] },
       options: { cutout: '64%', plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => ` ${fmt(c.parsed)} TC (${fmtPct(c.parsed / (th + ta) * 100)})` } } } },
-      plugins: [{ id: 'center', afterDraw(c) { const { ctx, chartArea: a } = c; ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = '#263238'; ctx.font = '800 16px Inter, sans-serif'; ctx.fillText(fmt(th + ta, 0), (a.left + a.right) / 2, (a.top + a.bottom) / 2 + 2); ctx.font = '600 10.5px Inter, sans-serif'; ctx.fillStyle = '#78909C'; ctx.fillText('TC total', (a.left + a.right) / 2, (a.top + a.bottom) / 2 + 17); ctx.restore(); } }],
+      plugins: [{ id: 'center', afterDraw(c) { const { ctx, chartArea: a } = c; ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = '#263238'; ctx.font = '800 16px Archivo, sans-serif'; ctx.fillText(fmt(th + ta, 0), (a.left + a.right) / 2, (a.top + a.bottom) / 2 + 2); ctx.font = '600 10.5px Archivo, sans-serif'; ctx.fillStyle = '#78909C'; ctx.fillText('TC total', (a.left + a.right) / 2, (a.top + a.bottom) / 2 + 17); ctx.restore(); } }],
     });
     const ops = ['happening', 'aroeira'];
     const byType = (k, tp, key) => (L[k]?.composicao || []).find(c => c.tipo === tp)?.[key] ?? null;

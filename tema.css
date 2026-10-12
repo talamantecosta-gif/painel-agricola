@@ -1,0 +1,151 @@
+/* =========================================================
+   Tema "Boletim de Safra" — camada visual sobre o style.css
+   Mesma estrutura do painel; muda só tipografia, cor e acabamento.
+   Família única: Archivo (largura variável) — a versão expandida
+   lembra a sinalização de máquinas agrícolas e dá voz aos números.
+   ========================================================= */
+:root {
+  --ink:        #18301F;   /* texto forte: verde-carvão */
+  --canavial:   #1F4D2B;   /* verde do placar */
+  --folha:      #3C7A35;   /* verde de apoio */
+  --broto:      #A9C99A;   /* verde claro de traço */
+  --palha:      #B98A2E;   /* palha seca: único acento, só para "você está aqui" */
+  --campo:      #EDF0EA;   /* fundo: cinza-sálvia frio */
+  --line:       #D8DED3;
+  --text:       #3F4E44;
+  --text-strong:#18301F;
+  --muted:      #6E7C72;
+  --green-900:  #1F4D2B;
+  --green-700:  #3C7A35;
+  --green-100:  #E3EDDD;
+  --green-50:   #F1F5EE;
+  --bg:         #EDF0EA;
+  --radius: 8px;
+  --radius-sm: 5px;
+  --shadow: none;
+  --shadow-hover: none;
+  --font: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body { font-family: var(--font); color: var(--text); background: var(--campo); font-size: 13px; }
+h1, h2, h3, h4 { color: var(--ink); }
+
+/* ---------- Topo ---------- */
+.topbar { background: #fff; border-bottom: 0; box-shadow: 0 1px 0 var(--line); }
+.brand__text strong { font-stretch: 118%; font-weight: 800; color: var(--canavial); letter-spacing: 0; font-size: 17px; }
+.brand__text small { color: var(--muted); }
+.report-chip { background: var(--campo); border-color: var(--line); color: var(--ink); border-radius: 6px; font-stretch: 110%; }
+.btn { border-radius: 6px; font-weight: 600; }
+.btn--primary { background: var(--canavial); border-color: var(--canavial); }
+.btn--primary:hover { background: var(--folha); border-color: var(--folha); }
+.btn:focus-visible, .icon-btn:focus-visible, .seg__btn:focus-visible, .subnav a:focus-visible { outline: 2px solid var(--palha); outline-offset: 2px; }
+
+/* menu de seções: sublinhado palha no lugar das pílulas */
+.subnav { gap: 0; padding: 0 20px; }
+.subnav a { border-radius: 0; padding: 8px 12px 9px; font-weight: 600; color: var(--muted); border-bottom: 3px solid transparent; }
+.subnav a:hover { background: transparent; color: var(--ink); }
+.subnav a.is-active { background: transparent; color: var(--ink); border-bottom-color: var(--palha); }
+
+/* ---------- Barra de filtros ---------- */
+.filters-bar { background: rgba(237,240,234,.95); }
+.field { border-radius: 6px; border-color: var(--line); }
+.field span { text-transform: none; letter-spacing: 0; font-size: 11.5px; font-weight: 600; }
+
+/* ---------- Placar (o único bloco forte da página) ---------- */
+.hero {
+  border-radius: 10px; padding: 0; gap: 0;
+  background: var(--canavial);
+  box-shadow: none;
+}
+.hero::after { opacity: .06; background: repeating-linear-gradient(100deg, #fff 0 1px, transparent 1px 14px); }
+.hstat { background: transparent; border: 0; border-radius: 0; padding: 18px 22px 20px; border-left: 1px solid rgba(255,255,255,.16); }
+.hstat:first-child { border-left: 0; }
+.hstat span { text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 500; opacity: .82; }
+.hstat strong { font-size: 30px; font-weight: 700; font-stretch: 125%; letter-spacing: -.01em; margin-top: 6px; line-height: 1.05; }
+.hstat .sem { box-shadow: none; }
+
+/* ---------- Títulos de seção ---------- */
+.section { margin-top: 28px; }
+.section--first { margin-top: 0; }
+.section__head { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.section__head h2 { font-size: 19px; font-weight: 700; font-stretch: 118%; letter-spacing: 0; gap: 10px; }
+.section__head h2 i { color: var(--folha); font-size: 15px; }
+.section__head p { font-size: 12px; }
+
+/* ---------- Painéis: planos, sem sombra, borda fina ---------- */
+.card, .kpi { border-radius: var(--radius); box-shadow: none; border-color: var(--line); }
+.kpi:hover { box-shadow: none; transform: none; border-color: var(--broto); }
+.card__head h3 { font-size: 14px; font-weight: 700; font-stretch: 110%; }
+.hint, .legend-inline { color: var(--muted); }
+.kpi__label { font-weight: 500; color: var(--muted); font-size: 12px; }
+.kpi__icon { background: var(--green-50); color: var(--folha); border-radius: 6px; }
+.kpi__value { font-weight: 700; font-stretch: 118%; font-size: 22px; letter-spacing: 0; color: var(--ink); }
+.kpi__value small { font-stretch: 100%; }
+.icon-btn { border-radius: 6px; }
+.bar { background: var(--green-100); }
+.bar > i { background: var(--folha); }
+
+/* ---------- Tabelas ---------- */
+table.dataTable thead th {
+  background: #fff; color: var(--ink); text-transform: none; letter-spacing: 0;
+  font-size: 11.5px; font-weight: 700; border-bottom: 2px solid var(--canavial) !important;
+}
+table.dataTable tbody td { border-top-color: #E6EAE2; }
+table.dataTable tbody tr:hover > * { box-shadow: inset 0 0 0 9999px rgba(60,122,53,.07) !important; }
+table.dataTable thead th.col-wrap { width: 104px; min-width: 104px; max-width: 104px; }
+
+/* rótulos internos sem caixa-alta */
+.ri__k, .h-sub { text-transform: none; letter-spacing: 0; }
+
+/* ---------- Segmentados ---------- */
+.seg { border-radius: 7px; }
+.seg__btn { border-radius: 5px; }
+
+/* ---------- Rodapé ---------- */
+.footer { background: transparent; border-top: 1px solid var(--line); }
+.footer__brand strong { font-stretch: 112%; }
+
+/* ---------- Login (mesmo tom) ---------- */
+.auth__hero { background: var(--canavial); }
+.auth__hero::after { opacity: .06; background: repeating-linear-gradient(100deg, #fff 0 1px, transparent 1px 14px); }
+.auth__hero h1 { font-stretch: 125%; font-weight: 700; letter-spacing: -.01em; }
+.auth__kicker { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; }
+.auth__card { box-shadow: none; border-radius: 10px; }
+.auth__title { font-stretch: 115%; }
+
+@media (max-width: 760px) {
+  .hstat { padding: 12px 14px; border-left: 0; border-top: 1px solid rgba(255,255,255,.14); }
+  .hstat:first-child { border-top: 0; }
+  .hstat strong { font-size: 21px; font-stretch: 108%; }
+  .brand__text strong { font-stretch: 100%; font-size: 15px; }
+  .section__head h2 { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---------- Rótulos em caixa normal (sem caixa-alta) ---------- */
+.prio__k, .agro-kpis span, .sub-title, .grad-legend > span:first-child, .simple-table th, .eq small,
+.cx__t th, .perda-resumo span, .cx__tl-h {
+  text-transform: none; letter-spacing: 0;
+}
+.agro-kpis span, .perda-resumo span, .eq small { font-size: 11.5px; font-weight: 600; }
+.cx__t th, .cx__tl-h, .sub-title { font-size: 11px; font-weight: 700; color: var(--muted); }
+.simple-table th { background: #fff; color: var(--ink); font-size: 11.5px; border-bottom: 2px solid var(--canavial); }
+.perda-resumo b, .agro-kpis b { font-stretch: 115%; }
+
+/* Opção C — 5 cartões separados, faixa lateral no tom do semáforo */
+.hero.placar { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; padding: 0; background: transparent; color: var(--ink); border-radius: 0; }
+.hero.placar::after { display: none; }
+.placar .pl-item { min-width: 0; padding: 14px 18px 13px; background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--canavial); border-radius: 8px; }
+.placar .pl-item.is-bad { border-left-color: #C62828; }
+.placar .pl-item.is-warn { border-left-color: #E0A100; }
+.placar .pl-item.is-ok { border-left-color: #2E7D32; }
+.placar .pl-k { display: block; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.placar strong { display: block; font-size: 26px; font-weight: 700; font-stretch: 112%; color: var(--ink); line-height: 1.1; margin: 6px 0 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.placar .pl-s { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.placar .pl-s b { color: var(--ink); }
+.placar .pl-s .sem { width: 7px; height: 7px; box-shadow: none; }
+.placar .pl-bar { display: block; height: 4px; border-radius: 2px; background: var(--green-100); margin: 0 0 8px; overflow: hidden; }
+.placar .pl-bar i { display: block; height: 100%; background: var(--folha); border-radius: 2px; }
+.placar .is-bad .pl-bar i { background: #C62828; }
+@media (max-width: 1100px) { .hero.placar { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+@media (max-width: 760px) { .hero.placar { grid-template-columns: repeat(2, minmax(0,1fr)); } .placar .pl-item:first-child { grid-column: 1 / -1; } .placar strong { font-size: 20px; font-stretch: 105%; } }
