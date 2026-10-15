@@ -1,0 +1,41 @@
+# Aprendizados — Análise diária COA (Solinftec SGPA)
+
+Arquivo lido no início de cada execução e atualizado no fim. Registre aqui o que funcionou, o que falhou e padrões que se repetem nas frentes.
+
+## Técnica (extração)
+- 2026-10-09: o relatório é um Power BI embutido (iframe app.powerbi.com) dentro do web component `wc-solinftec-power-bi` (shadow DOM). O texto do Power BI não aparece em get_page_text; os dados são lidos com `powerbi.embeds[0]` + `visual.exportData(0, 30000)` (Summarized) — muito mais preciso que ler gráfico.
+- 2026-10-09: filtros do topo ficam no shadow DOM (Vue). Clicar nas linhas via JS funciona (row.click() ou o ícone i.mdi); a busca "Pesquisar" só filtra digitando de verdade (computer type), não com value via JS.
+- 2026-10-09: "Selecionar todos" de Equipamento só marcou clicando no ícone/coordenada. Conferir os contadores nos botões: GRUPO DE EQUIPAMENTO (9), TIPO DE EQUIPAMENTO (2), EQUIPAMENTO (~115), OPERAÇÃO (335).
+- 2026-10-09: após page.setFilters, aguardar ≥4 s antes do exportData; o script compara assinatura do export para não ler dado antigo.
+- 2026-10-09: valores do visual por hora/operador vêm com 1 casa decimal — somas por equipamento têm erro de arredondamento pequeno; totais por frente vêm da matriz de operações (precisa).
+
+- 2026-10-11: páginas do Power BI: Geral, Resumo Horas, Ranking Operacional, Tabela Operacional, Velocidade Média, Utilização RTK, Parado com Motor Ligado/Motor Ligado, Eficiência. Na aba "Parado com Motor Ligado" usar a matriz 924040e08209c2c21772 (Operação x Frente x Equipamento x Operador) e o gráfico d78baf9385b661eceb88 (por equipamento). Horas com motor ligado parado por operação = Tempo em Parada (h) × % (a coluna em horas vem arredondada). Implementado em __C.passoPML() no coa_extract.js (rodar depois do passo3, antes do compacto; volta para a aba Eficiência sozinho).
+- 2026-10-11: AGUARDANDO CAMINHÃO por equipamento/hora: __C.cruzCaminhao() (depois do passo3) cruza, na mesma hora e frente, transbordos em Aguardando Caminhão (soma >=0,3 h) com as colhedoras: colhedora Aguardando Caminhão (>=0,1 h) = falta de caminhão (ver com a logística); colhedora Aguardando Transbordo/Manobra (>=0,2 h) = possível divergência de apontamento (nunca escrever "erro operacional"); sem espera da colhedora = só transbordo. Valores por hora vêm com 0,1 h de precisão. Texto pronto em caminhao.py (classifica/texto) → campos "alertaCaminhao" e "aguardandoCaminhao".
+- 2026-10-11: se o resize 1600x900 desalinhar o screenshot (frame 800x600), voltar para preset desktop e pegar a posição do campo Pesquisar pela imagem; um clique fora pode fechar o painel — reabrir pelo botão azul de filtro (os filtros ficam guardados).
+- 2026-10-12: o resize 1600x900 deixou o screenshot desalinhado de novo e um clique caiu no filtro UNIDADE; com preset desktop (viewport ~800 px) o campo Pesquisar de OPERAÇÃO ficou em (475,319) e a execução andou sem erro. Ir direto para o preset desktop antes dos filtros de operação.
+- 2026-10-13: a primeira abertura caiu na tela de login, mas ao navegar de novo para a URL do relatório a sessão foi reconhecida (foi para o dashboard e depois abriu o relatório). Tentar reabrir a URL 1–2 vezes antes de avisar o usuário. passo3(0,7) passou de 45 s: rodar como promise em segundo plano (window.__p3) e conferir depois.
+- 2026-10-14: filtro GRUPO DE EQUIPAMENTO ficou só com 1 frente: a lista é paginada com reticências ("1 … 3 4") e __pages() não vê todas as páginas. Solução: percorrer com o botão aria-label="Next page" (__tickAll). Em OPERAÇÃO o mesmo laço (29 páginas) desmarcou as 11 operações sem digitar no Pesquisar → OPERAÇÃO (335). Se a lista ficar vazia (só "Selecionar todos"), recarregar a página (location.reload + navegar de novo para a URL).
+- 2026-10-14: passo2→passoPML rodaram juntos em segundo plano (window.__bg com log em window.__log), conferindo a cada ~40 s; ~4 min no total.
+- 2026-10-15: fluxo sem erro com __tickAll (Next page) em GRUPO, TIPO e OPERAÇÃO, sem digitar no Pesquisar. Para saber para onde foram as horas fora das operações analisadas: tirar temporariamente o filtro dOperacao."Operacao Cod" do report.getFilters()/setFilters, exportar e restaurar (__RF).
+- 2026-10-11: a sessão do SGPA expira; se aparecer a tela de login, avisar o usuário (não digitar senha).
+
+## Escrita (padrão escolhido pelo usuário em 11/10)
+- Parágrafo simplificado: frases curtas, um fato por frase, número sempre com a referência ("98,4%, referência 85%"), equipamento e horário. Começar pelo fato principal. Sem jargão desnecessário; um gerente e um assistente devem entender sem explicação.
+- Incluir em cada frente o motor ligado parado (horas e principal operação) quando relevante; campo "motorLigadoParado" no JSON.
+
+## Leitura dos dados
+- Eficiência e Disponibilidade por frente = média ponderada pelas horas apontadas de cada equipamento (equipamento inativo 24 h pesa e derruba a média — citar isso na análise).
+- Frentes terceiras (11, 13, 34, 37) costumam ter equipamentos 24 h Sem Apontamento / Equipamento Inativo: tratar como problema de apontamento/disponibilidade, não de logística.
+
+## Padrões observados nas frentes
+- 2026-10-08: Frentes 01 e 03 com Equipamento em Fila alto (excesso de transbordo para poucas colhedoras) e transbordos aguardando caminhão no início da noite (19h–23h).
+- 2026-10-08/10: Frente 04 com colhedoras aguardando transbordo >16% nos dois dias (08/10: Falta Operador 17h–21h; 10/10: alocação/basculamento 00h–06h).
+- 2026-10-10: possível divergência de Aguardando Caminhão forte na Frente 11 (10 horas), também nas 02 e 03; falta de caminhão nas 04 (07h–08h), 05 (13h, 18h) e 37 (23h).
+- 2026-10-10: terceiros com equipamento 24 h sem apontamento: 961073 (F11), 961022 e 961024 (F13), 961330 e 961331 (F34). Motor ligado parado ~12% do motor ligado, maior parte transbordo aguardando colhedora.
+- 2026-10-11: Frente 04 com colhedoras aguardando transbordo pelo 3º dia analisado (25,1%, piorou), junto com transbordos aguardando caminhão/caminhão de cota; Frentes 01 e 03 com transbordo sobrando. Falta de caminhão forte na Frente 05 (19h–22h). Possível divergência de Aguardando Caminhão se repete na Frente 11 (2º dia) e nas 02, 03 e 04.
+- 2026-10-11: repetem: 961073 inativo (F11), 961022/961024 sem apontamento (F13), 961330/961331 sem apontamento (F34, agora também 961327), 961138 (F11) e 30143 (F05) em corretiva; colhedora 20022 (F03) 20,8 h em corretiva. Motor ligado parado ~12% pelo 2º dia.
+- 2026-10-12: várias frentes sem horas de colhedora até a tarde (01 até 16h, 04 até 16h, 05 até 15h, 34 até 12h) — causa fora das operações analisadas. Frente 04 com colhedoras aguardando transbordo pelo 4º dia (20,1%), Frente 01 com fila pelo 4º dia; 20022 (F03) em corretiva pelo 3º dia; 20021 (F05, 2 linhas) quase sem trabalhar.
+- 2026-10-12: sem falta de caminhão; possível divergência de Aguardando Caminhão nas 05 (21h–23h), 37 (12h–13h, 961374), 02 e 04. Repetem pelo 3º dia: 961073 inativo e 961138 em corretiva (F11), 961022/961024 sem apontamento (F13), 961330/961331 sem apontamento (F34). Motor ligado parado 11,7%.
+- 2026-10-13: 20022 (F03) em corretiva pelo 4º dia; 20021 (F05) e 20024/20025 (F01) com pouca disponibilidade — colhedoras de 2 linhas paradas viraram o maior impacto. Frente 04 aguardando transbordo pelo 5º dia (11,4%, melhorando), agora com transbordos aguardando caminhão de cota. Falta de caminhão nas 05 (02h, 06h, 19h–20h), 03, 34 e 04; possível divergência repete na F11 (4º dia) e na F04.
+- 2026-10-13: repetem pelo 4º dia: 961073 inativo e 961138 parado (F11), 961022/961024 sem apontamento (F13), 961330/961331 (F34, agora também 961332). F37 com transbordo sobrando (961374 12,7 h aguardando colhedora). Motor ligado parado 11,8%.
+- 2026-10-14: dia de chuva (236 h de colhedora em Fatores Climáticos) — poucas horas apontadas em quase todas as frentes. F04 saiu do aguardando transbordo (6,8%); F05 (16,6%) e F37 (14,4%, alocação dos transbordos) acima. 20022 (F03) 5º dia parada; 30143 (F05) corretiva de novo; F01 com fila pelo 6º dia; terceiros 961073, 961022/961024, 961330/961331 pelo 5º dia. Motor ligado parado subiu para 13,5%.
