@@ -1,6 +1,6 @@
 {
  "data": "2026-10-18",
- "geradoEm": "2026-10-19T04:52:58-03:00",
+ "geradoEm": "2026-10-19T07:44:04-03:00",
  "fonte": "Solinftec SGPA — Relatório de Variáveis Operacionais (COA)",
  "semDados": false,
  "mensagem": null,
@@ -11,7 +11,7 @@
   "Aguardando Colhedora": 6,
   "Equipamento em Fila": 5
  },
- "resumo": "Frentes próprias: o maior impacto foi colhedora parada — na Frente 04 só a 20026 trabalhou (20019 e 20027 ficaram 24 h em Indeterminado) e na Frente 03 a frente parou das 17h às 23h em Indeterminado; as colhedoras de 2 linhas 20024 (Frente 01) e 20022 (Frente 03) tiveram 9,0 h e 8,1 h de manutenção corretiva. As colhedoras aguardaram transbordo acima do sinal de atenção de 10% na Frente 05 (22,3%, com 21,5 h de Falta Operador nos transbordos), na Frente 02 (17,5%) e na Frente 37 (10,2%), enquanto as Frentes 01 e 04 tiveram transbordos sobrando em fila (18,6% e 15%). Faltou caminhão na Frente 03 (06h–07h e 14h), na Frente 02 (16h), na Frente 01 (17h) e na Frente 05 (00h, de novo); há possível divergência de apontamento de Aguardando Caminhão nas Frentes 02, 03, 05, 13 e 34. Terceiros seguem com equipamentos parados o dia todo: 961073 inativa (Frente 11), 960783 e 961022 em manutenção e 961024 sem apontamento (Frente 13), 961330 e 961331 sem apontamento (Frente 34); a Frente 34 ainda perdeu a manhã com chuva. No total, as máquinas ficaram 132,1 h paradas com motor ligado (11,4% do motor ligado), abaixo dos 12,3% de 17/10; as Frentes 11 (26,6 h) e 02 (25,7 h) tiveram o maior volume.",
+ "resumo": "Frentes próprias: as colhedoras de 2 linhas 20024 (Frente 01) e 20022 (Frente 03) tiveram 9,0 h e 8,1 h de manutenção corretiva; houve equipamentos sem informação por falta de conectividade (Indeterminado) — 20019 e 20027 (Frente 04) e 20030 (Frente 02) o dia todo e a Frente 03 à noite —, então a leitura dessas frentes fica incompleta. As colhedoras aguardaram transbordo acima do sinal de atenção de 10% na Frente 05 (22,3%, com 21,5 h de Falta Operador nos transbordos), na Frente 02 (17,5%) e na Frente 37 (10,2%), enquanto as Frentes 01 e 04 tiveram transbordos sobrando em fila (18,6% e 15%). Faltou caminhão na Frente 03 (06h–07h e 14h), na Frente 02 (16h), na Frente 01 (17h) e na Frente 05 (00h, de novo); há possível divergência de apontamento de Aguardando Caminhão nas Frentes 02, 03, 05, 13 e 34. Terceiros seguem com equipamentos parados o dia todo: 961073 inativa (Frente 11), 960783 e 961022 em manutenção e 961024 sem apontamento (Frente 13), 961330 e 961331 sem apontamento (Frente 34); a Frente 34 ainda perdeu a manhã com chuva. No total, as máquinas ficaram 132,1 h paradas com motor ligado (11,4% do motor ligado), abaixo dos 12,3% de 17/10; as Frentes 11 (26,6 h) e 02 (25,7 h) tiveram o maior volume.",
  "frentes": [
   {
    "frente": "Frente 01",
@@ -430,13 +430,13 @@
      "30142"
     ]
    },
-   "analise": "As colhedoras ficaram 17,5% das horas aguardando transbordo, acima do sinal de atenção de 10% pelo 2º dia seguido, com pico de 30% às 11h e 5 horas seguidas acima entre 14h e 18h. Nesse mesmo horário os transbordos apontaram Aguardando Caminhão (pico de 31,9% às 17h) e às 16h faltou caminhão para a frente toda. O transbordo 30140 ficou 22,4 h em manutenção corretiva e o 30058 só trabalhou 4,9 h; a colhedora 20030 ficou 24 h Indeterminado e a 20118 21 h em Pátio/Reserva. Foram 25,7 h paradas com motor ligado, a maior parte transbordo aguardando colhedora (9,9 h).",
+   "analise": "As colhedoras ficaram 17,5% das horas aguardando transbordo, acima do sinal de atenção de 10% pelo 2º dia seguido, com pico de 30% às 11h e 5 horas seguidas acima entre 14h e 18h. Nesse mesmo horário os transbordos apontaram Aguardando Caminhão (pico de 31,9% às 17h) e às 16h faltou caminhão para a frente toda. O transbordo 30140 ficou 22,4 h em manutenção corretiva e o 30058 ficou offline das 04h às 23h (19,1 h sem informação); a colhedora 20030 ficou 24 h sem informação por falta de conectividade (Indeterminado) e a 20118 21 h em Pátio/Reserva. Foram 25,7 h paradas com motor ligado, a maior parte transbordo aguardando colhedora (9,9 h).",
    "acao": "Logística confere a falta de caminhão das 14h às 18h e a manutenção libera o transbordo 30140; operadores conferem o apontamento de Aguardando Caminhão."
   },
   {
    "frente": "Frente 03",
    "status": "bad",
-   "titulo": "Falta de caminhão e frente parada à noite",
+   "titulo": "Falta de caminhão nos transbordos",
    "colhedora": {
     "eficiencia": 92.3,
     "disponibilidade": 77.7,
@@ -742,13 +742,13 @@
      "30061"
     ]
    },
-   "analise": "Os transbordos ficaram 1,6 h cada aguardando caminhão (8,5%), acima da referência de 5% em 9 horas, com pico de 30,4% às 13h. Faltou caminhão às 06h–07h e às 14h, com transbordos e colhedoras (20022, 20023 e 20029) parados ao mesmo tempo. À noite a frente parou: as colhedoras 20023 e 20029 ficaram em Indeterminado das 17h–18h até 23h, e os transbordos 10102 (desde 10h), 10177, 10178 e 10179 (desde 15h–17h) também. A colhedora 20022 (2 linhas) teve 8,1 h de manutenção corretiva, e a Disponibilidade Manutenção das colhedoras ficou em 77,7% (referência 85%). Os transbordos ainda tiveram 17,5 h em fila (11,5%) e 11,4 h de Falta Operador.",
-   "acao": "Logística verifica a falta de caminhão das 06h–07h e 14h e o encarregado explica a parada das 17h às 23h apontada como Indeterminado."
+   "analise": "Os transbordos ficaram 1,6 h cada aguardando caminhão (8,5%), acima da referência de 5% em 9 horas, com pico de 30,4% às 13h. Faltou caminhão às 06h–07h e às 14h, com transbordos e colhedoras (20022, 20023 e 20029) parados ao mesmo tempo. À noite a frente ficou sem informação: as colhedoras 20023 e 20029 ficaram offline das 17h–18h até 23h e os transbordos 10102 (desde 10h), 10177, 10178 e 10179 (desde 15h–17h) também, por falta de conectividade (Indeterminado); por isso a leitura da noite fica incompleta. A colhedora 20022 (2 linhas) teve 8,1 h de manutenção corretiva, e a Disponibilidade Manutenção das colhedoras ficou em 77,7% (referência 85%). Os transbordos ainda tiveram 17,5 h em fila (11,5%) e 11,4 h de Falta Operador.",
+   "acao": "Logística verifica a falta de caminhão das 06h–07h e 14h e a equipe de telemetria verifica a conectividade dos equipamentos que ficaram offline à noite."
   },
   {
    "frente": "Frente 04",
    "status": "bad",
-   "titulo": "Só uma colhedora trabalhou",
+   "titulo": "Duas colhedoras offline e transbordos em fila",
    "colhedora": {
     "eficiencia": 93.5,
     "disponibilidade": 72.8,
@@ -888,8 +888,8 @@
      "10155"
     ]
    },
-   "analise": "Só a colhedora 20026 trabalhou; a 20019 e a 20027 ficaram as 24 h em Indeterminado (em 15/10 já tinham ficado Indeterminado à noite). Com 6 transbordos para 1 colhedora, cada transbordo ficou 3,6 h em fila (15%), acima da referência de 5% em 21 horas, com pico de 34,5% às 23h — a maior fila da frente em todos os dias analisados. A 20026 teve 6,4 h de manutenção corretiva (07h–08h e 16h–20h), e a Disponibilidade Manutenção ficou em 72,8% (referência 85%). Os transbordos ainda tiveram 15,6 h de Falta Operador.",
-   "acao": "Gerente da frente esclarece por que 20019 e 20027 ficaram paradas o dia todo e a coordenação remaneja os transbordos sobrando enquanto elas não voltam."
+   "analise": "As colhedoras 20019 e 20027 ficaram as 24 h sem informação por falta de conectividade (Indeterminado), como já tinha acontecido à noite em 15/10; não dá para afirmar que ficaram paradas. Com dados de só 1 colhedora (20026), cada transbordo ficou 3,6 h em fila (15%), acima da referência de 5% em 21 horas, com pico de 34,5% às 23h — a maior fila da frente em todos os dias analisados. A 20026 teve 6,4 h de manutenção corretiva (07h–08h e 16h–20h), e a Disponibilidade Manutenção ficou em 72,8% (referência 85%). Os transbordos ainda tiveram 15,6 h de Falta Operador.",
+   "acao": "Equipe de telemetria restabelece a conectividade das colhedoras 20019 e 20027 e a coordenação confere com a frente se a fila dos transbordos foi real."
   },
   {
    "frente": "Frente 05",
@@ -1432,7 +1432,7 @@
      "961277"
     ]
    },
-   "analise": "Só a colhedora 960931 trabalhou: a 960783 ficou 24 h em manutenção preventiva e a 961022 24 h em manutenção corretiva. Por isso a Disponibilidade Manutenção das colhedoras foi de 24,8% (referência 85%). O transbordo 961024 ficou 24 h sem apontamento, como em todos os dias desde 10/10, e o 960787 ficou 24 h em Indeterminado. Com 3 transbordos para 1 colhedora, cada um ficou 4,3 h em fila (18,5%) e 3,4 h aguardando colhedora (14,8%).",
+   "analise": "Só a colhedora 960931 trabalhou: a 960783 ficou 24 h em manutenção preventiva e a 961022 24 h em manutenção corretiva. Por isso a Disponibilidade Manutenção das colhedoras foi de 24,8% (referência 85%). O transbordo 961024 ficou 24 h sem apontamento, como em todos os dias desde 10/10, e o 960787 ficou 24 h sem informação por falta de conectividade. Com 3 transbordos para 1 colhedora, cada um ficou 4,3 h em fila (18,5%) e 3,4 h aguardando colhedora (14,8%).",
    "acao": "Cobrar do terceiro a volta das colhedoras 960783 e 961022 e o apontamento dos transbordos 961024 e 960787."
   },
   {
@@ -1579,8 +1579,8 @@
      "961397"
     ]
    },
-   "analise": "A chuva parou a frente das 00h às 11h: 34,3 h das colhedoras em Fatores Climáticos. Depois disso as colhedoras trabalharam bem: Eficiência do Motor de 96,3% e Disponibilidade Manutenção de 93,4% (referência 85%). Os transbordos 961330 e 961331 ficaram de novo 24 h sem apontamento, e o 961329 e o 961398 24 h em Indeterminado; o 961327, o 961328 e o 961332 tiveram mais 6 a 8 h sem apontamento cada. Isso derrubou a Eficiência do Motor dos transbordos para 52,2%.",
-   "acao": "Cobrar do terceiro o apontamento dos transbordos 961330, 961331, 961329 e 961398, parados ou sem apontamento."
+   "analise": "A chuva parou a frente das 00h às 11h: 34,3 h das colhedoras em Fatores Climáticos. Depois disso as colhedoras trabalharam bem: Eficiência do Motor de 96,3% e Disponibilidade Manutenção de 93,4% (referência 85%). Os transbordos 961330 e 961331 ficaram de novo 24 h sem apontamento, e o 961329 e o 961398 ficaram 24 h sem informação por falta de conectividade; o 961327, o 961328 e o 961332 tiveram mais 6 a 8 h sem apontamento cada. Isso derrubou a Eficiência do Motor dos transbordos para 52,2%.",
+   "acao": "Cobrar do terceiro o apontamento dos transbordos 961330 e 961331 e a conectividade do 961329 e do 961398."
   },
   {
    "frente": "Frente 37",
@@ -1709,8 +1709,8 @@
      "961396"
     ]
    },
-   "analise": "As colhedoras trabalharam bem: Eficiência do Motor de 92%, Disponibilidade Manutenção de 99,8% e 17,1 h de corte por colhedora, a melhor do dia. Mas ficaram 10,2% das horas aguardando transbordo, logo acima do sinal de atenção de 10%, com pico de 23,3% às 06h; a maior parte foi Aguardando Manobra Transbordo (961395 com 2,6 h). Ao mesmo tempo os transbordos aguardaram colhedora 8,2% das horas, acima da referência de 6% em 13 horas. Os transbordos 961365 e 961370 ficaram 24 h em Indeterminado.",
-   "acao": "Encarregado ajusta a alocação dos transbordos nas colhedoras e cobra do terceiro o apontamento de 961365 e 961370."
+   "analise": "As colhedoras trabalharam bem: Eficiência do Motor de 92%, Disponibilidade Manutenção de 99,8% e 17,1 h de corte por colhedora, a melhor do dia. Mas ficaram 10,2% das horas aguardando transbordo, logo acima do sinal de atenção de 10%, com pico de 23,3% às 06h; a maior parte foi Aguardando Manobra Transbordo (961395 com 2,6 h). Ao mesmo tempo os transbordos aguardaram colhedora 8,2% das horas, acima da referência de 6% em 13 horas. Os transbordos 961365 e 961370 ficaram 24 h sem informação por falta de conectividade.",
+   "acao": "Encarregado ajusta a alocação dos transbordos nas colhedoras e cobra do terceiro a conectividade dos transbordos 961365 e 961370."
   }
  ]
 }
