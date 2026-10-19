@@ -25,6 +25,7 @@ Arquivo lido no início de cada execução e atualizado no fim. Registre aqui o 
 ## Escrita (padrão escolhido pelo usuário em 11/10)
 - Parágrafo simplificado: frases curtas, um fato por frase, número sempre com a referência ("98,4%, referência 85%"), equipamento e horário. Começar pelo fato principal. Sem jargão desnecessário; um gerente e um assistente devem entender sem explicação.
 - Incluir em cada frente o motor ligado parado (horas e principal operação) quando relevante; campo "motorLigadoParado" no JSON.
+- 2026-10-19 (pedido do usuário): no resumo, motor ligado parado SEMPRE com o total do dia, os principais apontamentos (somando colhedora + transbordo, dizendo de qual tipo) e a lista de TODAS as frentes em ordem de horas, cada uma com horas e os 2 apontamentos em que mais ficou parada com motor ligado (ex.: "Frente 02 25,7 h (Aguardando Colhedora 9,9 h e Aguardando Manobra Transbordo 4,4 h)").
 
 ## Leitura dos dados
 - 2026-10-19 (REGRA DO USUÁRIO): operação 568 - INDETERMINADO = equipamento OFFLINE, sem conectividade, que não mandou informação. NÃO quer dizer que ficou parado. Sempre escrever "sem informação por falta de conectividade (Indeterminado)" / "offline", nunca "parado" ou "não trabalhou"; avisar que a leitura daquele horário/frente fica incompleta (ex.: fila ou aguardando colhedora pode estar distorcido) e a ação é verificar a conectividade/telemetria do equipamento.
