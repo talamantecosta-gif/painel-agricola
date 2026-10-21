@@ -87,18 +87,34 @@
    "criadoEm": "2026-10-09T18:21:48.924Z"
   },
   {
-   "id": "d773c000ef958fb6c94b50c3a94682211a0cd771a6c6f4722eb899e6a87fe103",
-   "salt": "zFjePICzaCxlFaOE5k2zSg==",
+   "id": "dd051a3ed2b46c4e8c31bc3c1909382a4af450b5eef835a0f7cddd7b01f55264",
+   "salt": "RwCa4OWMS3QTMWAFMpaNfw==",
    "iter": 310000,
-   "iv": "MSdior1jV5Pf0Jpd",
-   "chave": "ZDeWqt80wOWADQGmqOPaEC0pt/KIJuK0dElx9ehnDh5LOA812O5FD/0fnPvDlrhS",
-   "criadoEm": "2026-10-20T19:41:51.887Z"
+   "iv": "oYFzmY7vPvigbUVF",
+   "chave": "TvowswdePYLmmPJ0mis0UAbs9SKx1jp/hwuTM/c99xkWsrgSQJp/plhx4Q4nUNhS",
+   "criadoEm": "2026-10-21T10:27:07.905Z"
+  },
+  {
+   "id": "8ed2f693bc2c15258b8ea5b2c21f95d886bba6f84b4ebabd7fcf2fb6bda585ca",
+   "salt": "EmkJa/ZzaEHKGvz6vhj8lg==",
+   "iter": 310000,
+   "iv": "/YNCyc3L0MCV2X9X",
+   "chave": "gKsH2Vtf9KNeNCKA3p8NEvlGjBHSjiw545jsRHtlOpwPZ6HLNnkmYy0x2perJ5U4",
+   "criadoEm": "2026-10-21T10:27:08.065Z"
+  },
+  {
+   "id": "9f6d7039444bc1a682bfa0bffbd5ce9052c3cc57493842b2924b8851a7679d6e",
+   "salt": "GTV+hYIUh1uD+H1Fa7+/QA==",
+   "iter": 310000,
+   "iv": "WTSBwkEiiyFS5uzG",
+   "chave": "imk7jNdLE9forJa0jiMX6EWlWa+i+g/DnX2ncUI3eTH9rFKM4P9p3d3RguALPFTi",
+   "criadoEm": "2026-10-21T10:29:35.979Z"
   }
  ],
  "nomes": {
   "protegido": "aes-gcm-v1",
   "aviso": "Conteúdo protegido — abra pelo painel com um usuário liberado.",
-  "iv": "bN1sH8pnpHI5U45j",
-  "ct": "NyksqnWDEKAuGcI2tT+MIEZLLKsiQxtZJMe4x3ePxsS3tuu5xKW/Ll93k9sS+UPO4Cl+Yw5LbXuWo8z/+38pTLwkJlb81e3aR9rQqMIF1QIfkCLtnv+GLxery0bKV/9n7sMoNkBqBpC9wEogzH6uIUV7pGS3e/oAXYvCjmh8eYBx8rEpas1V2Wgp8yy3hmfwHn3NPRPXjLD1hCTclF1OsYPG+wS8jin95waXpsFThq/PMAx2I5u0+MPgu8sJi/Tnge5+fhYaUGs7UtZBZ4gUDFpeCvn4pVKvTk9EoU3xtLXk4+GlQGP2Qe3Y4Y72xcNd649WRO5mjsRZB8/E5+pIApdeToXL6ncs8x03SmqIoRcs9FV2WxFxdXNbZVdEkIwJhyEzdMG+qUFWl/ZICS2fGetwThXVh6bfAgtiHZosgYTZqwdRXcHDpT3WBtKM5Zpl/+1AskeiyyGFAcZNGtlcYMVqxZOyWaLuHUmRwR/Swmudxqld9lYMAJdMNJGlfQ2z0p5+twb8jYSf9pXTNdmHrcyLuYZDQsK3DiHxZ3rS5C1TnWYJFpsppKtwr/EajgP5OzzNhvQII4dYgW8A/lOtgtTnY8N42d1WLXRF6LuhjHSVw55hZGp6JBYvTHYMMQemsuII45N926fdxeGInWgl8beGdhfiyFEnGaq5V5Z6iNhh16hQt+5XqVD6cEypzQouwVS3zn+jIwL/SGZ3Gp/oZOLffk2hdPby5PMie2z4Ow22bNavD3v9x76fNdsFwuGQ7EU/s6JqkB8P3JpjDyGmKwLUTvwmiTDW9cYK2bPMydaSLUwDEXE6HjSsBByfTGtx/u/0niWp7EPdYEUYD0XGo/tbnIQzpETVgHcmyQIkAbmFQ6WF+1bv3+wWCPnrNs4f6TVvp+bBE2s9wDXgnVU61kQwTj/X3RfC/ZjhWiC/EQ1nihALWRT6hDfH8fltcBIa/vasKsyfESApYOZfDh9oHne150ZNfuhmNKJFyN+U2H+P9vLyBTY6RNOKtoevJiL4pifg/Wa8OmV61ERauCYJk/3ApZUMRDHvfJqfLzIsX68fWLGFsSI7D1Lta0MokkXL4GWKwZzIqe0pteXV4zF9R1MLtj6SwAZE4SHv7aGa0xTDqngug5Qf2lug4E29JpameRvkeUN/cxxz4PoxnGsgeFfbX0zzdqD2V3TXFPuvHLho6ySsHwG1iHl7pTEBAVz5/fKTPQ=="
+  "iv": "I3L/H2lpHn+183ri",
+  "ct": "ZMsvg4d4MHidlRRvG2a9HHfho558ZwlSN15U76LmGJp/pI9loIf4l3urUAuXaBjm82Qw/rbhhSM+zxxjGOFh3APQOwR1P84imZI5pfF76joJOKF0ab/ZGbNoUKhaH8szUClKRGEgWlJ+RC3bxVhtpEPPzLMSF2kx3/iicoxGY8nfhH3tFhrJFCXYItBavrsLfOcfHAbxKtqKckDyYuHnZlR6ub33Wfj4pKbcUUktNd6IhkZ2iTRHjU77N7yK9zy7t2ekx2JOXoh/Xwk2w5CKnw/A7fZVEN0eAdUMIRMFnQUybzy5xVWiQnMCnTCtCsbFlu2+YbxXBWjAOxCOGw5up247HlFlXQXn5P955ERB9waVYdCGyavhYMjorJV7nr5gB/18ZEAEEwvMiMxPEbu++nOa0KIzv+bA2TVvi3r5+TiXXowq55lpoqrodwuI+8ZRAiAgQU8YcW9uQFEUY6+PL3QrLR7ytzz+egA+qq+RDU+FQxPfL75JLQ3krWZ8KuIuFhYbsT3A4YswVnTrGXbwYejzVcfHgPqrCnxlc2PUwnPJnNHXdi7uct6fSosdREJS4HqDWIi4KZfPYfcyX26gYJwm7QRD1XyUSpI6yProVgAwP6ZE6YCv2XOS8iMPCeYEKXcGqo7f2ajTpqUInt+bSqNO1E9ssKO+cnGHCzK/81xbaGSC0YwY/KWkdl7M6TGDAKVIh6eP8RZxtDScFANR9NxZdyt2GPVoFwi0AAIQg6+u3J22v64JQ/HCjmSVcNPKQNGkDcHSYgjBqpnNmDMlxtmlJ2ehig7tMpygsByrjBJ78ii1VfL2H/F+ikfGzPGW6fC16cv1pcOa1jY6RdcTFNlyxJAiMI3e/jX8SVO5ppsxVqrKJarFfY8kRrh5erTL0zUdbMEf7EiTnXkqjlciobTL0hyYyfRGtcbNZHODxGFsew2oTDZT6P0i4Q4JjnJwZ9MavBBSOEe98lxE30KQQAQUrUHMOyGVpLPrzY1qksBG8bgPC9wv83RN8UlkxDD7bq822Hs+0pdb6n1wtU90lfnZ7px5NSZV6tgXOdFxtfYpKBlzlj0kqoxnTa5l8r28PPlabcIdlptiUO4m04yCLcv3uhZePMOSIwpPZMCW9MpINAtk5jd4/C78kcHxzqI3/qLD+yyW5uOIsPGFSBJz33YIw0sGMRsmI/fsnwRNS8aI3eekMTedodnNmDAltB+rq3ZSUf3hkZMD/KCO+Ap+7Vc1sgJ9EOy8kATgnCysnAWG3LusuFInVP+3T8JgYNREyvMwjWNVq+HTih2BU6Jr0jDon5HJWCJ7uC2ZrFQI7TpgU9O4fupdiJk6oKDmbYUw0p60gomBkjPoEB3E685En3qHO4WxLWFwCpIE5sKl36/jgnePRxTunp2KW2s97utGDPOacbELo8gFDMWATJYKylRSkVUqAzk2+AY="
  }
 }
