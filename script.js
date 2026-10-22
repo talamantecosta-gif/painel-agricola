@@ -723,6 +723,39 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     }).join('') || '<div class="empty"><i class="fa-regular fa-folder-open"></i>Sem frentes para o filtro.</div>';
   };
 
+  /* Diferença por Frente: Entrega x Meta Período do Solinftec Flow (analise.json → entregaCota);
+     sem essa informação, usa Produção x Cota do relatório PDF. */
+  const renderDif = () => {
+    if (!state.M || !$('#chDif')) return;
+    const nomes = new Set(filteredFrentes().map(f => f.frente));
+    const EC = (typeof ANALISE !== 'undefined' && ANALISE && ANALISE.entregaCota && Array.isArray(ANALISE.entregaCota.frentes) && ANALISE.entregaCota.frentes.length) ? ANALISE.entregaCota : null;
+    let rows, hint;
+    if (EC) {
+      const filtroAtivo = !!(state.frente || state.fazenda || state.q || state.status);
+      rows = EC.frentes.filter(f => !filtroAtivo || nomes.has(f.frente)).map(f => ({ frente: f.frente, real: f.entrega, meta: f.meta, dif: f.diferenca != null ? f.diferenca : f.entrega - f.meta }));
+      const d = EC.data || (ANALISE && ANALISE.data) || '';
+      hint = `Entrega − Meta período (t)${d ? ' · ' + d.split('-').reverse().slice(0, 2).join('/') : ''}`;
+    } else {
+      rows = filteredFrentes().filter(f => f.cota).map(f => ({ frente: f.frente, real: f.producao, meta: f.cota, dif: f.diferenca }));
+      hint = 'Produção − Cota (t)';
+    }
+    const h = $('#difHint'); if (h) h.textContent = hint;
+    const lr = EC ? 'Entrega' : 'Produção', lm = EC ? 'Meta período' : 'Cota';
+    makeChart('chDif', {
+      type: 'bar',
+      data: { labels: rows.map(r => r.frente), datasets: [{ label: 'Diferença (t)', data: rows.map(r => r.dif), backgroundColor: rows.map(r => r.dif >= 0 ? '#2E7D32' : '#C62828'), borderRadius: 6, maxBarThickness: 46 }] },
+      options: {
+        layout: { padding: { top: 18 } },
+        scales: { y: { ticks: { callback: v => fmt(v, 0) }, grid: { color: c => c.tick.value === 0 ? '#90A4AE' : '#E3E9E4' } }, x: { grid: { display: false } } },
+        plugins: {
+          legend: { display: false },
+          valueLabels: { enabled: true, format: v => fmtSigned(v, 0) },
+          tooltip: { callbacks: { label: c => { const r = rows[c.dataIndex]; return [` Diferença: ${fmtSigned(r.dif, 0)} t`, ` ${lr}: ${fmt(r.real, 0)} t`, ` ${lm}: ${fmt(r.meta, 0)} t`, r.meta ? ` Atingimento: ${fmtPct(r.real / r.meta * 100)}` : '']; } } },
+        },
+      },
+    });
+  };
+
   const renderFrenteCharts = () => {
     const fr = filteredFrentes().filter(f => f.cota);
     const labels = fr.map(f => f.frente);
@@ -753,19 +786,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       },
     });
 
-    makeChart('chDif', {
-      type: 'bar',
-      data: { labels, datasets: [{ label: 'Diferença (t)', data: fr.map(f => f.diferenca), backgroundColor: fr.map(f => f.diferenca >= 0 ? '#2E7D32' : '#C62828'), borderRadius: 6, maxBarThickness: 46 }] },
-      options: {
-        layout: { padding: { top: 18 } },
-        scales: { y: { ticks: { callback: v => fmt(v, 0) }, grid: { color: c => c.tick.value === 0 ? '#90A4AE' : '#E3E9E4' } }, x: { grid: { display: false } } },
-        plugins: {
-          legend: { display: false },
-          valueLabels: { enabled: true, format: v => fmtSigned(v, 0) },
-          tooltip: { callbacks: { label: c => { const f = fr[c.dataIndex]; return [` Diferença: ${fmtSigned(f.diferenca)} t`, ` Produção: ${fmt(f.producao)} t`, ` Cota: ${fmt(f.cota)} t`]; } } },
-        },
-      },
-    });
+    renderDif();
 
     const all = filteredFrentes();
     makeChart('chVel', {
@@ -1302,7 +1323,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       if (r.ok) { const x = await Acesso.readJson(await r.json()); ANALISE = x.data; }
       else ANALISE = null;
     } catch (e) { console.warn('[painel] analise.json:', e.message); ANALISE = null; }
-    try { renderCxt(); renderPerda(); } catch (e) { console.error('[painel] falha em renderCxt/renderPerda:', e); }
+    try { renderCxt(); renderPerda(); renderDif(); } catch (e) { console.error('[painel] falha em renderCxt/renderPerda:', e); }
   };
 
   /* ---------- Render: indisponibilidade manutenção ---------- */
@@ -1421,7 +1442,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         if (parsed && Array.isArray(parsed.frentes) && !parsed.fazendas && ('fonte' in parsed || 'semDados' in parsed)) {
           // analise.json gerado pela tarefa agendada → aplica e baixa a versão protegida
           ANALISE = parsed;
-          try { renderCxt(); renderPerda(); } catch (e) { console.error(e); }
+          try { renderCxt(); renderPerda(); renderDif(); } catch (e) { console.error(e); }
           await downloadProtected('analise.json', parsed);
           closeModal();
           toast('<i class="fa-solid fa-lock"></i> analise.json protegido baixado — publique no GitHub', 5000);
