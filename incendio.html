@@ -12,11 +12,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
-  <link rel="stylesheet" href="style.css?v=20261020a">
-  <link rel="stylesheet" href="tema.css?v=20261020a">
-  <link rel="stylesheet" href="incendio.css?v=20261020a">
+  <link rel="stylesheet" href="style.css?v=20261026a">
+  <link rel="stylesheet" href="tema.css?v=20261026a">
+  <link rel="stylesheet" href="incendio.css?v=20261026a">
 </head>
-<body class="auth-locked">
+<body class="auth-locked rf-page">
 
   <!-- ================= TOPO ================= -->
   <header class="topbar" id="topo">
@@ -38,17 +38,20 @@
       </nav>
 
       <div class="toolbar" role="toolbar" aria-label="Ações">
-        <span class="report-chip" id="rfChip" title="Leitura carregada"><i class="fa-regular fa-clock"></i><span>—</span></span>
-        <button class="btn btn--primary" id="rfImport" title="Importar a planilha Risco de Incêndio (.xlsm / .xlsx) e atualizar a página">
-          <i class="fa-solid fa-file-excel"></i><span>Importar planilha</span>
+        <span class="report-chip" id="rfChip" title="Leitura exibida"><i class="fa-regular fa-file-lines"></i><span>—</span></span>
+        <button class="btn btn--primary btn--icon" id="rfImport" title="Importar a planilha Risco de Incêndio (.xlsm / .xlsx)" aria-label="Importar planilha">
+          <i class="fa-solid fa-arrow-up-from-bracket"></i>
         </button>
-        <button class="btn" id="rfJson" title="Baixar incendio.json protegido (para publicar no GitHub)">
-          <i class="fa-solid fa-file-code"></i><span>incendio.json</span>
+        <button class="btn btn--icon" id="rfJson" title="Baixar incendio.json protegido (para publicar no GitHub)" aria-label="Baixar incendio.json">
+          <i class="fa-solid fa-code"></i>
         </button>
-        <button class="btn" id="btnPrint" title="Imprimir / salvar em PDF">
-          <i class="fa-solid fa-print"></i><span>Imprimir</span>
+        <button class="btn btn--icon" id="rfCsv" title="Exportar a leitura exibida em CSV" aria-label="Exportar CSV">
+          <i class="fa-regular fa-file-lines"></i>
         </button>
-        <button class="btn btn--icon" id="btnSair" title="Sair">
+        <button class="btn btn--icon" id="btnPrint" title="Imprimir / salvar em PDF" aria-label="Imprimir">
+          <i class="fa-solid fa-print"></i>
+        </button>
+        <button class="btn btn--icon" id="btnSair" title="Sair" aria-label="Sair">
           <i class="fa-solid fa-right-from-bracket"></i>
         </button>
         <input type="file" id="rfFile" accept=".xlsm,.xlsx,.xls,.csv,.json" hidden>
@@ -95,7 +98,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="acesso.js?v=20261020a"></script>
-  <script src="incendio.js?v=20261020a"></script>
+  <script src="acesso.js?v=20261026a"></script>
+  <script src="incendio.js?v=20261026a"></script>
 </body>
 </html>

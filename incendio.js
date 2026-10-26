@@ -95,21 +95,25 @@
   };
 
   /* ---------- Cálculos ---------- */
-  const calc = D => {
+  const horasDe = D => [...new Set(D.leituras.map(x => x.hora).filter(h => h != null))].sort((a, b) => a - b);
+  // situação na hora h: leitura mais recente de cada local até h (h = null → a mais recente de todas)
+  const calc = (D, h) => {
     const L = D.leituras;
-    // leitura mais recente de cada local
     const ult = new Map();
-    L.forEach(x => { const p = ult.get(x.local); if (!p || (x.hora ?? -1) >= (p.hora ?? -1)) ult.set(x.local, x); });
+    L.forEach(x => {
+      if (h != null && x.hora != null && x.hora > h) return;
+      const p = ult.get(x.local); if (!p || (x.hora ?? -1) >= (p.hora ?? -1)) ult.set(x.local, x);
+    });
     const atual = [...ult.values()];
-    const horas = [...new Set(L.map(x => x.hora).filter(h => h != null))].sort((a, b) => a - b);
-    const porHora = horas.map(h => { const s = L.filter(x => x.hora === h); return { h, risco: avg(s, x => x.risco), n: s.length }; });
-    const ultHora = horas.length ? horas[horas.length - 1] : null;
+    const horas = horasDe(D);
+    const porHora = horas.map(hr => { const s = L.filter(x => x.hora === hr); return { h: hr, risco: avg(s, x => x.risco), n: s.length }; });
     const maxBy = (a, f) => a.reduce((m, x) => (f(x) != null && (m == null || f(x) > f(m)) ? x : m), null);
     const minBy = (a, f) => a.reduce((m, x) => (f(x) != null && (m == null || f(x) < f(m)) ? x : m), null);
     const cont = FAIXAS.map(f => ({ f, n: atual.filter(x => faixa(x.risco) === f).length }));
     return {
-      atual, porHora, ultHora,
+      atual, porHora, horas, hora: h != null ? h : (horas.length ? horas[horas.length - 1] : null),
       risco: avg(atual, x => x.risco),
+      altoOuMais: atual.filter(x => x.risco >= 60).length,
       temp: avg(atual.filter(x => x.temp != null), x => x.temp), tMax: maxBy(atual, x => x.temp),
       umid: avg(atual.filter(x => x.umid != null), x => x.umid), uMin: minBy(atual, x => x.umid),
       abaixo30: atual.filter(x => x.umid != null && x.umid < 30).length,
@@ -119,78 +123,196 @@
     };
   };
 
+  /* ---------- Velocímetro ---------- */
+  const GX = 150, GY = 150, GR = 112;
+  const ponto = v => { const t = (180 - v * 1.8) * Math.PI / 180; return `${(GX + GR * Math.cos(t)).toFixed(2)} ${(GY - GR * Math.sin(t)).toFixed(2)}`; };
+  const arco = (v1, v2) => `M ${ponto(v1)} A ${GR} ${GR} 0 0 1 ${ponto(v2)}`;
+  const BANDAS = [...FAIXAS].reverse(); // Baixo → Extremo
+  const gaugeSvg = () => {
+    const lim = [0, 40, 60, 80, 90, 100];
+    const arcs = BANDAS.map((f, i) => `<path class="arc" data-i="${i}" d="${arco(lim[i] + (i ? 0.9 : 0), lim[i + 1] - (i < 4 ? 0.9 : 0))}" stroke="${f[2]}"/>`).join('');
+    return `<svg class="rf-gauge" viewBox="0 0 300 170" role="img" aria-label="Velocímetro do risco médio">
+      ${arcs}
+      <g class="rf-needle" id="rfNeedle"><path d="M ${GX} 58 L ${GX - 5.5} ${GY} L ${GX + 5.5} ${GY} Z" fill="#18301F"/></g>
+      <circle cx="${GX}" cy="${GY}" r="11" fill="#18301F"/><circle cx="${GX}" cy="${GY}" r="4.5" fill="#fff"/>
+    </svg>`;
+  };
+
+  /* ---------- Animações ---------- */
+  const semMov = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const contar = (el, de, para, ms = 750) => {
+    cancelAnimationFrame(el._raf);
+    if (semMov() || de == null || !Number.isFinite(de)) { el.textContent = nf(para, 1) + '%'; return; }
+    const t0 = performance.now();
+    const passo = t => { const p = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - p, 3); el.textContent = nf(de + (para - de) * e, 1) + '%'; if (p < 1) el._raf = requestAnimationFrame(passo); };
+    el._raf = requestAnimationFrame(passo);
+  };
+
   /* ---------- Renderização ---------- */
-  let chart = null;
+  let chart = null, HORA = null, RISCO_ANT = null;
   const render = D => {
-    const C = calc(D);
-    const F = faixa(C.risco);
-    const dt = D.meta?.dataLeitura ? D.meta.dataLeitura.split('-').reverse().slice(0, 2).join('/') : '';
-    $('#rfChip span').textContent = `${C.ultHora != null ? 'Leitura das ' + hh(C.ultHora) : 'Leitura'}${dt ? ' · ' + dt : ''}`;
+    const horas = horasDe(D);
+    HORA = horas.length ? horas[horas.length - 1] : null;
+    RISCO_ANT = null;
     $('#rfFonte').textContent = `Fonte: ${D.meta?.arquivo || 'planilha Risco de Incêndio'} · importado em ${new Date(D.meta?.importadoEm || Date.now()).toLocaleString('pt-BR')}`;
-    const row = (i, nome, v, cor, max, suf) => `<div class="rf-row"><span class="n">${i}</span><span class="nm" title="${esc(nome)}">${esc(nome)}</span><span class="rf-bar"><i style="width:${Math.max(2, Math.min(100, v / max * 100))}%;background:${cor}"></i></span><span class="val">${nf(v, v % 1 ? 1 : 0)}${suf}</span></div>`;
-    const topRisco = [...C.atual].sort((a, b) => b.risco - a.risco || (a.umid ?? 999) - (b.umid ?? 999)).slice(0, 10);
-    const topUmid = [...C.atual].filter(x => x.umid != null).sort((a, b) => a.umid - b.umid || b.risco - a.risco).slice(0, 10);
-    const maiores = C.cont.filter(c => c.n > 0 || c.f[0] >= 60);
+    const kpi = (id, icone, titulo) => `<div class="rf-kpi" id="${id}"><div class="rf-kpi__t"><span>${titulo}</span><i class="${icone}"></i></div><div class="v">—</div><div class="s">—</div></div>`;
     $('#rfContent').innerHTML = `
       <section class="section section--first" id="rfVisao">
-        <div class="card rf-hero">
-          <div class="rf-hero__l" style="border-left-color:${F[2]}">
-            <div class="rf-k">Risco médio de incêndio agora</div>
-            <div style="display:flex;align-items:baseline;gap:12px;margin:8px 0 10px;flex-wrap:wrap"><span class="rf-big">${nf(C.risco, 1)}%</span><span class="rf-tag" style="background:${F[3]};color:${F[2]}">${F[1]}</span></div>
-            <div class="rf-k">${C.atual.length} locais monitorados${C.ultHora != null ? ' · leitura das ' + hh(C.ultHora) : ''}</div>
+        <div class="card rf-hero" id="rfHero">
+          <div class="rf-hero__l">
+            ${gaugeSvg()}
+            <div class="rf-big" id="rfBig">—</div>
+            <span class="rf-tag" id="rfTag">—</span>
+            <div class="rf-k" id="rfMon"></div>
           </div>
           <div class="rf-scale">
-            <div class="rf-k">Classificação do risco</div>
-            <div class="rf-bands">${[...FAIXAS].reverse().map(f => `<span style="background:${f[2]}"></span>`).join('')}<span class="rf-mk" style="left:${Math.min(99.5, C.risco)}%"><b>${nf(C.risco, 1)}%</b></span></div>
+            <p class="rf-frase" id="rfFrase" aria-live="polite"></p>
+            <div class="rf-bands">${BANDAS.map(f => `<span style="background:${f[2]}"></span>`).join('')}<span class="rf-mk" id="rfMk" style="left:0%"><b></b></span></div>
             <div class="rf-blab"><span>Baixo · até 39%</span><span>Moderado · 40–59%</span><span>Alto · 60–79%</span><span>Muito alto</span><span>Extremo</span></div>
-            <div class="rf-cnt">${maiores.map(c => `<span><i class="rf-sq" style="background:${c.f[2]}"></i><b>${c.n}</b> em ${c.f[1].toLowerCase()}</span>`).join('')}</div>
+            <div class="rf-cnt" id="rfCnt"></div>
+            ${horas.length ? `<div class="rf-horas"><span id="rfHorasLbl">Leitura das</span><div class="rf-hseg" id="rfHseg" role="tablist" aria-labelledby="rfHorasLbl"><span class="rf-hind" id="rfHind"></span>${horas.map(h => `<button role="tab" data-h="${h}">${hh(h)}</button>`).join('')}</div></div>` : ''}
           </div>
         </div>
         <div class="rf-kpis">
-          <div class="rf-kpi"><div class="rf-k"><i class="fa-solid fa-temperature-three-quarters"></i> Temperatura média</div><div class="v">${nf(C.temp, 1)} °C</div><div class="s">${C.tMax ? `máxima ${nf(C.tMax.temp)} °C · ${esc(C.tMax.local)}` : '—'}</div></div>
-          <div class="rf-kpi ${C.umid != null && C.umid < 30 ? 'is-alert' : ''}"><div class="rf-k"><i class="fa-solid fa-droplet"></i> Umidade relativa</div><div class="v">${nf(C.umid, 0)}%</div><div class="s">${C.uMin ? `mínima ${nf(C.uMin.umid)}% · ` : ''}${C.abaixo30 === C.atual.length ? 'abaixo de 30% em todos os locais' : `${C.abaixo30} locais abaixo de 30%`}</div></div>
-          <div class="rf-kpi"><div class="rf-k"><i class="fa-solid fa-wind"></i> Vento médio</div><div class="v">${nf(C.vento, 0)} km/h</div><div class="s">${C.vMax ? `máximo ${nf(C.vMax.vento)} km/h · ${esc(C.vMax.local)}` : '—'}</div></div>
-          <div class="rf-kpi"><div class="rf-k"><i class="fa-solid fa-cloud-rain"></i> Chuva</div><div class="v">${nf(C.chuvaMax ? C.chuvaMax.chuva : 0, C.chuvaMax && C.chuvaMax.chuva % 1 ? 1 : 0)} mm</div><div class="s">${C.chuvaLocais ? `${C.chuvaLocais} locais com chuva · máx. em ${esc(C.chuvaMax.local)}` : 'nenhum local com chuva'}</div></div>
+          ${kpi('rfkT', 'fa-solid fa-temperature-three-quarters', 'Temperatura média')}
+          ${kpi('rfkU', 'fa-solid fa-droplet', 'Umidade relativa')}
+          ${kpi('rfkV', 'fa-solid fa-wind', 'Vento médio')}
+          ${kpi('rfkC', 'fa-solid fa-cloud-rain', 'Chuva')}
         </div>
       </section>
 
       <section class="section" id="rfLocais">
-        <div class="section__head"><h2><i class="fa-solid fa-location-dot"></i> Locais em destaque</h2><p>${C.atual.length} locais${C.ultHora != null ? ' na leitura das ' + hh(C.ultHora) : ''}</p></div>
+        <div class="section__head"><h2><i class="fa-solid fa-location-dot"></i> Locais em destaque</h2><p id="rfLocaisSub"></p></div>
         <div class="grid grid--2">
           <article class="card"><header class="card__head"><div><h3>Maior risco agora</h3><p class="hint">Empate desfeito pela menor umidade</p></div></header>
-            <div class="rf-rank">${topRisco.map((x, i) => row(i + 1, x.local, x.risco, faixa(x.risco)[2], 100, '%')).join('')}</div></article>
+            <div class="rf-rank" id="rfTopR"></div></article>
           <article class="card"><header class="card__head"><div><h3>Umidade mais baixa</h3><p class="hint">Locais mais secos na leitura</p></div></header>
-            <div class="rf-rank">${topUmid.map((x, i) => row(i + 1, x.local, x.umid, '#3C7A35', 30, '%')).join('')}</div></article>
+            <div class="rf-rank" id="rfTopU"></div></article>
         </div>
       </section>
 
       <section class="section" id="rfHora">
-        <article class="card"><header class="card__head"><div><h3>Risco por hora</h3><p class="hint">Média de todos os locais em cada leitura${C.porHora.length < 3 ? ' · a linha fica completa quando a planilha tiver mais horários no dia' : ''}</p></div></header>
+        <article class="card"><header class="card__head"><div><h3>Risco por hora</h3><p class="hint">Média de todos os locais em cada leitura${horas.length < 3 ? ' · a linha fica completa quando a planilha tiver mais horários no dia' : ''}</p></div></header>
           <div style="position:relative;height:250px"><canvas id="rfChart" role="img" aria-label="Risco médio por hora"></canvas></div></article>
       </section>`;
-    drawChart(C.porHora);
+
+    const seg = $('#rfHseg');
+    if (seg) {
+      seg.addEventListener('click', e => { const b = e.target.closest('button[data-h]'); if (b) mostrar(D, +b.dataset.h); });
+      seg.addEventListener('keydown', e => {
+        if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+        const bs = [...seg.querySelectorAll('button')], i = bs.findIndex(b => +b.dataset.h === HORA);
+        const n = bs[Math.max(0, Math.min(bs.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)))];
+        n.focus(); mostrar(D, +n.dataset.h);
+      });
+    }
+    drawChart(calc(D, null).porHora);
+    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => mostrar(D, HORA, true));
+  };
+
+  // atualiza a visão para a hora escolhida, com animação
+  const mostrar = (D, h, primeira = false) => {
+    HORA = h;
+    const C = calc(D, h);
+    const F = faixa(C.risco), iF = BANDAS.indexOf(F);
+    const dt = D.meta?.dataLeitura ? D.meta.dataLeitura.split('-').reverse().slice(0, 2).join('/') : '';
+    const lh = C.hora != null ? 'leitura das ' + hh(C.hora) : 'última leitura';
+    $('#rfChip span').innerHTML = `${C.hora != null ? '<em>Leitura das </em>' + hh(C.hora) : 'Leitura'}${dt ? ' · ' + dt : ''}`;
+
+    // velocímetro, número e faixa
+    $('#rfHero').style.setProperty('--rf-faixa', F[2]);
+    $('#rfNeedle').style.transform = `rotate(${(Math.max(0, Math.min(100, C.risco)) - 50) * 1.8}deg)`;
+    document.querySelectorAll('.rf-gauge .arc').forEach(p => p.classList.toggle('is-off', +p.dataset.i > iF));
+    contar($('#rfBig'), primeira ? 0 : RISCO_ANT, C.risco, primeira ? 1100 : 750);
+    RISCO_ANT = C.risco;
+    const tag = $('#rfTag'); tag.textContent = F[1]; tag.style.background = F[3]; tag.style.color = F[0] === 40 ? '#B58710' : F[2];
+    $('#rfMon').textContent = `${C.atual.length} locais monitorados · ${lh}`;
+
+    // frase (some e volta com o texto novo)
+    const fr = $('#rfFrase');
+    const texto = `<b>${C.altoOuMais} de ${C.atual.length} locais</b> ${C.altoOuMais === 1 ? 'está' : 'estão'} em risco alto ou acima.${C.uMin ? ` Menor umidade: <b>${nf(C.uMin.umid)}%</b> em ${esc(C.uMin.local)}.` : ''}`;
+    if (primeira || semMov()) fr.innerHTML = texto;
+    else { fr.classList.add('is-fading'); clearTimeout(fr._t); fr._t = setTimeout(() => { fr.innerHTML = texto; fr.classList.remove('is-fading'); }, 200); }
+
+    // marcador da escala e contagem por faixa
+    const mk = $('#rfMk'); mk.style.left = Math.min(99.5, Math.max(0, C.risco)) + '%'; mk.querySelector('b').textContent = nf(C.risco, 1) + '%';
+    $('#rfCnt').innerHTML = C.cont.filter(c => c.n > 0 || c.f[0] >= 80).map(c => `<span><i class="rf-sq" style="background:${c.f[2]}"></i><b>${c.n}</b> em ${c.f[1].toLowerCase()}</span>`).join('');
+
+    // pílula da hora
+    const seg = $('#rfHseg');
+    if (seg) {
+      let on = null;
+      seg.querySelectorAll('button').forEach(b => { const s = +b.dataset.h === C.hora; b.classList.toggle('is-on', s); b.setAttribute('aria-selected', s); b.tabIndex = s ? 0 : -1; if (s) on = b; });
+      const ind = $('#rfHind');
+      if (on) {
+        if (primeira) ind.style.transition = 'none';
+        ind.style.left = on.offsetLeft + 'px'; ind.style.width = on.offsetWidth + 'px';
+        if (primeira) { ind.offsetWidth; ind.style.transition = ''; }
+        if (seg.scrollWidth > seg.clientWidth) seg.scrollTo({ left: on.offsetLeft - seg.clientWidth / 2 + on.offsetWidth / 2, behavior: primeira ? 'auto' : 'smooth' });
+      }
+    }
+
+    // clima (pisca o cartão que mudou)
+    const setKpi = (id, v, s, alerta) => {
+      const el = $('#' + id), vEl = el.querySelector('.v'), sEl = el.querySelector('.s');
+      const mudou = !primeira && vEl.innerHTML !== v;
+      vEl.innerHTML = v; sEl.textContent = s; sEl.title = s;
+      el.classList.toggle('is-alert', !!alerta);
+      if (mudou && !semMov()) { el.classList.add('is-flash'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('is-flash'), 450); }
+    };
+    setKpi('rfkT', `${nf(C.temp, 1)}<small>°C</small>`, C.tMax ? `máxima ${nf(C.tMax.temp)} °C · ${C.tMax.local}` : '—');
+    setKpi('rfkU', `${nf(C.umid, 0)}<small>%</small>`, `${C.uMin ? `mínima ${nf(C.uMin.umid)}% · ` : ''}${C.abaixo30 === C.atual.length ? 'abaixo de 30% em todos os locais' : `${C.abaixo30} locais abaixo de 30%`}`, C.umid != null && C.umid < 30);
+    setKpi('rfkV', `${nf(C.vento, 0)}<small>km/h</small>`, C.vMax ? `máximo ${nf(C.vMax.vento)} km/h · ${C.vMax.local}` : '—');
+    const cm = C.chuvaMax ? C.chuvaMax.chuva : 0;
+    setKpi('rfkC', `${nf(cm, cm % 1 ? 1 : 0)}<small>mm</small>`, C.chuvaLocais ? `${C.chuvaLocais} locais com chuva · máx. em ${C.chuvaMax.local}` : 'nenhum local com chuva');
+
+    // rankings da hora
+    const row = (i, nome, v, cor, max, suf) => `<div class="rf-row"><span class="n">${i}</span><span class="nm" title="${esc(nome)}">${esc(nome)}</span><span class="rf-bar"><i style="width:${Math.max(2, Math.min(100, v / max * 100))}%;background:${cor}"></i></span><span class="val">${nf(v, v % 1 ? 1 : 0)}${suf}</span></div>`;
+    const topRisco = [...C.atual].sort((a, b) => b.risco - a.risco || (a.umid ?? 999) - (b.umid ?? 999)).slice(0, 10);
+    const topUmid = [...C.atual].filter(x => x.umid != null).sort((a, b) => a.umid - b.umid || b.risco - a.risco).slice(0, 10);
+    $('#rfTopR').innerHTML = topRisco.map((x, i) => row(i + 1, x.local, x.risco, faixa(x.risco)[2], 100, '%')).join('');
+    $('#rfTopU').innerHTML = topUmid.map((x, i) => row(i + 1, x.local, x.umid, '#3C7A35', Math.max(30, topUmid.length ? topUmid[topUmid.length - 1].umid : 30), '%')).join('');
+    $('#rfLocaisSub').textContent = `${C.atual.length} locais · ${lh}`;
+
+    // destaca a hora no gráfico
+    if (chart) {
+      const ds = chart.data.datasets[0], i = C.porHora.findIndex(p => p.h === C.hora);
+      ds.pointRadius = C.porHora.map((_, k) => (k === i ? 8 : 4));
+      ds.pointBackgroundColor = C.porHora.map((_, k) => (k === i ? '#9E1F1F' : '#fff'));
+      chart.update(semMov() ? 'none' : undefined);
+    }
   };
 
   const drawChart = porHora => {
     if (!window.Chart) return;
     if (chart) chart.destroy();
-    const make = () => {
-      Chart.defaults.font.family = '"Archivo", system-ui, sans-serif';
-      chart = new Chart($('#rfChart'), {
-        type: 'line',
-        data: { labels: porHora.map(p => hh(p.h)), datasets: [{ data: porHora.map(p => Math.round(p.risco * 10) / 10), borderColor: '#9E1F1F', backgroundColor: 'rgba(158,31,31,.08)', fill: true, borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#9E1F1F', tension: .3 }] },
-        options: {
-          responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22, left: 10, right: 20 } },
-          plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${nf(c.parsed.y, 1)}% · ${porHora[c.dataIndex].n} locais` } } },
-          scales: { y: { min: 0, max: 100, ticks: { stepSize: 20, callback: v => v + '%', color: '#6E7C72' }, grid: { color: '#E6EAE2' } }, x: { offset: true, ticks: { color: '#6E7C72' }, grid: { display: false } } },
-        },
-        plugins: [
-          { id: 'faixas', beforeDatasetsDraw(c) { const { ctx: x, chartArea: a, scales: { y } } = c; FAIXAS.forEach((f, i) => { const hi = i ? FAIXAS[i - 1][0] : 100; x.save(); x.globalAlpha = .08; x.fillStyle = f[2]; x.fillRect(a.left, y.getPixelForValue(hi), a.right - a.left, y.getPixelForValue(f[0]) - y.getPixelForValue(hi)); x.restore(); }); } },
-          { id: 'rotulos', afterDatasetsDraw(c) { const x = c.ctx; c.getDatasetMeta(0).data.forEach((p, i) => { x.save(); x.font = '700 12px Archivo, sans-serif'; x.fillStyle = '#18301F'; x.textAlign = 'center'; x.fillText(nf(c.data.datasets[0].data[i], 1) + '%', p.x, p.y - 12); x.restore(); }); } },
-        ],
-      });
-    };
-    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(make);
+    Chart.defaults.font.family = '"Archivo", system-ui, sans-serif';
+    chart = new Chart($('#rfChart'), {
+      type: 'line',
+      data: { labels: porHora.map(p => hh(p.h)), datasets: [{ data: porHora.map(p => Math.round(p.risco * 10) / 10), borderColor: '#9E1F1F', backgroundColor: 'rgba(158,31,31,.08)', fill: true, borderWidth: 2.5, pointRadius: 4, pointBorderColor: '#9E1F1F', pointBorderWidth: 2, pointBackgroundColor: '#fff', pointHoverRadius: 8, tension: .3 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22, left: 10, right: 20 } },
+        onClick: (e, els) => { if (els.length && ATUAL) mostrar(ATUAL, porHora[els[0].index].h); },
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${nf(c.parsed.y, 1)}% · ${porHora[c.dataIndex].n} locais` } } },
+        scales: { y: { min: 0, max: 100, ticks: { stepSize: 20, callback: v => v + '%', color: '#6E7C72' }, grid: { color: '#E6EAE2' } }, x: { offset: true, ticks: { color: '#6E7C72' }, grid: { display: false } } },
+      },
+      plugins: [
+        { id: 'faixas', beforeDatasetsDraw(c) { const { ctx: x, chartArea: a, scales: { y } } = c; FAIXAS.forEach((f, i) => { const hi = i ? FAIXAS[i - 1][0] : 100; x.save(); x.globalAlpha = .08; x.fillStyle = f[2]; x.fillRect(a.left, y.getPixelForValue(hi), a.right - a.left, y.getPixelForValue(f[0]) - y.getPixelForValue(hi)); x.restore(); }); } },
+        { id: 'rotulos', afterDatasetsDraw(c) { const x = c.ctx; c.getDatasetMeta(0).data.forEach((p, i) => { x.save(); x.font = '700 12px Archivo, sans-serif'; x.fillStyle = '#18301F'; x.textAlign = 'center'; x.fillText(nf(c.data.datasets[0].data[i], 1) + '%', p.x, p.y - 13); x.restore(); }); } },
+      ],
+    });
+  };
+
+  const csvHora = () => {
+    if (!ATUAL) return toast('Sem dados para exportar');
+    const C = calc(ATUAL, HORA);
+    const q = v => (v == null ? '' : /[;"\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v).replace('.', ','));
+    const linhas = [['Local', 'Hora', 'Risco (%)', 'Faixa', 'Temperatura (°C)', 'Umidade (%)', 'Vento (km/h)', 'Chuva (mm)'].join(';')]
+      .concat([...C.atual].sort((a, b) => b.risco - a.risco).map(x => [x.local, x.hora != null ? hh(x.hora) : '', x.risco, faixa(x.risco)[1], x.temp, x.umid, x.vento, x.chuva].map(q).join(';')));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + linhas.join('\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = `risco-incendio${C.hora != null ? '-' + hh(C.hora) : ''}.csv`;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
   };
 
   const vazio = () => {
@@ -252,7 +374,11 @@
   $('#rfImport').addEventListener('click', () => $('#rfFile').click());
   $('#rfFile').addEventListener('change', e => { importar(e.target.files[0]); e.target.value = ''; });
   $('#rfJson').addEventListener('click', () => (ATUAL ? baixarProtegido(ATUAL) : toast('Sem dados para baixar')));
+  $('#rfCsv').addEventListener('click', csvHora);
   $('#btnPrint').addEventListener('click', () => window.print());
+  const compacto = () => document.body.classList.toggle('is-scrolled', window.scrollY > 24);
+  window.addEventListener('scroll', compacto, { passive: true }); compacto();
+  window.addEventListener('resize', () => { const on = document.querySelector('#rfHseg button.is-on'), ind = $('#rfHind'); if (on && ind) { ind.style.left = on.offsetLeft + 'px'; ind.style.width = on.offsetWidth + 'px'; } });
   $('#btnSair').addEventListener('click', () => { Acesso.logout(); try { localStorage.removeItem(STORE_KEY); } catch (e) { /* */ } location.reload(); });
   $('#year').textContent = new Date().getFullYear();
   document.querySelectorAll('.subnav a').forEach(a => a.addEventListener('click', () => { document.querySelectorAll('.subnav a').forEach(b => b.classList.toggle('is-active', b === a)); }));
