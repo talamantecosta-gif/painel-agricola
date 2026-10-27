@@ -296,3 +296,6 @@ body:not(.is-editor) .so-editor { display: none !important; }
 .hist-tab { min-width: 520px; }
 #histConteudo .table-wrap { overflow-x: auto; }
 #histConteudo .card__head { flex-wrap: wrap; gap: 8px; }
+
+/* sem números de notificação no trilho */
+.rail .badge { display: none !important; }

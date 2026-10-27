@@ -110,7 +110,7 @@
     else L.secoes();
   };
   // selo no ícone do trilho (vazio = some)
-  L.selo = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n ? String(n) : ''; };
+  L.selo = () => {}; // selos de notificação desativados
 
   // quem pode importar e publicar; os demais só visualizam
   const EDITORES = ['talamanteneto'];
