@@ -1410,10 +1410,49 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     if (window.Layout) Layout.animar(document.querySelector('.page.is-on'));
   };
 
+  let ATUAL = null; // relatório mais recente (o que a página abre)
   const setData = (raw, { persist = false } = {}) => {
     state.M = buildModel(raw);
-    if (persist) store.set(raw);
+    if (persist) { store.set(raw); ATUAL = { raw, analise: ANALISE }; const av = $('#histAviso'); if (av) av.hidden = true; }
     fillFilters(); renderAll();
+  };
+
+  /* ---------- Ponte com o histórico (historico.js) ---------- */
+  const avisoHist = iso => {
+    const el = $('#histAviso'); if (!el) return;
+    el.hidden = !iso;
+    if (iso) el.querySelector('b').textContent = iso.split('-').reverse().join('/');
+  };
+  window.Painel = {
+    get raw() { return state.M ? state.M.raw : null; },
+    get atual() { return ATUAL; },
+    get analise() { return ANALISE; },
+    get metas() { return state.M ? state.M.metas : METAS_DEFAULT; },
+    get charts() { return charts; },
+    // mostra um dia do histórico em todas as páginas
+    mostrarDia(raw, analise) {
+      ANALISE = analise || null;
+      state.frente = ''; state.fazenda = ''; state.q = ''; state.status = '';
+      const gs = $('#globalSearch'); if (gs) gs.value = '';
+      const fs = $('#filterStatus'); if (fs) fs.value = '';
+      setData(raw);
+      try { renderCxt(); renderPerda(); renderDif(); renderKpis(); } catch (e) { console.error(e); }
+      avisoHist(ATUAL && ATUAL.raw.meta?.dataRelatorio === raw.meta?.dataRelatorio ? null : raw.meta?.dataRelatorio);
+    },
+    voltarAtual() { if (ATUAL) this.mostrarDia(ATUAL.raw, ATUAL.analise); avisoHist(null); },
+    // novo relatório mais recente publicado pela sincronização
+    definirAtual(raw, analise) { ATUAL = { raw, analise: analise || null }; store.set(raw); this.mostrarDia(raw, analise); },
+    // lê um PDF do relatório e devolve os dados (ou erro)
+    async lerPdf(file) {
+      const { items, info } = await extractPdfItems(file);
+      const p = parseReportItems(items, info);
+      const v = validateParsed(p);
+      if (!v.ok) throw new Error('o PDF não segue o layout do Gerenciamento Diário');
+      return p;
+    },
+    toast: (m, ms) => toast(m, ms),
+    modal: (t, b, bt) => modal(t, b, bt),
+    fecharModal: () => closeModal(),
   };
 
   /* ---------- Exportações ---------- */
@@ -1531,6 +1570,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       return;
     }
     setData(use);
+    ATUAL = { raw: use, analise: null };
     if (fromCache) toast('<i class="fa-solid fa-circle-info"></i> Exibindo o último relatório importado neste navegador', 4200);
   };
 
@@ -1637,7 +1677,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   // só carrega os dados depois do login
   Acesso.gate().then(user => {
     const b = $('#btnSair'); if (b) b.title = `Sair (${user})`;
-    loadInitial(); loadAnalise();
+    Promise.all([loadInitial(), loadAnalise()]).then(() => { if (ATUAL) ATUAL.analise = ANALISE; if (window.Hist) Hist.iniciar(); });
   });
 }
 

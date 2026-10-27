@@ -18,7 +18,7 @@
 
   <link rel="stylesheet" href="style.css?v=20261027a">
   <link rel="stylesheet" href="tema.css?v=20261027a">
-  <link rel="stylesheet" href="layout.css?v=20261027a">
+  <link rel="stylesheet" href="layout.css?v=20261027b">
 </head>
 <body class="auth-locked lay">
 
@@ -28,6 +28,7 @@
     <a href="#ct" data-p="ct" aria-label="CT · Colheita e Transbordamento"><i class="fa-solid fa-wheat-awn"></i><span class="badge" id="seloCT"></span><span class="tip">CT · Colheita e Transbordamento</span></a>
     <a href="#transporte" data-p="transporte" aria-label="T · Transporte"><i class="fa-solid fa-truck-moving"></i><span class="tip">T · Transporte</span></a>
     <a href="#vinhaca" data-p="vinhaca" aria-label="Vinhaça e ofensores"><i class="fa-solid fa-droplet"></i><span class="badge" id="seloVin"></span><span class="tip">Vinhaça e ofensores</span></a>
+    <a href="#historico" data-p="historico" aria-label="Histórico"><i class="fa-solid fa-calendar-days"></i><span class="badge" id="seloHist"></span><span class="tip">Histórico · dia e período</span></a>
     <hr>
     <a href="incendio.html" aria-label="Risco de incêndio"><i class="fa-solid fa-fire"></i><span class="tip">Risco de incêndio</span></a>
     <span class="rail__sp"></span>
@@ -49,6 +50,8 @@
         <input type="file" id="fileInput" accept=".pdf,.json,application/pdf,application/json" multiple hidden>
       </div>
     </header>
+
+    <div class="hist-aviso" id="histAviso" hidden><i class="fa-solid fa-clock-rotate-left"></i><span>Você está vendo o relatório de <b>—</b>, do histórico.</span><button type="button" class="bt" id="histVolta">Voltar ao mais recente</button></div>
 
     <main class="container" id="app">
 
@@ -376,6 +379,30 @@
           </div>
         </section>
       </div>
+      <!-- =============================== HISTÓRICO =============================== -->
+      <div class="page" data-p="historico" data-titulo="Histórico">
+        <div class="ph">
+          <div><small><span class="dot"></span><span id="histSub">Relatórios guardados no painel</span></small><h1>Histórico · <span id="histTitulo">período</span></h1></div>
+          <div class="ph__r">
+            <button class="bt pri" id="btnSync"><i class="fa-solid fa-rotate"></i>Sincronizar pasta</button>
+            <button class="ib" id="btnPasta" aria-label="Trocar a pasta"><i class="fa-solid fa-folder-open"></i><span class="tip">Escolher outra pasta</span></button>
+            <button class="ib" id="btnGithub" aria-label="Configurar GitHub"><i class="fa-brands fa-github"></i><span class="tip">Publicar direto no GitHub</span></button>
+          </div>
+        </div>
+        <div class="hist-status" id="histStatus"></div>
+        <div class="hist-per">
+          <label>De <input type="date" id="hDe"></label>
+          <label>até <input type="date" id="hAte"></label>
+          <div class="hist-pre">
+            <button type="button" data-pre="7">7 dias</button>
+            <button type="button" data-pre="30" class="is-on">30 dias</button>
+            <button type="button" data-pre="mes">Mês</button>
+            <button type="button" data-pre="safra">Safra</button>
+            <button type="button" data-pre="tudo">Tudo</button>
+          </div>
+        </div>
+        <div id="histConteudo"></div>
+      </div>
     </main>
   </div>
 
@@ -418,7 +445,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
   <script src="acesso.js?v=20261012c"></script>
-  <script src="layout.js?v=20261027a"></script>
-  <script src="script.js?v=20261027a"></script>
+  <script src="layout.js?v=20261027b"></script>
+  <script src="script.js?v=20261027b"></script>
+  <script src="historico.js?v=20261027c"></script>
 </body>
 </html>
