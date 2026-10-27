@@ -275,14 +275,14 @@ body:not(.is-editor) .so-editor { display: none !important; }
 .tj-h { display: flex; align-items: center; gap: 4px; }
 .tj-h b { font-size: 15px; }
 .tj-dias { margin-left: auto; font-size: 12px; color: var(--muted); }
-.tj-ult { display: grid; grid-template-columns: auto auto 1fr; align-items: baseline; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--ok-bg); }
+.tj-ult { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--campo); }
 .tj-ult.neg { background: var(--bad-bg); }
 .tj-ult span { font-size: 12px; color: var(--muted); font-weight: 600; }
 .tj-ult b { font-size: 18px; font-stretch: 110%; color: var(--ok); }
 .tj-ult.neg b { color: var(--bad); }
 .tj-ult em { font-style: normal; font-size: 13px; font-weight: 600; color: var(--ink); text-align: right; }
 .tj-sec { font-size: 12px; font-weight: 600; color: var(--muted); }
-.tj-rank div { grid-template-columns: 22px minmax(0, 1fr) 90px 92px; }
+.tj-rank div { grid-template-columns: 22px minmax(0, 1fr) 110px 60px; }
 .tj-rank b small { display: block; font-size: 11px; color: var(--bad); font-weight: 600; }
 .tj-lista summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--folha); padding: 4px 0; }
 .tj-tab { max-height: 260px; overflow: auto; margin-top: 6px; }

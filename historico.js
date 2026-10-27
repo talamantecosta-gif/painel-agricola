@@ -114,7 +114,18 @@
   };
   const datas = () => Object.keys(IDX.dias).filter(d => ISO.test(d)).sort();
   H.datas = datas;
-  const lerDia = async d => lerSite(`historico/dias/${d}.json`);
+  // dia completo: site (GitHub Pages) → arquivo bruto do repositório → API (quando há token)
+  const REPO_PADRAO = { owner: 'talamantecosta-gif', repo: 'painel-agricola', branch: 'main' };
+  const lerDia = async d => {
+    const p = `historico/dias/${d}.json`;
+    let x = await lerSite(p);
+    if (x && x.dados) return x;
+    const c = (await cfg.get()) || REPO_PADRAO;
+    x = await lerSite(`https://raw.githubusercontent.com/${c.owner}/${c.repo}/${c.branch || 'main'}/${p}`);
+    if (x && x.dados) return x;
+    if (c.token) { try { x = await lerRepo(c, p); if (x && x.dados) return x; } catch (e) { /* */ } }
+    return null;
+  };
 
   /* ---------- resumo leve de um dia (vai para o índice) ---------- */
   H.resumo = (raw, analise, src) => {
@@ -230,12 +241,22 @@
         else if (/analise.*\.json$/i.test(nome)) analises.push({ nome, h });
         else if (/\.xls[xm]?$/i.test(nome) && !nome.startsWith('~$')) planilhas.push({ nome, h });
       }
+      // dias que estão no índice mas cujo arquivo completo não foi publicado (ex.: upload manual incompleto)
+      progresso('Conferindo os arquivos publicados…');
+      let publicados = null;
+      if (c && c.token) {
+        try { const l = await gh(c, 'GET', `/contents/historico/dias?ref=${encodeURIComponent(c.branch)}`); publicados = new Set((Array.isArray(l) ? l : []).map(x => x.name)); } catch (e) { publicados = null; }
+      } else {
+        publicados = new Set();
+        await Promise.all(Object.keys(IDX.dias).map(async d => { try { const r = await fetch(`historico/dias/${d}.json`, { method: 'HEAD', cache: 'no-store' }); if (r.ok) publicados.add(`${d}.json`); } catch (e) { /* */ } }));
+      }
       const novos = [];
       for (const p of pdfs) {
         const d = dataDoNome(p.nome);
         const f = await p.h.getFile();
         const ja = d && IDX.dias[d];
-        if (!ja || !ja.src || ja.src.mtime < f.lastModified || ja.src.nome !== p.nome) novos.push({ ...p, f, d });
+        const faltaArquivo = d && publicados && !publicados.has(`${d}.json`);
+        if (!ja || !ja.src || ja.src.mtime < f.lastModified || ja.src.nome !== p.nome || faltaArquivo) novos.push({ ...p, f, d });
       }
       // análises (entrega x cota do Flow) por data: da pasta e a publicada hoje
       const anMap = new Map();
@@ -371,7 +392,7 @@
     if (!d) return;
     if (Painel.atual && Painel.atual.raw.meta?.dataRelatorio === d) { Painel.voltarAtual(); fecharPop(); return; }
     const x = await lerDia(d);
-    if (!x || !x.dados) { toast(`<i class="fa-solid fa-circle-info"></i> O relatório de ${br(d)} ainda não está no GitHub`, 4000); return; }
+    if (!x || !x.dados) { toast(`<i class="fa-solid fa-circle-info"></i> O relatório de ${br(d)} não foi encontrado no GitHub${Layout.editor() ? ' · clique em Sincronizar no Histórico para publicá-lo' : ''}`, 5000); return; }
     Painel.mostrarDia(x.dados, x.analise || null);
     fecharPop();
     if (Layout.pagina() === 'historico') location.hash = 'ct';
@@ -665,14 +686,13 @@
   const tituloMot = s => s.toLowerCase().replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(E|De|Da|Do)\b/g, w => w.toLowerCase());
   const blocoJust = (nome, cor, dias, ultimo, campoPos, campoMot) => {
     const ms = motivos(dias, campoPos, campoMot), mx = ms[0] ? ms[0].dias : 1;
-    const pos = ultimo ? ultimo[campoPos] : null;
-    const abaixo = dias.filter(x => (x[campoPos] || 0) < 0).length;
+    const comMot = dias.filter(x => x[campoMot]).length;
     return `<article class="card tj">
-      <header class="tj-h"><i class="sw" style="background:${cor}"></i><b>${nome}</b><span class="tj-dias">${abaixo} de ${dias.length} dias abaixo da cota</span></header>
-      ${ultimo ? `<div class="tj-ult ${pos < 0 ? 'neg' : 'pos'}"><span>${brC(ultimo.d)}</span><b>${pos != null ? sg(pos, 0) + ' t' : '—'}</b><em>${esc(ultimo[campoMot] ? tituloMot(ultimo[campoMot]) : 'sem justificativa')}</em></div>` : ''}
+      <header class="tj-h"><i class="sw" style="background:${cor}"></i><b>${nome}</b><span class="tj-dias">${comMot} ${comMot === 1 ? 'dia' : 'dias'} com justificativa</span></header>
+      ${ultimo ? `<div class="tj-ult"><span>${brC(ultimo.d)}</span><em>${esc(ultimo[campoMot] ? tituloMot(ultimo[campoMot]) : 'sem justificativa')}</em></div>` : ''}
       <div class="tj-sec">Motivos no período</div>
-      <div class="hrank tj-rank">${ms.map((m, i) => `<div><span class="n">${i + 1}</span><span class="nm" title="${esc(m.nome)}">${esc(tituloMot(m.nome))}</span><span class="bar"><i style="width:${m.dias / mx * 100}%;background:${cor}"></i></span><b>${m.dias} ${m.dias === 1 ? 'dia' : 'dias'}${m.abaixo < 0 ? `<small>${sg(m.abaixo, 0)} t</small>` : ''}</b></div>`).join('') || '<p class="hint">Sem justificativas no período.</p>'}</div>
-      <details class="tj-lista"><summary>Ver dia a dia</summary><div class="tj-tab"><table><tbody>${[...dias].reverse().map(x => `<tr><td>${brC(x.d)}</td><td class="${(x[campoPos] || 0) < 0 ? 'neg' : 'pos'}">${x[campoPos] != null ? sg(x[campoPos], 0) + ' t' : '—'}</td><td>${esc(x[campoMot] ? tituloMot(x[campoMot]) : '—')}</td></tr>`).join('')}</tbody></table></div></details>
+      <div class="hrank tj-rank">${ms.map((m, i) => `<div><span class="n">${i + 1}</span><span class="nm" title="${esc(m.nome)}">${esc(tituloMot(m.nome))}</span><span class="bar"><i style="width:${m.dias / mx * 100}%;background:${cor}"></i></span><b>${m.dias} ${m.dias === 1 ? 'dia' : 'dias'}</b></div>`).join('') || '<p class="hint">Sem justificativas no período.</p>'}</div>
+      <details class="tj-lista"><summary>Ver dia a dia</summary><div class="tj-tab"><table><tbody>${[...dias].reverse().filter(x => x[campoMot]).map(x => `<tr><td>${brC(x.d)}</td><td>${esc(tituloMot(x[campoMot]))}</td></tr>`).join('')}</tbody></table></div></details>
     </article>`;
   };
   let TPV = { modo: 'prest', un: 't' };
@@ -705,10 +725,10 @@
         <article class="card" style="margin-top:14px"><header class="card__head"><div><h3>Entregue por dia</h3><p class="hint" id="tpHint"></p></div>
           <div class="tp-ctl">${seg('segTpModo', [['prest', 'Prestador'], ['tipo', 'Rodotrem x Tritrem']], TPV.modo)}${seg('segTpUn', [['t', 't'], ['p', '%']], TPV.un)}</div></header>
           <div class="chart-box hist-cv"><canvas id="hcTp" role="img" aria-label="Entregue por dia"></canvas></div></article>
-        <div class="tp-topo" style="margin-top:22px"><h2 class="tp-tit"><i class="fa-solid fa-clipboard-list"></i>Justificativas da cota</h2><span class="hint">Posição na cota (t) e motivo informado em cada dia do período</span></div>
+        <div class="tp-topo" style="margin-top:22px"><h2 class="tp-tit"><i class="fa-solid fa-clipboard-list"></i>Justificativas da cota</h2><span class="hint">Motivo informado em cada dia do período</span></div>
         <div class="grid grid--2">
-          ${blocoJust('Próprio', CP['Próprio'], periodo, [...periodo].reverse().find(x => x.motP || x.posP != null), 'posP', 'motP')}
-          ${blocoJust('Happening', CP.Happening, periodo, [...periodo].reverse().find(x => x.motH || x.posH != null), 'posH', 'motH')}
+          ${blocoJust('Próprio', CP['Próprio'], periodo, [...periodo].reverse().find(x => x.motP), 'posP', 'motP')}
+          ${blocoJust('Happening', CP.Happening, periodo, [...periodo].reverse().find(x => x.motH), 'posH', 'motH')}
         </div>
         <article class="card" style="margin-top:14px"><header class="card__head"><div><h3>Carga média por dia</h3><p class="hint">t por viagem de cada prestador</p></div></header>
           <div class="chart-box hist-cv sm"><canvas id="hcTpCarga" role="img" aria-label="Carga média por prestador"></canvas></div></article>
