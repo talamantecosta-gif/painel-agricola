@@ -221,3 +221,29 @@ body.lay:not(.auth-locked) > .footer { margin-left: 88px; background: transparen
 @media (max-width: 1100px) { .hist-status, .g-k4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 860px) { .dia-pop { left: auto; right: 0; } .gh-form { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .hist-status, .g-k4 { grid-template-columns: 1fr; } }
+
+/* ---------- Só o responsável importa e publica ---------- */
+body:not(.is-editor) .so-editor { display: none !important; }
+
+/* ---------- Histórico v2 ---------- */
+.hist-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap; margin: 4px 0 16px; }
+.hist-bar .hist-per { margin: 0; }
+#btnSync { width: 40px; height: 40px; border-radius: 12px; font-size: 15px; }
+#btnSync.girando i { animation: gira 1s linear infinite; }
+@keyframes gira { to { transform: rotate(360deg); } }
+.g-k5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.hseg { display: inline-flex; gap: 2px; padding: 3px; background: var(--campo); border-radius: 9px; flex: none; }
+.hseg button { border: 0; background: none; padding: 5px 11px; border-radius: 7px; font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; transition: background .25s, color .25s, box-shadow .25s; }
+.hseg button.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(24,48,31,.18); }
+.hleg { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 2px 0 6px; font-size: 12px; color: var(--muted); }
+.hleg span { display: inline-flex; align-items: center; gap: 6px; }
+.hleg .sw { width: 10px; height: 10px; border-radius: 3px; }
+.hleg .tr { width: 14px; height: 0; border-top: 2px solid var(--ink); border-radius: 2px; }
+.hleg .md { width: 16px; height: 0; border-top: 2px dashed var(--ink); opacity: .75; }
+.hleg em { font-style: normal; }
+.hgrid-fr { display: grid; gap: 14px; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+.hgrid-log { display: grid; gap: 14px; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr); }
+.hist-tab td, .hist-tab th { padding-top: 9px; padding-bottom: 9px; }
+@media (max-width: 1280px) { .g-k5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .hgrid-fr, .hgrid-log { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .g-k5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hist-bar #btnSync { order: -1; margin-left: auto; } }

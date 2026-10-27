@@ -112,5 +112,10 @@
   // selo no ícone do trilho (vazio = some)
   L.selo = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n ? String(n) : ''; };
 
+  // quem pode importar e publicar; os demais só visualizam
+  const EDITORES = ['talamanteneto'];
+  L.definirUsuario = u => document.body.classList.toggle('is-editor', EDITORES.includes(String(u || '').trim().toLowerCase()));
+  L.editor = () => document.body.classList.contains('is-editor');
+
   window.Layout = L;
 })();

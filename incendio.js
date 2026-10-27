@@ -344,6 +344,7 @@
   };
 
   const importar = async file => {
+    if (window.Layout && !Layout.editor()) return;
     if (!file) return;
     modal('Importando planilha', `<div class="spinner"></div><p style="text-align:center">Lendo <b>${esc(file.name)}</b>…</p>`);
     try {
@@ -385,5 +386,5 @@
   $('#year').textContent = new Date().getFullYear();
   document.querySelectorAll('.subnav a').forEach(a => a.addEventListener('click', () => { document.querySelectorAll('.subnav a').forEach(b => b.classList.toggle('is-active', b === a)); }));
 
-  Acesso.gate().then(user => { const b = $('#btnSair'); if (b) b.title = `Sair (${user})`; carregar(); });
+  Acesso.gate().then(user => { if (window.Layout) Layout.definirUsuario(user); const b = $('#btnSair'); if (b) b.title = `Sair (${user})`; carregar(); });
 })();

@@ -18,7 +18,7 @@
 
   <link rel="stylesheet" href="style.css?v=20261027a">
   <link rel="stylesheet" href="tema.css?v=20261027a">
-  <link rel="stylesheet" href="layout.css?v=20261027b">
+  <link rel="stylesheet" href="layout.css?v=20261027d">
 </head>
 <body class="auth-locked lay">
 
@@ -42,8 +42,8 @@
       <nav class="secs" id="secs" aria-label="Seções da página"></nav>
       <div class="tools" role="toolbar" aria-label="Ações">
         <span class="report-chip" id="reportChip" title="Relatório carregado"><i class="fa-regular fa-file-lines"></i><span>—</span></span>
-        <button class="ib pri" id="btnImport" aria-label="Importar PDF"><i class="fa-solid fa-arrow-up-from-bracket"></i><span class="tip">Importar PDF ou analise.json</span></button>
-        <button class="ib opt" id="btnJson" aria-label="Baixar dados.json"><i class="fa-solid fa-code"></i><span class="tip">Baixar dados.json</span></button>
+        <button class="ib pri so-editor" id="btnImport" aria-label="Importar PDF"><i class="fa-solid fa-arrow-up-from-bracket"></i><span class="tip">Importar PDF ou analise.json</span></button>
+        <button class="ib opt so-editor" id="btnJson" aria-label="Baixar dados.json"><i class="fa-solid fa-code"></i><span class="tip">Baixar dados.json</span></button>
         <button class="ib opt" id="btnCsvAll" aria-label="Exportar CSV"><i class="fa-regular fa-file-lines"></i><span class="tip">Exportar CSV</span></button>
         <button class="ib" id="btnPrint" aria-label="Imprimir"><i class="fa-solid fa-print"></i><span class="tip">Imprimir</span></button>
         <button class="ib opt" id="btnFull" aria-label="Tela cheia"><i class="fa-solid fa-expand"></i><span class="tip">Tela cheia</span></button>
@@ -381,25 +381,19 @@
       </div>
       <!-- =============================== HISTÓRICO =============================== -->
       <div class="page" data-p="historico" data-titulo="Histórico">
-        <div class="ph">
-          <div><small><span class="dot"></span><span id="histSub">Relatórios guardados no painel</span></small><h1>Histórico · <span id="histTitulo">período</span></h1></div>
-          <div class="ph__r">
-            <button class="bt pri" id="btnSync"><i class="fa-solid fa-rotate"></i>Sincronizar pasta</button>
-            <button class="ib" id="btnPasta" aria-label="Trocar a pasta"><i class="fa-solid fa-folder-open"></i><span class="tip">Escolher outra pasta</span></button>
-            <button class="ib" id="btnGithub" aria-label="Configurar GitHub"><i class="fa-brands fa-github"></i><span class="tip">Publicar direto no GitHub</span></button>
+        <div class="hist-bar">
+          <div class="hist-per">
+            <label>De <input type="date" id="hDe"></label>
+            <label>até <input type="date" id="hAte"></label>
+            <div class="hist-pre">
+              <button type="button" data-pre="7">7 dias</button>
+              <button type="button" data-pre="30" class="is-on">30 dias</button>
+              <button type="button" data-pre="mes">Mês</button>
+              <button type="button" data-pre="safra">Safra</button>
+              <button type="button" data-pre="tudo">Tudo</button>
+            </div>
           </div>
-        </div>
-        <div class="hist-status" id="histStatus"></div>
-        <div class="hist-per">
-          <label>De <input type="date" id="hDe"></label>
-          <label>até <input type="date" id="hAte"></label>
-          <div class="hist-pre">
-            <button type="button" data-pre="7">7 dias</button>
-            <button type="button" data-pre="30" class="is-on">30 dias</button>
-            <button type="button" data-pre="mes">Mês</button>
-            <button type="button" data-pre="safra">Safra</button>
-            <button type="button" data-pre="tudo">Tudo</button>
-          </div>
+          <button class="ib pri so-editor" id="btnSync" aria-label="Sincronizar pasta"><i class="fa-solid fa-rotate"></i><span class="tip" id="syncTip">Sincronizar pasta</span></button>
         </div>
         <div id="histConteudo"></div>
       </div>
@@ -445,8 +439,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
   <script src="acesso.js?v=20261012c"></script>
-  <script src="layout.js?v=20261027b"></script>
-  <script src="script.js?v=20261027b"></script>
-  <script src="historico.js?v=20261027c"></script>
+  <script src="layout.js?v=20261027d"></script>
+  <script src="script.js?v=20261027d"></script>
+  <script src="historico.js?v=20261027d"></script>
 </body>
 </html>

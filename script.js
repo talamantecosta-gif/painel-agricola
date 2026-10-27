@@ -1577,6 +1577,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   /* ---------- Eventos ---------- */
   $('#btnImport').addEventListener('click', () => $('#fileInput').click());
   const handleFiles = async files => {
+    if (window.Layout && !Layout.editor()) return toast('<i class="fa-solid fa-lock"></i> Só o responsável pelo painel importa relatórios', 3500);
     // analise.json primeiro (sem perguntas); o PDF/dados.json por último (abre a confirmação)
     const list = [...(files || [])].sort((a, b) => (/\.pdf$/i.test(a.name) ? 1 : 0) - (/\.pdf$/i.test(b.name) ? 1 : 0));
     for (const f of list) await handleFile(f);
@@ -1628,7 +1629,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
   // Arrastar e soltar PDF
   let dragN = 0;
-  window.addEventListener('dragenter', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { dragN++; $('#dropzone').classList.add('is-on'); } });
+  window.addEventListener('dragenter', e => { if (window.Layout && !Layout.editor()) return; if ([...(e.dataTransfer?.types || [])].includes('Files')) { dragN++; $('#dropzone').classList.add('is-on'); } });
   window.addEventListener('dragleave', () => { dragN = Math.max(0, dragN - 1); if (!dragN) $('#dropzone').classList.remove('is-on'); });
   window.addEventListener('dragover', e => e.preventDefault());
   window.addEventListener('drop', e => { e.preventDefault(); dragN = 0; $('#dropzone').classList.remove('is-on'); handleFiles(e.dataTransfer.files); });
@@ -1676,6 +1677,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   $('#year').textContent = new Date().getFullYear();
   // só carrega os dados depois do login
   Acesso.gate().then(user => {
+    if (window.Layout) Layout.definirUsuario(user);
     const b = $('#btnSair'); if (b) b.title = `Sair (${user})`;
     Promise.all([loadInitial(), loadAnalise()]).then(() => { if (ATUAL) ATUAL.analise = ANALISE; if (window.Hist) Hist.iniciar(); });
   });

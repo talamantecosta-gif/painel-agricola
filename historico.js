@@ -157,10 +157,10 @@
     if ((await h.queryPermission(o)) === 'granted') return true;
     return pedir ? (await h.requestPermission(o)) === 'granted' : false;
   };
-  const progresso = txt => { const el = $('#syncMsg'); if (el) el.textContent = txt; const st = $('#histSyncTxt'); if (st) st.textContent = txt; };
+  const progresso = txt => { const el = $('#syncMsg'); if (el) el.textContent = txt; const st = $('#syncTip'); if (st) st.textContent = txt; };
 
   H.sincronizar = async ({ silencioso = false, trocarPasta = false } = {}) => {
-    if (SYNC) return; SYNC = true;
+    if (SYNC) return; SYNC = true; marcarStatus();
     try {
       if (!SUPORTA_PASTA) { if (!silencioso) Painel.modal('Navegador sem suporte', '<p>Para ler a pasta do computador, abra o painel no <b>Google Chrome</b> ou no <b>Microsoft Edge</b> (no computador).</p>', [{ html: 'Fechar', onClick: Painel.fecharModal }]); return; }
       let dir = trocarPasta ? null : await pastaGuardada();
@@ -270,6 +270,8 @@
       <p class="hint">O token fica guardado protegido pela sua senha do painel, só neste navegador, e só é enviado para api.github.com. Crie em GitHub → Settings → Developer settings → Fine-grained tokens, com acesso só ao repositório do painel e a permissão <b>Contents: Read and write</b>.</p>
       <p class="hint" id="ghMsg"></p>`,
     [
+      { html: '<i class="fa-solid fa-folder-open"></i> Trocar pasta', onClick: () => { Painel.fecharModal(); H.sincronizar({ trocarPasta: true }); } },
+      ...(!c.token ? [{ html: '<i class="fa-solid fa-file-zipper"></i> Sincronizar sem GitHub (.zip)', onClick: () => { Painel.fecharModal(); H.sincronizar(); } }] : []),
       ...(c.token ? [{ html: '<i class="fa-solid fa-trash"></i> Remover token', onClick: async () => { await cfg.set(null); Painel.fecharModal(); toast('Token removido deste navegador'); marcarStatus(); } }] : []),
       { html: '<i class="fa-solid fa-plug-circle-check"></i> Testar e salvar', primary: true, onClick: async () => {
         const n = { owner: $('#ghOwner').value.trim(), repo: $('#ghRepo').value.trim(), branch: $('#ghBranch').value.trim() || 'main', token: $('#ghToken').value.trim() || c.token };
@@ -288,16 +290,12 @@
 
   /* ---------- tela: status, seletor de dia e período ---------- */
   const marcarStatus = async () => {
-    const el = $('#histStatus'); if (!el) return;
+    const bt = $('#btnSync'); if (!bt) return;
     const c = await cfg.get(), p = SUPORTA_PASTA ? await pastaGuardada() : null;
     let ult = null; try { ult = localStorage.getItem(ULT); } catch (e) { /* */ }
-    const ds = datas();
-    el.innerHTML = `
-      <div class="hs-it"><i class="fa-solid fa-folder-open"></i><span>Pasta</span><b>${p ? esc(p.name) : 'não vinculada'}</b></div>
-      <div class="hs-it"><i class="fa-brands fa-github"></i><span>GitHub</span><b>${c && c.token ? `${esc(c.owner)}/${esc(c.repo)}` : 'não configurado'}</b></div>
-      <div class="hs-it"><i class="fa-regular fa-calendar"></i><span>No histórico</span><b>${ds.length ? `${ds.length} dias · ${brC(ds[0])} a ${brC(ds[ds.length - 1])}` : 'vazio'}</b></div>
-      <div class="hs-it"><i class="fa-solid fa-rotate"></i><span>Última sincronização</span><b id="histSyncTxt">${SYNC ? 'sincronizando…' : ult ? new Date(ult).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'nunca'}</b></div>`;
-    const sel = $('#seloHist'); if (sel) sel.textContent = '';
+    bt.classList.toggle('girando', SYNC);
+    const tip = $('#syncTip');
+    if (tip) tip.textContent = SYNC ? 'Sincronizando…' : `Sincronizar pasta${p ? ' ' + p.name : ''}${ult ? ' · última: ' + new Date(ult).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : ''}${c && c.token ? '' : ' · GitHub não configurado'}`;
   };
 
   // seletor "ver outro dia" no chip da data
@@ -348,31 +346,96 @@
 
   /* ---------- período (página Histórico) ---------- */
   const G = {};
-  const graf = (id, cfgG) => { if (G[id]) G[id].destroy(); const el = document.getElementById(id); if (!el || !window.Chart) return; G[id] = new Chart(el, cfgG); };
-  // linha da média (tracejada) com o valor escrito no fim
-  const linhaMedia = (valor, fmt, cor = C.ink, txt = 'média') => ({
-    id: 'media', afterDatasetsDraw(ch) {
-      if (!Number.isFinite(valor)) return;
-      const { ctx, chartArea: a, scales: { y } } = ch; const yy = y.getPixelForValue(valor);
-      ctx.save(); ctx.strokeStyle = cor; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(a.left, yy); ctx.lineTo(a.right, yy); ctx.stroke();
-      ctx.setLineDash([]); ctx.font = '700 11px Archivo, sans-serif'; const t = `${txt} ${fmt(valor)}`; const w = ctx.measureText(t).width + 10;
-      ctx.fillStyle = '#fff'; ctx.fillRect(a.right - w, yy - 9, w, 18); ctx.fillStyle = cor; ctx.textAlign = 'right'; ctx.fillText(t, a.right - 5, yy + 4); ctx.restore();
+  const CR = { rod: '#2E6B3A', tri: '#C9973A' }; // Rodotrem x Tritrem (paleta validada para daltonismo)
+  const ST = { ok: '#3C8A44', warn: '#D9A21B', bad: '#C9473A' };
+  const graf = (id, cfgG) => { if (G[id]) G[id].destroy(); const el = document.getElementById(id); if (!el || !window.Chart) return null; G[id] = new Chart(el, cfgG); return G[id]; };
+  const curtoK = v => (Math.abs(v) >= 1000 ? `${nf(v / 1000, 1)}k` : nf(v, 0));
+  const curto = v => (Math.abs(v) >= 1000 ? `${nf(v / 1000, Math.abs(v) >= 10000 ? 1 : 2)} mil` : nf(v, 0));
+  const anim = { duration: 650, easing: 'easeOutQuart', delay: c => (c.type === 'data' && c.mode === 'default' ? c.dataIndex * 28 + c.datasetIndex * 60 : 0) };
+
+  // texto com contorno branco (legível sobre linhas e grade)
+  const texto = (ctx, t, x, y, cor) => { ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineJoin = 'round'; ctx.strokeText(t, x, y); ctx.fillStyle = cor; ctx.fillText(t, x, y); };
+  // rótulos de dados: todos quando cabem (e até "limite" pontos); senão, só o maior, o menor e o último
+  const rotulos = ({ fmt, ds = [0], cor = C.ink, total = null, acima = null, limite = 40 }) => ({
+    id: 'rotulos', afterDatasetsDraw(ch) {
+      const { ctx, scales: { y: ey } } = ch;
+      const meta0 = ch.getDatasetMeta(ds[0]); if (!meta0 || meta0.hidden) return;
+      const pts = meta0.data, n = pts.length; if (!n) return;
+      ctx.save(); ctx.font = '600 10.5px Archivo, sans-serif'; ctx.textAlign = 'center';
+      const valores = total ? total() : ch.data.datasets[ds[0]].data;
+      const fin = valores.filter(Number.isFinite); if (!fin.length) { ctx.restore(); return; }
+      const amostra = fmt(Math.max(...fin));
+      const passo = n > 1 ? Math.abs(pts[1].x - pts[0].x) : 999;
+      let mostrar = new Set(valores.map((_, i) => i));
+      if (n > limite || passo < ctx.measureText(amostra).width + 6) {
+        const idx = valores.map((v, i) => [v, i]).filter(x => Number.isFinite(x[0]));
+        const mx = idx.reduce((p, q) => (q[0] > p[0] ? q : p)), mn = idx.reduce((p, q) => (q[0] < p[0] ? q : p));
+        mostrar = new Set([mx[1], mn[1], n - 1]);
+      }
+      pts.forEach((p, i) => {
+        const v = valores[i]; if (!Number.isFinite(v) || !mostrar.has(i)) return;
+        let y;
+        if (total) { const topo = ds.map(k => ch.getDatasetMeta(k)).filter(m => !m.hidden).map(m => m.data[i].y); y = Math.min(...topo); }
+        else y = p.y - (p.options?.radius || 0);
+        if (acima && Number.isFinite(acima[i])) y = Math.min(y, ey.getPixelForValue(acima[i]));
+        texto(ctx, fmt(v), p.x, y - 6, cor);
+      });
+      ctx.restore();
     },
   });
-  const linhaMeta = (valor, fmt) => ({
-    id: 'meta', afterDatasetsDraw(ch) {
-      if (!Number.isFinite(valor)) return;
-      const { ctx, chartArea: a, scales: { y } } = ch; const yy = y.getPixelForValue(valor);
-      ctx.save(); ctx.strokeStyle = C.palha; ctx.lineWidth = 1.2; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(a.left, yy); ctx.lineTo(a.right, yy); ctx.stroke();
-      ctx.font = '600 10.5px Archivo, sans-serif'; ctx.fillStyle = C.palha; ctx.textAlign = 'left'; ctx.fillText(`meta ${fmt(valor)}`, a.left + 4, yy - 5); ctx.restore();
+  // média (tracejada) e meta (pontilhada); as etiquetas ficam na margem direita, fora dos dados
+  const MARGEM = 96;
+  const linhas = ({ media: vm, fmtMedia, meta: vt, fmtMeta }) => ({
+    id: 'linhas',
+    beforeDatasetsDraw(ch) {
+      const { ctx, chartArea: a, scales: { y } } = ch;
+      ctx.save();
+      if (Number.isFinite(vt)) { const yy = y.getPixelForValue(vt); if (yy >= a.top && yy <= a.bottom) { ctx.strokeStyle = C.palha; ctx.lineWidth = 1.3; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(a.left, yy); ctx.lineTo(a.right, yy); ctx.stroke(); } }
+      if (Number.isFinite(vm)) { const yy = y.getPixelForValue(vm); if (yy >= a.top && yy <= a.bottom) { ctx.strokeStyle = 'rgba(24,48,31,.7)'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(a.left, yy); ctx.lineTo(a.right, yy); ctx.stroke(); } }
+      ctx.restore();
+    },
+    afterDraw(ch) {
+      const { ctx, chartArea: a, scales: { y } } = ch;
+      ctx.save(); ctx.font = '700 11px Archivo, sans-serif'; ctx.textAlign = 'left';
+      let yMed = null;
+      if (Number.isFinite(vm)) {
+        const yy = y.getPixelForValue(vm);
+        if (yy >= a.top - 2 && yy <= a.bottom + 2) {
+          const t = fmtMedia(vm), w = Math.min(MARGEM - 8, ctx.measureText(t).width + 14), x = a.right + 6;
+          ctx.fillStyle = C.ink; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, yy - 10, w, 20, 10); else ctx.rect(x, yy - 10, w, 20); ctx.fill();
+          ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(t, x + w / 2, yy + 4); ctx.textAlign = 'left'; yMed = yy;
+        }
+      }
+      if (Number.isFinite(vt)) {
+        let yy = y.getPixelForValue(vt);
+        if (yy >= a.top - 2 && yy <= a.bottom + 2) {
+          if (yMed != null && Math.abs(yy - yMed) < 20) yy = yy > yMed ? yMed + 22 : yMed - 22;
+          ctx.font = '600 10.5px Archivo, sans-serif'; ctx.fillStyle = C.palha; ctx.fillText(`meta ${fmtMeta(vt)}`, a.right + 8, yy + 4);
+        }
+      }
+      ctx.restore();
     },
   });
-  const opcDias = (lista, extra = {}) => ({
-    responsive: true, maintainAspectRatio: false, animation: { duration: 700 },
-    onClick: (e, els) => { if (els.length) abrirDia(lista[els[0].index].d); },
-    onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
-    scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } }, y: { grid: { color: C.hair }, beginAtZero: true, ...(extra.y || {}) } },
-    plugins: { legend: { display: false }, tooltip: extra.tooltip || {} },
+  // traço da cota de cada dia em cima da barra
+  const tracos = (valores, cor = C.ink) => ({
+    id: 'tracos', afterDatasetsDraw(ch) {
+      const { ctx, scales: { y } } = ch, m = ch.getDatasetMeta(0); if (m.hidden) return;
+      ctx.save(); ctx.strokeStyle = cor; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      m.data.forEach((b, i) => { const v = valores[i]; if (!Number.isFinite(v)) return; const yy = y.getPixelForValue(v); ctx.beginPath(); ctx.moveTo(b.x - b.width / 2 - 3, yy); ctx.lineTo(b.x + b.width / 2 + 3, yy); ctx.stroke(); });
+      ctx.restore();
+    },
+  });
+  // linha vertical que acompanha o mouse nos gráficos de linha
+  const mira = { id: 'mira', afterDraw(ch) { const at = ch.tooltip && ch.tooltip.getActiveElements(); if (!at || !at.length) return; const { ctx, chartArea: a } = ch; const x = at[0].element.x; ctx.save(); ctx.strokeStyle = 'rgba(24,48,31,.25)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, a.top); ctx.lineTo(x, a.bottom); ctx.stroke(); ctx.restore(); } };
+  const tooltipBase = { backgroundColor: 'rgba(24,48,31,.95)', padding: 11, cornerRadius: 9, titleFont: { weight: '700', size: 12.5 }, bodyFont: { size: 12 }, footerFont: { size: 11, weight: '500' }, footerColor: '#C9D6C3', displayColors: true, boxPadding: 4 };
+  const opc = (lista, { y = {}, tooltip = {}, clicavel = true, legenda = false, stacked = false } = {}) => ({
+    responsive: true, maintainAspectRatio: false, animation: anim,
+    layout: { padding: { top: 22, right: MARGEM } },
+    interaction: { mode: 'index', intersect: false },
+    onClick: clicavel ? (e, els) => { if (els.length) abrirDia(lista[els[0].index].d); } : undefined,
+    onHover: (e, els) => { e.native.target.style.cursor = clicavel && els.length ? 'pointer' : 'default'; },
+    scales: { x: { stacked, grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 14, color: C.muted } }, y: { stacked, grid: { color: C.hair }, border: { display: false }, beginAtZero: true, ticks: { color: C.muted, maxTicksLimit: 6 }, ...y } },
+    plugins: { legend: legenda ? { display: true, position: 'top', align: 'end', labels: { boxWidth: 10, boxHeight: 10, useBorderRadius: true, borderRadius: 3, padding: 14 } } : { display: false }, tooltip: { ...tooltipBase, ...tooltip } },
   });
   const spark = (vals, cor) => {
     const v = vals.filter(Number.isFinite); if (v.length < 2) return '';
@@ -382,29 +445,30 @@
   };
   const k = ({ t, ic, v, un = '', sub = '', st = '' }) => `<div class="k${st ? ' is-' + st : ''}"><div class="k__t"><span>${t}</span><i class="fa-solid ${ic}"></i></div><div class="k__v">${v}${un ? `<small>${un}</small>` : ''}</div><div class="k__s">${sub}</div></div>`;
   const stP = p => (p == null ? '' : p >= 100 ? 'ok' : p >= 90 ? 'warn' : 'bad');
+  const corP = p => ST[stP(p)] || C.folha;
+  const seg = (id, ops, on) => `<div class="hseg" id="${id}">${ops.map(([v, t]) => `<button type="button" data-v="${v}" class="${v === on ? 'is-on' : ''}">${t}</button>`).join('')}</div>`;
 
-  let PER = { de: null, ate: null };
+  let PER = { de: null, ate: null }, MODO = { prod: 't', log: 't' };
+  let L = [], CTX = {};
   const renderPeriodo = () => {
     const box = $('#histConteudo'); if (!box) return;
     const ds = datas();
     if (!ds.length) {
-      box.innerHTML = `<div class="card hist-vazio"><i class="fa-regular fa-folder-open"></i><h3>O histórico ainda está vazio</h3><p>Clique em <b>Sincronizar pasta</b>, escolha a pasta com os PDFs dos relatórios e o painel lê todos de uma vez.</p></div>`;
+      box.innerHTML = `<div class="card hist-vazio"><i class="fa-regular fa-folder-open"></i><h3>O histórico ainda está vazio</h3><p>Os relatórios aparecem aqui depois da primeira sincronização da pasta de PDFs.</p></div>`;
       return;
     }
-    if (!PER.ate || !ds.includes(PER.ate) && PER.ate > ds[ds.length - 1]) PER.ate = ds[ds.length - 1];
+    if (!PER.ate || PER.ate > ds[ds.length - 1]) PER.ate = ds[ds.length - 1];
     if (!PER.de) PER.de = addDias(PER.ate, -29);
     $('#hDe').value = PER.de; $('#hAte').value = PER.ate;
     ['hDe', 'hAte'].forEach(id => { $('#' + id).min = ds[0]; $('#' + id).max = ds[ds.length - 1]; });
-    const L = ds.filter(d => d >= PER.de && d <= PER.ate).map(d => IDX.dias[d]).filter(r => Number.isFinite(r.prod));
+    L = ds.filter(d => d >= PER.de && d <= PER.ate).map(d => IDX.dias[d]).filter(r => Number.isFinite(r.prod));
     if (!L.length) { box.innerHTML = `<div class="card hist-vazio"><i class="fa-regular fa-calendar-xmark"></i><h3>Nenhum relatório entre ${br(PER.de)} e ${br(PER.ate)}</h3><p>Escolha outro intervalo.</p></div>`; return; }
     const metas = Painel.metas;
-    const n = L.length, prod = soma(L, r => r.prod), cota = soma(L, r => r.cota);
-    const pct = media(L, r => (r.cota ? r.prod / r.cota * 100 : null)); // média dos atingimentos diários
-    const mProd = prod / n, mCota = cota / n, naCota = L.filter(r => r.cota && r.prod >= r.cota).length;
+    const n = L.length, mProd = soma(L, r => r.prod) / n, mCota = soma(L, r => r.cota) / n;
+    const pct = media(L, r => (r.cota ? r.prod / r.cota * 100 : null));
     const ef = media(L, r => r.ef), ind = media(L, r => r.ind), ader = media(L, r => r.ader);
-    const comEc = L.filter(r => r.ec), ecE = soma(comEc, r => r.ec.ent), ecM = soma(comEc, r => r.ec.meta);
+    const comEc = L.filter(r => r.ec), ecP = media(comEc, r => r.ec.ent / r.ec.meta * 100);
     const melhor = [...L].sort((a, b) => b.prod / b.cota - a.prod / a.cota)[0], pior = [...L].sort((a, b) => a.prod / a.cota - b.prod / b.cota)[0];
-    const lbl = L.map(r => brC(r.d));
     // frentes
     const F = new Map();
     L.forEach(r => (r.fr || []).forEach(([fr, p, c, e, i]) => {
@@ -414,58 +478,57 @@
       F.set(fr, x);
     }));
     const ordF = s => { const m = String(s).match(/(\d+)/); return m ? +m[1] : 999; };
-    const frentes = [...F.values()].sort((a, b) => ordF(a.fr) - ordF(b.fr));
+    const frentes = [...F.values()].filter(f => f.cota > 0).sort((a, b) => ordF(a.fr) - ordF(b.fr));
     // colhedoras
     const CO = new Map();
     L.forEach(r => (r.col || []).forEach(([id, tc, fr]) => { const x = CO.get(id) || { id, fr, dias: 0, tc: 0 }; x.dias++; x.tc += tc || 0; x.fr = fr; CO.set(id, x); }));
     const dois = new Set((metas.colhedoras2Linhas || []).map(String));
     const colh = [...CO.values()].map(c => ({ ...c, med: c.tc / c.dias, meta: dois.has(c.id) ? metas.metaColhedora2Linhas : metas.metaColhedora1Linha })).sort((a, b) => b.med - a.med);
-    // ofensores
-    const OF = new Map(); L.forEach(r => (r.of || []).forEach(([nm, t]) => OF.set(nm, (OF.get(nm) || 0) + t)));
-    const ofens = [...OF.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10), totOf = soma([...OF.values()]);
-    // transporte e vinhaça
+    // transporte
     const logT = soma(L, r => r.log?.tot), rod = soma(L, r => r.log?.rod), tri = soma(L, r => r.log?.tri), via = soma(L, r => r.log?.via);
-    const LV = L.filter(r => r.vin && r.vin.dim), vinA = LV.length ? soma(LV, r => r.vin.real) / soma(LV, r => r.vin.dim) * 100 : null;
+    CTX = { metas, mProd, mCota, pct, ef, ind, frentes, colh, logT, rod, tri, via, n };
 
-    $('#histTitulo').textContent = PER.de === PER.ate ? br(PER.de) : `${br(PER.de)} a ${br(PER.ate)}`;
-    $('#histSub').textContent = `${n} ${n === 1 ? 'dia com relatório' : 'dias com relatório'} · clique num dia do gráfico para abrir o relatório completo`;
     box.innerHTML = `
       <section class="section section--first" id="hResumo" data-nome="Resumo">
-        <div class="g-k">
+        <div class="g-k g-k5">
           ${k({ t: 'Produção média por dia', ic: 'fa-wheat-awn', v: nf(mProd, 0), un: 't/dia', sub: `cota média de <b>${nf(mCota, 0)} t/dia</b>`, st: stP(pct) })}
-          ${k({ t: 'Atingimento médio da cota', ic: 'fa-bullseye', v: nf(pct, 1), un: '%', sub: `${sg(mProd - mCota, 0)} t/dia vs. a cota`, st: stP(pct) })}
-          ${k({ t: 'Dias na cota', ic: 'fa-flag-checkered', v: nf(naCota / n * 100, 0), un: '% dos dias', sub: `melhor ${brC(melhor.d)} · pior ${brC(pior.d)}`, st: naCota / n >= .8 ? 'ok' : naCota / n >= .5 ? 'warn' : 'bad' })}
+          ${k({ t: 'Atingimento médio da cota', ic: 'fa-bullseye', v: nf(pct, 1), un: '%', sub: `melhor ${brC(melhor.d)} · pior ${brC(pior.d)}`, st: stP(pct) })}
           ${k({ t: 'Eficiência operacional média', ic: 'fa-gauge-high', v: nf(ef, 1), un: '%', sub: `meta ${nf(metas.eficiencia, 0)}%`, st: ef == null ? '' : ef >= metas.eficiencia ? 'ok' : ef >= metas.eficiencia * .9 ? 'warn' : 'bad' })}
           ${k({ t: 'Indisponibilidade média', ic: 'fa-screwdriver-wrench', v: nf(ind, 1), un: '%', sub: `meta ≤ ${nf(metas.indisponibilidade, 0)}%`, st: ind == null ? '' : ind <= metas.indisponibilidade ? 'ok' : 'bad' })}
-          ${comEc.length ? k({ t: 'Entrega x meta média (Flow)', ic: 'fa-truck-ramp-box', v: nf(media(comEc, r => r.ec.ent / r.ec.meta * 100), 1), un: '%', sub: `${nf(ecE / comEc.length, 0)} t/dia · ${comEc.length} ${comEc.length === 1 ? 'dia' : 'dias'}`, st: stP(media(comEc, r => r.ec.ent / r.ec.meta * 100)) }) : k({ t: 'Aderência de velocidade média', ic: 'fa-gauge', v: Number.isFinite(ader) ? sg(ader, 1) : '—', un: Number.isFinite(ader) ? '%' : '', sub: 'realizada sobre a dimensionada', st: !Number.isFinite(ader) ? '' : ader >= -5 ? 'ok' : ader >= -10 ? 'warn' : 'bad' })}
+          ${comEc.length ? k({ t: 'Entrega x meta média (Flow)', ic: 'fa-truck-ramp-box', v: nf(ecP, 1), un: '%', sub: `${nf(soma(comEc, r => r.ec.ent) / comEc.length, 0)} t/dia · ${comEc.length} ${comEc.length === 1 ? 'dia' : 'dias'}`, st: stP(ecP) }) : k({ t: 'Aderência de velocidade média', ic: 'fa-gauge', v: Number.isFinite(ader) ? sg(ader, 1) : '—', un: Number.isFinite(ader) ? '%' : '', sub: 'realizada sobre a dimensionada', st: !Number.isFinite(ader) ? '' : ader >= -5 ? 'ok' : ader >= -10 ? 'warn' : 'bad' })}
         </div>
       </section>
 
       <section class="section" id="hProd" data-nome="Produção">
-        <article class="card"><header class="card__head"><div><h3>Produção por dia</h3><p class="hint">Barra = dia (verde na cota · amarela até 10% abaixo · vermelha abaixo disso) · tracejado = média do período</p></div></header>
-          <div class="chart-box hist-cv"><canvas id="hcProd"></canvas></div></article>
+        <article class="card"><header class="card__head"><div><h3>Produção por dia</h3><p class="hint" id="hpHint"></p></div>${seg('segProd', [['t', 'Toneladas'], ['p', '% da cota']], MODO.prod)}</header>
+          <div class="hleg"><span><i class="sw" style="background:${ST.ok}"></i>na cota</span><span><i class="sw" style="background:${ST.warn}"></i>até 10% abaixo</span><span><i class="sw" style="background:${ST.bad}"></i>mais de 10% abaixo</span><span><i class="tr"></i><em id="hpTr">cota do dia</em></span><span><i class="md"></i>média do período</span></div>
+          <div class="chart-box hist-cv"><canvas id="hcProd" role="img" aria-label="Produção por dia"></canvas></div></article>
         <div class="grid grid--2" style="margin-top:14px">
-          <article class="card"><header class="card__head"><div><h3>Eficiência operacional por dia</h3><p class="hint">Tracejado = média · pontilhado = meta</p></div></header><div class="chart-box hist-cv sm"><canvas id="hcEf"></canvas></div></article>
-          <article class="card"><header class="card__head"><div><h3>Indisponibilidade por dia</h3><p class="hint">Tracejado = média · pontilhado = meta</p></div></header><div class="chart-box hist-cv sm"><canvas id="hcInd"></canvas></div></article>
+          <article class="card"><header class="card__head"><div><h3>Eficiência operacional por dia</h3><p class="hint">Pontilhado = meta de ${nf(metas.eficiencia, 0)}% · tracejado = média</p></div></header><div class="chart-box hist-cv sm"><canvas id="hcEf" role="img" aria-label="Eficiência por dia"></canvas></div></article>
+          <article class="card"><header class="card__head"><div><h3>Indisponibilidade por dia</h3><p class="hint">Pontilhado = meta de ${nf(metas.indisponibilidade, 0)}% · tracejado = média</p></div></header><div class="chart-box hist-cv sm"><canvas id="hcInd" role="img" aria-label="Indisponibilidade por dia"></canvas></div></article>
         </div>
       </section>
 
       <section class="section" id="hFrentes" data-nome="Frentes">
-        <article class="card"><header class="card__head"><div><h3>Frentes no período</h3><p class="hint">Médias por dia com relatório e a tendência do atingimento dia a dia</p></div></header>
-          <div class="table-wrap"><table class="simple-table hist-tab">
-            <thead><tr><th>Frente</th><th class="num">Dias</th><th class="num">Produção média/dia (t)</th><th class="num">Cota média/dia (t)</th><th class="num">Atingimento médio</th><th>Tendência</th><th class="num">Eficiência média</th><th class="num">Indisp. média</th><th class="num">Dias na cota</th></tr></thead>
-            <tbody>${frentes.map(f => { const p = media(f.serie, x => x), e = media(f.ef, x => x), i = media(f.ind, x => x); return `<tr>
-              <td><b>${esc(f.fr)}</b></td><td class="num">${f.dias}</td><td class="num"><b>${nf(f.prod / f.dias, 0)}</b></td><td class="num">${nf(f.cota / f.dias, 0)}</td>
-              <td class="num">${p != null ? `<span class="pill ${stP(p)}">${nf(p, 1)}%</span>` : '—'}</td><td>${spark(f.serie, p >= 100 ? C.ok : p >= 90 ? C.warn : C.bad)}</td>
-              <td class="num">${e != null ? `<span class="pill ${e >= metas.eficiencia ? 'ok' : e >= metas.eficiencia * .9 ? 'warn' : 'bad'}">${nf(e, 1)}%</span>` : '—'}</td>
-              <td class="num">${i != null ? nf(i, 1) + '%' : '—'}</td><td class="num">${nf(f.na / f.dias * 100, 0)}%</td></tr>`; }).join('')}</tbody>
-            <tfoot><tr><td>Média da usina</td><td class="num">${n}</td><td class="num">${nf(mProd, 0)}</td><td class="num">${nf(mCota, 0)}</td><td class="num">${nf(pct, 1)}%</td><td></td><td class="num">${nf(ef, 1)}%</td><td class="num">${nf(ind, 1)}%</td><td class="num">${nf(naCota / n * 100, 0)}%</td></tr></tfoot>
-          </table></div></article>
+        <div class="grid hgrid-fr">
+          <article class="card"><header class="card__head"><div><h3>Produção média por frente</h3><p class="hint">t por dia · traço = cota média · cor = atingimento médio</p></div></header>
+            <div class="chart-box" style="height:${Math.max(260, frentes.length * 34 + 40)}px"><canvas id="hcFr" role="img" aria-label="Produção média por frente"></canvas></div></article>
+          <article class="card"><header class="card__head"><div><h3>Frentes no período</h3><p class="hint">Médias por dia com relatório e a tendência do atingimento</p></div></header>
+            <div class="table-wrap"><table class="simple-table hist-tab">
+              <thead><tr><th>Frente</th><th class="num">Média/dia (t)</th><th class="num">Atingimento</th><th>Tendência</th><th class="num">Eficiência</th><th class="num">Indisp.</th></tr></thead>
+              <tbody>${frentes.map(f => { const p = media(f.serie, x => x), e = media(f.ef, x => x), i = media(f.ind, x => x); return `<tr>
+                <td><b>${esc(f.fr)}</b></td><td class="num"><b>${nf(f.prod / f.dias, 0)}</b></td>
+                <td class="num">${p != null ? `<span class="pill ${stP(p)}">${nf(p, 1)}%</span>` : '—'}</td><td>${spark(f.serie, corP(p))}</td>
+                <td class="num">${e != null ? `<span class="pill ${e >= metas.eficiencia ? 'ok' : e >= metas.eficiencia * .9 ? 'warn' : 'bad'}">${nf(e, 1)}%</span>` : '—'}</td>
+                <td class="num">${i != null ? nf(i, 1) + '%' : '—'}</td></tr>`; }).join('')}</tbody>
+              <tfoot><tr><td>Média da usina</td><td class="num">${nf(mProd, 0)}</td><td class="num">${nf(pct, 1)}%</td><td></td><td class="num">${nf(ef, 1)}%</td><td class="num">${nf(ind, 1)}%</td></tr></tfoot>
+            </table></div></article>
+        </div>
       </section>
 
       <section class="section" id="hMaq" data-nome="Máquinas">
         <article class="card"><header class="card__head"><div><h3>Colhedoras: média por dia trabalhado</h3><p class="hint">Verde = média acima da meta · traço = meta (1 linha ${nf(metas.metaColhedora1Linha)} t · 2 linhas ${nf(metas.metaColhedora2Linhas)} t)</p></div></header>
-          <div class="chart-box hist-cv"><canvas id="hcCol"></canvas></div></article>
+          <div class="chart-box hist-cv"><canvas id="hcCol" role="img" aria-label="Média por colhedora"></canvas></div></article>
       </section>
 
       <section class="section" id="hTransp" data-nome="Transporte">
@@ -475,41 +538,124 @@
           ${k({ t: 'Tritrem', ic: 'fa-trailer', v: nf(logT ? tri / logT * 100 : null, 1), un: '%', sub: `média de ${nf(tri / n, 0)} TC/dia` })}
           ${k({ t: 'Carga média', ic: 'fa-weight-hanging', v: nf(via ? logT / via : null, 1), un: 'TC/viagem', sub: `média de ${nf(via / n, 0)} viagens/dia` })}
         </div>
-        <article class="card" style="margin-top:14px"><header class="card__head"><div><h3>Entregue por dia</h3><p class="hint">Rodotrem e Tritrem empilhados · tracejado = média</p></div></header>
-          <div class="chart-box hist-cv sm"><canvas id="hcLog"></canvas></div></article>
-      </section>
-
-      <section class="section" id="hVin" data-nome="Vinhaça e ofensores">
-        <div class="grid grid--2">
-          <article class="card"><header class="card__head"><div><h3>Aderência da vinhaça por dia</h3><p class="hint">Realizado ÷ dimensionado · média do período ${nf(vinA, 1)}%</p></div></header><div class="chart-box hist-cv sm"><canvas id="hcVin"></canvas></div></article>
-          <article class="card"><header class="card__head"><div><h3>Ofensores acumulados</h3><p class="hint">Participação nas citações do período</p></div></header>
-            <div class="hrank">${ofens.map(([nm, t], i) => `<div><span class="n">${i + 1}</span><span class="nm">${esc(nm)}</span><span class="bar"><i style="width:${t / ofens[0][1] * 100}%;background:${i < 3 ? C.bad : C.palha}"></i></span><b>${nf(t / totOf * 100, 1)}%</b></div>`).join('')}</div></article>
+        <div class="grid hgrid-log" style="margin-top:14px">
+          <article class="card"><header class="card__head"><div><h3>Entregue por dia</h3><p class="hint" id="hlHint"></p></div>${seg('segLogH', [['t', 'TC'], ['p', '% do dia']], MODO.log)}</header>
+            <div class="chart-box hist-cv"><canvas id="hcLog" role="img" aria-label="Entregue por dia"></canvas></div></article>
+          <article class="card"><header class="card__head"><div><h3>Composição no período</h3><p class="hint">Média do Total Entregue Consolidado</p></div></header>
+            <div class="chart-box hist-cv"><canvas id="hcComp" role="img" aria-label="Composição Rodotrem e Tritrem"></canvas></div></article>
         </div>
+        <article class="card" style="margin-top:14px"><header class="card__head"><div><h3>Carga média por dia</h3><p class="hint">TC por viagem · tracejado = média</p></div></header>
+          <div class="chart-box hist-cv sm"><canvas id="hcTcv" role="img" aria-label="Carga média por dia"></canvas></div></article>
       </section>`;
 
-    const corDia = r => (r.cota && r.prod >= r.cota ? C.ok : r.cota && r.prod / r.cota >= .9 ? C.warn : C.bad);
-    graf('hcProd', { type: 'bar', data: { labels: lbl, datasets: [{ data: L.map(r => r.prod), backgroundColor: L.map(corDia), borderRadius: 4, maxBarThickness: 30 }] },
-      options: opcDias(L, { y: { ticks: { callback: v => nf(v, 0) } }, tooltip: { callbacks: { title: it => br(L[it[0].dataIndex].d), label: c => { const r = L[c.dataIndex]; return [` Produção: ${nf(r.prod, 0)} t`, ` Cota: ${nf(r.cota, 0)} t`, ` Atingimento: ${nf(r.prod / r.cota * 100, 1)}%`]; }, footer: () => 'Clique para abrir o dia' } } }),
-      plugins: [linhaMedia(mProd, v => nf(v, 0) + ' t')] });
-    graf('hcEf', { type: 'line', data: { labels: lbl, datasets: [{ data: L.map(r => r.ef), borderColor: C.folha, backgroundColor: 'rgba(60,122,53,.08)', fill: true, tension: .3, borderWidth: 2.2, pointRadius: 3, pointBackgroundColor: L.map(r => (r.ef >= metas.eficiencia ? C.ok : C.bad)), pointBorderColor: '#fff' }] },
-      options: opcDias(L, { y: { beginAtZero: false, suggestedMin: 40, suggestedMax: 100, ticks: { callback: v => v + '%' } }, tooltip: { callbacks: { title: it => br(L[it[0].dataIndex].d), label: c => ` Eficiência: ${nf(c.raw, 1)}%` } } }),
-      plugins: [linhaMedia(ef, v => nf(v, 1) + '%'), linhaMeta(metas.eficiencia, v => nf(v, 0) + '%')] });
-    graf('hcInd', { type: 'bar', data: { labels: lbl, datasets: [{ data: L.map(r => r.ind), backgroundColor: L.map(r => (r.ind <= metas.indisponibilidade ? 'rgba(60,122,53,.75)' : 'rgba(198,40,40,.8)')), borderRadius: 4, maxBarThickness: 26 }] },
-      options: opcDias(L, { y: { ticks: { callback: v => v + '%' } }, tooltip: { callbacks: { title: it => br(L[it[0].dataIndex].d), label: c => ` Indisponibilidade: ${nf(c.raw, 1)}%` } } }),
-      plugins: [linhaMedia(ind, v => nf(v, 1) + '%'), linhaMeta(metas.indisponibilidade, v => nf(v, 0) + '%')] });
-    graf('hcCol', { type: 'bar', data: { labels: colh.map(c => c.id), datasets: [{ data: colh.map(c => c.med), backgroundColor: colh.map(c => (c.med >= c.meta ? C.ok : C.bad)), borderRadius: 4, maxBarThickness: 26 }] },
-      options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 90, font: { size: 10.5 } } }, y: { grid: { color: C.hair }, beginAtZero: true, suggestedMax: Math.max(0, ...colh.map(c => c.meta)) * 1.05, ticks: { callback: v => nf(v, 0) } } },
-        plugins: { legend: { display: false }, tooltip: { callbacks: { title: it => `${colh[it[0].dataIndex].id} · ${colh[it[0].dataIndex].fr}`, label: c => { const x = colh[c.dataIndex]; return [` Média: ${nf(x.med, 0)} t/dia`, ` Meta: ${nf(x.meta)} t/dia`, ` ${x.dias} dias com produção`]; } } } } },
-      plugins: [{ id: 'traco', afterDatasetsDraw(ch) { const { ctx, scales: { y } } = ch; ch.getDatasetMeta(0).data.forEach((b, i) => { const yy = y.getPixelForValue(colh[i].meta); ctx.save(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(b.x - b.width / 2 - 2, yy); ctx.lineTo(b.x + b.width / 2 + 2, yy); ctx.stroke(); ctx.restore(); }); } }] });
-    graf('hcLog', { type: 'bar', data: { labels: lbl, datasets: [
-      { label: 'Rodotrem', data: L.map(r => r.log?.rod || 0), backgroundColor: C.can, borderRadius: 3, maxBarThickness: 30, stack: 's' },
-      { label: 'Tritrem', data: L.map(r => r.log?.tri || 0), backgroundColor: C.palha, borderRadius: 3, maxBarThickness: 30, stack: 's' }] },
-      options: (() => { const o = opcDias(L, { y: { stacked: true, ticks: { callback: v => nf(v, 0) } }, tooltip: { mode: 'index', intersect: false, callbacks: { title: it => br(L[it[0].dataIndex].d), label: c => ` ${c.dataset.label}: ${nf(c.raw, 0)} TC`, footer: it => ` Total: ${nf(soma(it, x => x.raw), 0)} TC` } } }); o.scales.x.stacked = true; o.plugins.legend = { display: true, position: 'top', align: 'end', labels: { boxWidth: 10, boxHeight: 10 } }; return o; })(),
-      plugins: [linhaMedia(logT / n, v => nf(v, 0) + ' TC')] });
-    graf('hcVin', { type: 'bar', data: { labels: LV.map(r => brC(r.d)), datasets: [{ data: LV.map(r => r.vin.real / r.vin.dim * 100), backgroundColor: LV.map(r => (r.vin.real / r.vin.dim >= 1 ? C.ok : r.vin.real / r.vin.dim >= .9 ? C.warn : C.bad)), borderRadius: 4, maxBarThickness: 26 }] },
-      options: opcDias(LV, { y: { suggestedMax: 110, ticks: { callback: v => v + '%' } }, tooltip: { callbacks: { title: it => br(LV[it[0].dataIndex].d), label: c => { const r = LV[c.dataIndex]; return [` Aderência: ${nf(c.raw, 1)}%`, ` ${nf(r.vin.real, 1)} de ${nf(r.vin.dim, 1)} ha`]; } } } }),
-      plugins: [linhaMedia(vinA, v => nf(v, 1) + '%')] });
+    desenharProd(); desenharEf(); desenharInd(); desenharFr(); desenharCol(); desenharLog(); desenharComp(); desenharTcv();
+    $('#segProd').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; MODO.prod = b.dataset.v; $$('#segProd button').forEach(x => x.classList.toggle('is-on', x === b)); desenharProd(); });
+    $('#segLogH').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; MODO.log = b.dataset.v; $$('#segLogH button').forEach(x => x.classList.toggle('is-on', x === b)); desenharLog(); });
     if (Layout.pagina() === 'historico') { Layout.secoes(); Layout.animar($('.page.is-on')); }
+  };
+
+  const lbl = () => L.map(r => brC(r.d));
+  const titDia = it => { const r = L[it[0].dataIndex]; const dt = new Date(r.d + 'T12:00:00'); return `${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dt.getDay()]}, ${br(r.d)}`; };
+  const rodapeDia = () => 'Clique para abrir o relatório do dia';
+
+  const desenharProd = () => {
+    const pctMode = MODO.prod === 'p';
+    const val = L.map(r => (pctMode ? (r.cota ? r.prod / r.cota * 100 : null) : r.prod));
+    const at = L.map(r => (r.cota ? r.prod / r.cota * 100 : null));
+    $('#hpHint').textContent = pctMode ? 'Atingimento da cota em cada dia · 100% = cota batida' : 'Toneladas produzidas em cada dia contra a cota do dia';
+    $('#hpTr').textContent = pctMode ? 'cota (100%)' : 'cota do dia';
+    const fmtV = pctMode ? v => nf(v, 0) + '%' : curto;
+    const medio = pctMode ? CTX.pct : CTX.mProd;
+    graf('hcProd', {
+      type: 'bar',
+      data: { labels: lbl(), datasets: [{ label: pctMode ? 'Atingimento' : 'Produção', data: val, backgroundColor: at.map(corP), hoverBackgroundColor: at.map(p => corP(p) + 'CC'), borderRadius: 5, borderSkipped: 'bottom', maxBarThickness: 34, categoryPercentage: .78 }] },
+      options: opc(L, { y: pctMode ? { suggestedMax: 110, ticks: { callback: v => v + '%', maxTicksLimit: 6, color: C.muted } } : { ticks: { callback: v => curto(v), maxTicksLimit: 6, color: C.muted } },
+        tooltip: { mode: 'nearest', intersect: true, callbacks: { title: titDia, label: c => { const r = L[c.dataIndex]; return [` Produção: ${nf(r.prod, 0)} t`, ` Cota: ${nf(r.cota, 0)} t`, ` Atingimento: ${nf(r.prod / r.cota * 100, 1)}%`]; }, footer: rodapeDia } } }),
+      plugins: [tracos(pctMode ? L.map(() => 100) : L.map(r => r.cota)), linhas({ media: medio, fmtMedia: pctMode ? v => 'média ' + nf(v, 1) + '%' : v => 'média ' + curtoK(v) + ' t' }), rotulos({ fmt: pctMode ? v => nf(v, 0) + '%' : curtoK, acima: pctMode ? L.map(() => 100) : L.map(r => r.cota) })],
+    });
+  };
+  const desenharEf = () => {
+    const m = CTX.metas.eficiencia;
+    graf('hcEf', {
+      type: 'line',
+      data: { labels: lbl(), datasets: [{ label: 'Eficiência', data: L.map(r => r.ef), borderColor: C.folha, borderWidth: 2.2, tension: .35, fill: true,
+        backgroundColor: c => { const { ctx, chartArea: a } = c.chart; if (!a) return 'rgba(60,122,53,.1)'; const g = ctx.createLinearGradient(0, a.top, 0, a.bottom); g.addColorStop(0, 'rgba(60,122,53,.22)'); g.addColorStop(1, 'rgba(60,122,53,0)'); return g; },
+        pointRadius: 4, pointHoverRadius: 7, pointBackgroundColor: L.map(r => (r.ef >= m ? ST.ok : ST.bad)), pointBorderColor: '#fff', pointBorderWidth: 2 }] },
+      options: opc(L, { y: { beginAtZero: false, suggestedMin: 40, suggestedMax: 100, ticks: { callback: v => v + '%', maxTicksLimit: 6, color: C.muted } }, tooltip: { callbacks: { title: titDia, label: c => ` Eficiência: ${nf(c.raw, 1)}%`, footer: rodapeDia } } }),
+      plugins: [linhas({ media: CTX.ef, fmtMedia: v => 'média ' + nf(v, 1) + '%', meta: m, fmtMeta: v => nf(v, 0) + '%' }), rotulos({ fmt: v => nf(v, 0) + '%', limite: 12 }), mira],
+    });
+  };
+  const desenharInd = () => {
+    const m = CTX.metas.indisponibilidade;
+    graf('hcInd', {
+      type: 'bar',
+      data: { labels: lbl(), datasets: [{ label: 'Indisponibilidade', data: L.map(r => r.ind), backgroundColor: L.map(r => (r.ind <= m ? ST.ok : ST.bad)), borderRadius: 5, borderSkipped: 'bottom', maxBarThickness: 28 }] },
+      options: opc(L, { y: { ticks: { callback: v => v + '%', maxTicksLimit: 6, color: C.muted } }, tooltip: { mode: 'nearest', intersect: true, callbacks: { title: titDia, label: c => ` Indisponibilidade: ${nf(c.raw, 1)}%`, footer: rodapeDia } } }),
+      plugins: [linhas({ media: CTX.ind, fmtMedia: v => 'média ' + nf(v, 1) + '%', meta: m, fmtMeta: v => nf(v, 0) + '%' }), rotulos({ fmt: v => nf(v, 0) + '%' })],
+    });
+  };
+  const desenharFr = () => {
+    const F = CTX.frentes;
+    const med = F.map(f => f.prod / f.dias), cot = F.map(f => f.cota / f.dias), at = F.map(f => media(f.serie, x => x));
+    graf('hcFr', {
+      type: 'bar',
+      data: { labels: F.map(f => f.fr), datasets: [{ label: 'Média/dia', data: med, backgroundColor: at.map(corP), borderRadius: 5, borderSkipped: 'start', maxBarThickness: 22 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: anim, layout: { padding: { right: 56, top: 14 } },
+        scales: { x: { grid: { color: C.hair }, border: { display: false }, beginAtZero: true, suggestedMax: Math.max(...cot, ...med) * 1.06, ticks: { callback: v => curto(v), color: C.muted, maxTicksLimit: 6 } }, y: { grid: { display: false }, border: { display: false }, ticks: { color: C.ink, font: { weight: '600' } } } },
+        plugins: { legend: { display: false }, tooltip: { ...tooltipBase, callbacks: { label: c => [` Média: ${nf(med[c.dataIndex], 0)} t/dia`, ` Cota média: ${nf(cot[c.dataIndex], 0)} t/dia`, ` Atingimento médio: ${nf(at[c.dataIndex], 1)}%`] } } } },
+      plugins: [{ id: 'cotaFr', afterDatasetsDraw(ch) { const { ctx, scales: { x } } = ch; ctx.save(); ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ch.getDatasetMeta(0).data.forEach((b, i) => { const xx = x.getPixelForValue(cot[i]); ctx.beginPath(); ctx.moveTo(xx, b.y - b.height / 2 - 3); ctx.lineTo(xx, b.y + b.height / 2 + 3); ctx.stroke(); }); ctx.restore(); } },
+        { id: 'rotFr', afterDatasetsDraw(ch) { const { ctx, chartArea: a } = ch; ctx.save(); ctx.font = '700 11px Archivo, sans-serif'; ch.getDatasetMeta(0).data.forEach((b, i) => { const t = `${nf(med[i], 0)} t`, w = ctx.measureText(t).width; if (b.x - a.left > w + 16) { ctx.textAlign = 'right'; ctx.fillStyle = '#fff'; ctx.fillText(t, b.x - 8, b.y + 4); } else { ctx.textAlign = 'left'; texto(ctx, t, b.x + 6, b.y + 4, C.ink); } ctx.textAlign = 'left'; ctx.fillStyle = corP(at[i]); ctx.font = '700 11.5px Archivo, sans-serif'; ctx.fillText(`${nf(at[i], 0)}%`, a.right + 12, b.y + 4); ctx.font = '700 11px Archivo, sans-serif'; }); ctx.fillStyle = C.muted; ctx.font = '600 10.5px Archivo, sans-serif'; ctx.fillText('ating.', a.right + 12, a.top - 6); ctx.restore(); } }],
+    });
+  };
+  const desenharCol = () => {
+    const c = CTX.colh;
+    graf('hcCol', {
+      type: 'bar',
+      data: { labels: c.map(x => x.id), datasets: [{ label: 'Média t/dia', data: c.map(x => x.med), backgroundColor: c.map(x => (x.med >= x.meta ? ST.ok : ST.bad)), borderRadius: 5, borderSkipped: 'bottom', maxBarThickness: 28 }] },
+      options: (() => { const o = opc(L, { clicavel: false, y: { suggestedMax: Math.max(0, ...c.map(x => x.meta)) * 1.08, ticks: { callback: v => nf(v, 0), maxTicksLimit: 6, color: C.muted } }, tooltip: { mode: 'nearest', intersect: true, callbacks: { title: it => `${c[it[0].dataIndex].id} · ${c[it[0].dataIndex].fr}`, label: x => { const m = c[x.dataIndex]; return [` Média: ${nf(m.med, 0)} t/dia`, ` Meta: ${nf(m.meta)} t/dia`, ` ${m.dias} dias com produção`]; } } } }); o.scales.x.ticks = { autoSkip: false, maxRotation: 90, font: { size: 10.5 }, color: C.muted }; return o; })(),
+      plugins: [tracos(c.map(x => x.meta)), rotulos({ fmt: v => nf(v, 0), acima: c.map(x => x.meta) })],
+    });
+  };
+  const desenharLog = () => {
+    const pctMode = MODO.log === 'p';
+    const tot = L.map(r => (r.log?.rod || 0) + (r.log?.tri || 0));
+    const rodV = L.map((r, i) => (pctMode ? (tot[i] ? (r.log?.rod || 0) / tot[i] * 100 : 0) : r.log?.rod || 0));
+    const triV = L.map((r, i) => (pctMode ? (tot[i] ? (r.log?.tri || 0) / tot[i] * 100 : 0) : r.log?.tri || 0));
+    $('#hlHint').textContent = pctMode ? 'Participação de cada tipo no entregue do dia' : 'Rodotrem e Tritrem empilhados · total no topo · tracejado = média';
+    const ds = (label, data, cor) => ({ label, data, backgroundColor: cor, hoverBackgroundColor: cor + 'D9', borderColor: '#fff', borderWidth: { top: 2 }, borderSkipped: false, borderRadius: { topLeft: 4, topRight: 4 }, maxBarThickness: 34, categoryPercentage: .78, stack: 's' });
+    const g = graf('hcLog', {
+      type: 'bar',
+      data: { labels: lbl(), datasets: [ds('Rodotrem', rodV, CR.rod), ds('Tritrem', triV, CR.tri)] },
+      options: opc(L, { stacked: true, legenda: true, y: pctMode ? { max: 100, ticks: { callback: v => v + '%', maxTicksLimit: 6, color: C.muted } } : { ticks: { callback: v => curto(v), maxTicksLimit: 6, color: C.muted } },
+        tooltip: { callbacks: { title: titDia, label: c => { const r = L[c.dataIndex], t = tot[c.dataIndex], v = c.datasetIndex ? r.log?.tri || 0 : r.log?.rod || 0; return ` ${c.dataset.label}: ${nf(v, 0)} TC · ${nf(t ? v / t * 100 : 0, 1)}%`; }, footer: it => [` Total: ${nf(tot[it[0].dataIndex], 0)} TC`, rodapeDia()] } } }),
+      plugins: pctMode
+        ? [{ id: 'pctIn', afterDatasetsDraw(ch) { const { ctx } = ch; ctx.save(); ctx.font = '700 10.5px Archivo, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; [0, 1].forEach(k2 => { const m = ch.getDatasetMeta(k2); if (m.hidden) return; m.data.forEach((b, i) => { const v = ch.data.datasets[k2].data[i]; if (b.height > 16 && b.width > 22) ctx.fillText(nf(v, 0) + '%', b.x, b.y + b.height / 2 + 4); }); }); ctx.restore(); } }]
+        : [linhas({ media: CTX.logT / CTX.n, fmtMedia: v => 'média ' + curtoK(v) }), rotulos({ fmt: curtoK, ds: [0, 1], total: () => L.map((r, i) => { const h = g0(); return (!h || !h.getDatasetMeta(0).hidden ? r.log?.rod || 0 : 0) + (!h || !h.getDatasetMeta(1).hidden ? r.log?.tri || 0 : 0); }) })],
+    });
+    function g0() { return G.hcLog; }
+    return g;
+  };
+  const desenharComp = () => {
+    const { rod, tri, logT, n } = CTX;
+    graf('hcComp', {
+      type: 'doughnut',
+      data: { labels: ['Rodotrem', 'Tritrem'], datasets: [{ data: [rod / n, tri / n], backgroundColor: [CR.rod, CR.tri], borderColor: '#fff', borderWidth: 3, hoverOffset: 10, borderRadius: 6 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '68%', animation: { animateRotate: true, duration: 900, easing: 'easeOutQuart' },
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, useBorderRadius: true, borderRadius: 3, padding: 14, generateLabels: ch => ch.data.labels.map((l, i) => ({ text: `${l}  ${nf(ch.data.datasets[0].data[i] / (logT / n) * 100, 1)}%`, fillStyle: ch.data.datasets[0].backgroundColor[i], strokeStyle: 'transparent', index: i, hidden: !ch.getDataVisibility(i) })) } },
+          tooltip: { ...tooltipBase, callbacks: { label: c => ` ${c.label}: ${nf(c.raw, 0)} TC/dia · ${nf(c.raw / (logT / n) * 100, 1)}%` } } } },
+      plugins: [{ id: 'centro', afterDraw(ch) { const { ctx, chartArea: a } = ch; const x = (a.left + a.right) / 2, y = (a.top + a.bottom) / 2; ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = C.ink; ctx.font = '700 20px Archivo, sans-serif'; ctx.fillText(nf(logT / n, 0), x, y + 2); ctx.font = '12px Archivo, sans-serif'; ctx.fillStyle = C.muted; ctx.fillText('TC por dia', x, y + 20); ctx.restore(); } }],
+    });
+  };
+  const desenharTcv = () => {
+    const v = L.map(r => (r.log?.via ? r.log.tot / r.log.via : null));
+    graf('hcTcv', {
+      type: 'line',
+      data: { labels: lbl(), datasets: [{ label: 'Carga média', data: v, borderColor: CR.rod, borderWidth: 2.2, tension: .35, fill: true,
+        backgroundColor: c => { const { ctx, chartArea: a } = c.chart; if (!a) return 'rgba(46,107,58,.1)'; const g = ctx.createLinearGradient(0, a.top, 0, a.bottom); g.addColorStop(0, 'rgba(46,107,58,.2)'); g.addColorStop(1, 'rgba(46,107,58,0)'); return g; },
+        pointRadius: 4, pointHoverRadius: 7, pointBackgroundColor: CR.rod, pointBorderColor: '#fff', pointBorderWidth: 2 }] },
+      options: opc(L, { y: { beginAtZero: false, ticks: { callback: x => nf(x, 0), maxTicksLimit: 5, color: C.muted } }, tooltip: { callbacks: { title: titDia, label: c => ` ${nf(c.raw, 1)} TC por viagem`, footer: rodapeDia } } }),
+      plugins: [linhas({ media: CTX.via ? CTX.logT / CTX.via : null, fmtMedia: x => 'média ' + nf(x, 1) }), rotulos({ fmt: x => nf(x, 1), limite: 12 }), mira],
+    });
   };
 
   const atualizarTela = () => { marcarStatus(); renderPeriodo(); };
@@ -532,12 +678,17 @@
       $$('.hist-pre button').forEach(x => x.classList.toggle('is-on', x === b));
       renderPeriodo();
     });
-    $('#btnSync')?.addEventListener('click', () => H.sincronizar());
-    $('#btnPasta')?.addEventListener('click', () => H.sincronizar({ trocarPasta: true }));
-    $('#btnGithub')?.addEventListener('click', () => H.configurar());
+    // sincronizar: clique; configurar GitHub e trocar a pasta: botão direito (ou segurar) no mesmo ícone
+    const bs = $('#btnSync');
+    if (bs) {
+      bs.addEventListener('click', async () => { if (!Layout.editor()) return; const c = await cfg.get(); if (!c || !c.token) return H.configurar(); H.sincronizar(); });
+      bs.addEventListener('contextmenu', e => { e.preventDefault(); if (Layout.editor()) H.configurar(); });
+      let t; bs.addEventListener('touchstart', () => { t = setTimeout(() => { if (Layout.editor()) H.configurar(); }, 650); }, { passive: true });
+      bs.addEventListener('touchend', () => clearTimeout(t));
+    }
     $('#histVolta')?.addEventListener('click', () => Painel.voltarAtual());
     // sincroniza sozinho quando a pasta já está autorizada neste navegador
-    if (SUPORTA_PASTA) {
+    if (SUPORTA_PASTA && Layout.editor()) {
       const p = await pastaGuardada();
       if (p && (await permissao(p, false))) H.sincronizar({ silencioso: true });
     }
