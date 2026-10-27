@@ -159,6 +159,59 @@
   };
   const progresso = txt => { const el = $('#syncMsg'); if (el) el.textContent = txt; const st = $('#syncTip'); if (st) st.textContent = txt; };
 
+  /* ---------- planilha de transporte (Controle de viagens Próprio e Happening) ---------- */
+  let TRANSP = null; // { meta, dias: [...] }
+  const carregaXlsx = () => new Promise((ok, nok) => {
+    if (window.XLSX) return ok(window.XLSX);
+    const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    sc.onload = () => ok(window.XLSX); sc.onerror = () => nok(new Error('o leitor de planilhas não carregou (verifique a internet)'));
+    document.head.appendChild(sc);
+  });
+  const normT = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const numT = v => (typeof v === 'number' && Number.isFinite(v) ? v : (typeof v === 'string' && /^-?[\d.,]+$/.test(v.trim()) ? parseFloat(v.replace(/\./g, '').replace(',', '.')) : null));
+  const isoT = v => (v instanceof Date && !isNaN(v) ? `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}` : null);
+  H.lerPlanilhaTransporte = async (file) => {
+    const X = await carregaXlsx();
+    const wb = X.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+    const hoje = isoT(new Date());
+    const dias = new Map();
+    wb.SheetNames.forEach(nome => {
+      const rows = X.utils.sheet_to_json(wb.Sheets[nome], { header: 1, raw: true, defval: null });
+      if (!rows.length || normT(rows[0][0]) !== 'data' || normT(rows[0][1]) !== 'moagem') return;
+      const h1 = [], h2 = rows[1] || []; let cur = null;
+      rows[0].forEach((v, i) => { if (v) cur = String(v); h1[i] = cur; });
+      const cols = [];
+      h1.forEach((g, i) => {
+        const sub = normT(h2[i]);
+        const m = String(g || '').match(/controle de densidade\s+(.+?)\s+-\s+(.+)$/i);
+        if (m && !/geral/i.test(m[1])) {
+          const frota = `${m[1].trim()} - ${m[2].trim()}`;
+          if (sub.startsWith('peso')) cols.push({ i, k: 'peso', frota });
+          else if (sub === 'viagens totais') cols.push({ i, k: 'viagens', frota });
+        } else if (sub.startsWith('posicao na cota - proprio')) cols.push({ i, k: 'posP' });
+        else if (sub === 'motivo proprio') cols.push({ i, k: 'motP' });
+        else if (sub.startsWith('posicao na cota - happening')) cols.push({ i, k: 'posH' });
+        else if (sub === 'motivo happening') cols.push({ i, k: 'motH' });
+        else if (sub.startsWith('projecao de moagem')) cols.push({ i, k: 'proj' });
+      });
+      rows.slice(2).forEach(r => {
+        const d = isoT(r[0]); if (!d || d > hoje) return;
+        const x = { d, moagem: numT(r[1]) || 0, fr: {} };
+        cols.forEach(c => {
+          const v = r[c.i];
+          if (c.frota) { const f = x.fr[c.frota] || (x.fr[c.frota] = [0, 0]); if (c.k === 'peso') f[0] = numT(v) || 0; else f[1] = numT(v) || 0; }
+          else if (c.k.startsWith('mot')) x[c.k] = v ? String(v).trim() : null;
+          else x[c.k] = numT(v);
+        });
+        Object.keys(x.fr).forEach(k => { if (!x.fr[k][0] && !x.fr[k][1]) delete x.fr[k]; });
+        if (x.moagem > 0 || x.motP || x.motH) dias.set(d, x);
+      });
+    });
+    const lista = [...dias.values()].sort((a, b) => a.d.localeCompare(b.d));
+    if (!lista.length) throw new Error('não encontrei as abas por mês (colunas Data e Moagem) na planilha');
+    return { meta: { arquivo: file.name, mtime: file.lastModified, lidoEm: new Date().toISOString() }, dias: lista };
+  };
+
   H.sincronizar = async ({ silencioso = false, trocarPasta = false } = {}) => {
     if (SYNC) return; SYNC = true; marcarStatus();
     try {
@@ -170,11 +223,12 @@
       if (!silencioso) Painel.modal('Sincronizando histórico', `<div class="spinner"></div><p style="text-align:center" id="syncMsg">Lendo a pasta ${esc(dir.name)}…</p>`);
       await carregarIndice(c && c.token ? c : null);
       // arquivos da pasta
-      const pdfs = [], analises = [];
+      const pdfs = [], analises = [], planilhas = [];
       for await (const [nome, h] of dir.entries()) {
         if (h.kind !== 'file') continue;
         if (/\.pdf$/i.test(nome)) pdfs.push({ nome, h });
         else if (/analise.*\.json$/i.test(nome)) analises.push({ nome, h });
+        else if (/\.xls[xm]?$/i.test(nome) && !nome.startsWith('~$')) planilhas.push({ nome, h });
       }
       const novos = [];
       for (const p of pdfs) {
@@ -188,7 +242,11 @@
       for (const a of analises) { try { const x = (await Acesso.readJson(JSON.parse(await (await a.h.getFile()).text()))).data; if (x && x.data) anMap.set(x.data, x); } catch (e) { /* ignora */ } }
       if (Painel.analise && Painel.analise.data && !anMap.has(Painel.analise.data)) anMap.set(Painel.analise.data, Painel.analise);
       const anNovas = [...anMap.keys()].filter(d => IDX.dias[d] && !IDX.dias[d].ec && !novos.some(n => n.d === d));
-      if (!novos.length && !anNovas.length) {
+      // planilha de transporte: a mais recente da pasta
+      let pl = null;
+      for (const p of planilhas) { const f = await p.h.getFile(); if (!pl || f.lastModified > pl.f.lastModified) pl = { ...p, f }; }
+      const plNova = pl && (!IDX.transporte || IDX.transporte.mtime < pl.f.lastModified || IDX.transporte.nome !== pl.nome);
+      if (!novos.length && !anNovas.length && !plNova) {
         if (!silencioso) { Painel.fecharModal(); toast(`<i class="fa-solid fa-circle-check"></i> Histórico em dia · ${datas().length} relatórios`, 3500); }
         await guardarUltima(); marcarStatus(); return;
       }
@@ -217,10 +275,20 @@
         arquivos.push({ path: `historico/dias/${d}.json`, content: JSON.stringify(await Acesso.encryptJson({ data: d, dados: dia.dados, analise: an })) });
         resumos.push({ ...H.resumo(dia.dados, an, IDX.dias[d].src) });
       }
-      if (!resumos.length) { Painel.modal('Nada foi publicado', `<p>Não consegui ler os arquivos novos:</p><ul class="check-list">${erros.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>`, [{ html: 'Fechar', onClick: Painel.fecharModal }]); return; }
+      let plLida = false;
+      if (plNova) {
+        progresso(`Lendo a planilha ${pl.nome}`);
+        try {
+          const T = await H.lerPlanilhaTransporte(pl.f);
+          arquivos.push({ path: 'historico/transporte.json', content: JSON.stringify(await Acesso.encryptJson(T)) });
+          IDX.transporte = { nome: pl.nome, mtime: pl.f.lastModified, de: T.dias[0].d, ate: T.dias[T.dias.length - 1].d };
+          TRANSP = T; plLida = true;
+        } catch (e) { erros.push(`${pl.nome}: ${e.message || e}`); }
+      }
+      if (!resumos.length && !plLida) { Painel.modal('Nada foi publicado', `<p>Não consegui ler os arquivos novos:</p><ul class="check-list">${erros.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>`, [{ html: 'Fechar', onClick: Painel.fecharModal }]); return; }
       resumos.forEach(r => { IDX.dias[r.d] = r; });
       const ordenado = {}; datas().forEach(d => { ordenado[d] = IDX.dias[d]; });
-      IDX = { versao: 1, atualizado: new Date().toISOString(), pasta: dir.name, dias: ordenado };
+      IDX = { versao: 1, atualizado: new Date().toISOString(), pasta: dir.name, transporte: IDX.transporte, dias: ordenado };
       arquivos.push({ path: 'historico/indice-operacao.json', content: JSON.stringify(await Acesso.encryptJson(IDX)) });
       // o relatório mais novo também vira o dados.json da página
       const ultimo = lidos.sort((a, b) => a.d.localeCompare(b.d)).pop();
@@ -231,14 +299,14 @@
         if (ultimo.an) arquivos.push({ path: 'analise.json', content: JSON.stringify(await Acesso.encryptJson(ultimo.an)) });
       }
       const dias = resumos.map(r => r.d).sort();
-      const titulo = dias.length === 1 ? `Histórico: relatório de ${br(dias[0])}` : `Histórico: ${dias.length} relatórios (${brC(dias[0])} a ${brC(dias[dias.length - 1])})`;
+      const titulo = (!dias.length ? 'Histórico: planilha de transporte' : dias.length === 1 ? `Histórico: relatório de ${br(dias[0])}` : `Histórico: ${dias.length} relatórios (${brC(dias[0])} a ${brC(dias[dias.length - 1])})`) + (plLida && dias.length ? ' + planilha de transporte' : '');
       if (c && c.token) {
         progresso('Publicando no GitHub…');
         await commit(c, arquivos, titulo);
-        if (!silencioso) Painel.modal('Histórico publicado', `<p><b>${dias.length} ${dias.length === 1 ? 'relatório publicado' : 'relatórios publicados'}</b> no GitHub num único envio${virouAtual ? `, e o painel passou a abrir em <b>${br(ultimo.d)}</b>` : ''}.</p><p class="hint">O site atualiza para todos em cerca de 1 minuto.</p>${erros.length ? `<p>Não li:</p><ul class="check-list">${erros.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>` : ''}`, [{ html: 'Fechar', primary: true, onClick: Painel.fecharModal }]);
+        if (!silencioso) Painel.modal('Histórico publicado', `<p><b>${dias.length ? `${dias.length} ${dias.length === 1 ? 'relatório publicado' : 'relatórios publicados'}` : 'Planilha de transporte publicada'}</b>${plLida && dias.length ? ' e a planilha de transporte' : ''} no GitHub num único envio${virouAtual ? `, e o painel passou a abrir em <b>${br(ultimo.d)}</b>` : ''}.</p><p class="hint">O site atualiza para todos em cerca de 1 minuto.</p>${erros.length ? `<p>Não li:</p><ul class="check-list">${erros.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>` : ''}`, [{ html: 'Fechar', primary: true, onClick: Painel.fecharModal }]);
         else toast(`<i class="fa-solid fa-cloud-arrow-up"></i> Histórico: ${titulo.replace('Histórico: ', '')} publicado`, 5000);
       } else {
-        baixar(zip(arquivos), `historico-${dias[dias.length - 1]}.zip`);
+        baixar(zip(arquivos), `historico-${dias[dias.length - 1] || 'transporte'}.zip`);
         Painel.modal('Pacote do histórico baixado', `<p>Sem o GitHub configurado, juntei <b>${dias.length} ${dias.length === 1 ? 'relatório' : 'relatórios'}</b> num .zip.</p>
           <ol class="hist-passos"><li>Extraia o .zip.</li><li>No GitHub: <b>Add file → Upload files</b>.</li><li>Arraste tudo o que foi extraído (a pasta <b>historico</b>${virouAtual ? ' e o dados.json' : ''}) e clique em <b>Commit changes</b>.</li></ol>
           <p class="hint">Para não precisar mais disso, use <b>Configurar GitHub</b> na página Histórico.</p>`, [{ html: 'Fechar', primary: true, onClick: Painel.fecharModal }]);
@@ -531,6 +599,7 @@
           <div class="chart-box hist-cv"><canvas id="hcCol" role="img" aria-label="Média por colhedora"></canvas></div></article>
       </section>
 
+      ${TRANSP && TRANSP.dias && TRANSP.dias.length ? htmlTransporte() : `
       <section class="section" id="hTransp" data-nome="Transporte">
         <div class="g-k g-k4">
           ${k({ t: 'Entregue média por dia', ic: 'fa-route', v: nf(logT / n, 0), un: 'TC/dia', sub: `média de ${n} ${n === 1 ? 'dia' : 'dias'} com relatório` })}
@@ -546,12 +615,137 @@
         </div>
         <article class="card" style="margin-top:14px"><header class="card__head"><div><h3>Carga média por dia</h3><p class="hint">TC por viagem · tracejado = média</p></div></header>
           <div class="chart-box hist-cv sm"><canvas id="hcTcv" role="img" aria-label="Carga média por dia"></canvas></div></article>
-      </section>`;
+      </section>`}`;
 
-    desenharProd(); desenharEf(); desenharInd(); desenharFr(); desenharCol(); desenharLog(); desenharComp(); desenharTcv();
+    desenharProd(); desenharEf(); desenharInd(); desenharFr(); desenharCol();
+    if ($('#hcTp')) {
+      desenharTP();
+      $('#segTpModo').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; TPV.modo = b.dataset.v; $$('#segTpModo button').forEach(x => x.classList.toggle('is-on', x === b)); desenharTP(); });
+      $('#segTpUn').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; TPV.un = b.dataset.v; $$('#segTpUn button').forEach(x => x.classList.toggle('is-on', x === b)); desenharTP(); });
+    } else { desenharLog(); desenharComp(); desenharTcv(); }
     $('#segProd').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; MODO.prod = b.dataset.v; $$('#segProd button').forEach(x => x.classList.toggle('is-on', x === b)); desenharProd(); });
-    $('#segLogH').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; MODO.log = b.dataset.v; $$('#segLogH button').forEach(x => x.classList.toggle('is-on', x === b)); desenharLog(); });
+    if ($('#segLogH')) $('#segLogH').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; MODO.log = b.dataset.v; $$('#segLogH button').forEach(x => x.classList.toggle('is-on', x === b)); desenharLog(); });
     if (Layout.pagina() === 'historico') { Layout.secoes(); Layout.animar($('.page.is-on')); }
+  };
+
+  /* ---------- Transporte pela planilha de viagens ---------- */
+  const CP = { 'Próprio': '#3D72B8', Happening: '#C2703F', RGE: '#7C8A95' }; // prestadores (paleta validada)
+  const corPrest = p => CP[p] || '#7C8A95';
+  const prestOf = k => { const p = k.split(' - ')[0].trim().split(/\s+/)[0]; return /^pr[oó]prio$/i.test(p) ? 'Próprio' : p; };
+  const tipoOf = k => (/tritrem/i.test(k) ? 'Tritrem' : 'Rodotrem');
+  const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const aggT = dias => {
+    const o = { t: 0, v: 0, n: dias.filter(x => x.moagem > 0).length, prest: {}, tipo: {}, pt: {} };
+    const add = (m, k, t, v) => { const x = m[k] || (m[k] = { t: 0, v: 0 }); x.t += t; x.v += v; };
+    dias.forEach(x => Object.entries(x.fr).forEach(([k, [t, v]]) => { o.t += t; o.v += v; add(o.prest, prestOf(k), t, v); add(o.tipo, tipoOf(k), t, v); add(o.pt, `${prestOf(k)}|${tipoOf(k)}`, t, v); }));
+    return o;
+  };
+  const ordemPrest = ps => ['Próprio', 'Happening', 'RGE', ...ps.filter(p => !['Próprio', 'Happening', 'RGE'].includes(p))].filter(p => ps.includes(p));
+  const barra100 = (partes, total) => `<div class="tp-bar">${partes.filter(p => p.t > 0).map(p => { const w = total ? p.t / total * 100 : 0; return `<span style="--w:${w.toFixed(2)}%;background:${p.cor}" title="${esc(p.nome)}: ${nf(p.t, 0)} t · ${nf(w, 1)}%">${w >= 14 ? `<b>${esc(p.nome)}</b> ${nf(w, 0)}%` : w >= 6 ? `${nf(w, 0)}%` : ''}</span>`; }).join('')}</div>`;
+  const cartaoTP = (rotulo, titulo, dias) => {
+    const A = aggT(dias);
+    if (!A.t) return `<article class="card tp"><div class="tp-h"><span>${rotulo}</span><b>${titulo}</b><small>sem entregas</small></div></article>`;
+    const ps = ordemPrest(Object.keys(A.prest));
+    return `<article class="card tp">
+      <div class="tp-h"><span>${rotulo}</span><b>${titulo}</b><small>${nf(A.t, 0)} t · ${nf(A.v, 0)} viagens${A.n > 1 ? ` · ${A.n} dias` : ''}</small></div>
+      <div class="tp-sec">Por prestador</div>
+      ${barra100(ps.map(p => ({ nome: p, t: A.prest[p].t, cor: corPrest(p) })), A.t)}
+      <div class="tp-sec">Rodotrem x Tritrem</div>
+      ${barra100(['Rodotrem', 'Tritrem'].map(tp => ({ nome: tp, t: (A.tipo[tp] || {}).t || 0, cor: tp === 'Rodotrem' ? CR.rod : CR.tri })), A.t)}
+      <table class="tp-tab"><thead><tr><th></th><th>Rodotrem</th><th>Tritrem</th><th>Carga média</th></tr></thead><tbody>
+        ${ps.map(p => { const r = A.pt[`${p}|Rodotrem`] || { t: 0, v: 0 }, tr = A.pt[`${p}|Tritrem`] || { t: 0, v: 0 }, tp = A.prest[p]; return `<tr><td><i class="sw" style="background:${corPrest(p)}"></i>${esc(p)}</td><td>${tp.t ? nf(r.t / tp.t * 100, 0) + '%' : '—'}<small>${nf(r.t, 0)} t</small></td><td>${tp.t ? nf(tr.t / tp.t * 100, 0) + '%' : '—'}<small>${nf(tr.t, 0)} t</small></td><td>${tp.v ? nf(tp.t / tp.v, 1) : '—'}<small>t/viagem</small></td></tr>`; }).join('')}
+      </tbody></table>
+    </article>`;
+  };
+  const motivos = (dias, campoPos, campoMot) => {
+    const M = new Map();
+    dias.forEach(x => { const m = x[campoMot]; if (!m) return; const k = m.trim().toUpperCase(); const y = M.get(k) || { nome: k, dias: 0, abaixo: 0 }; y.dias++; if ((x[campoPos] || 0) < 0) y.abaixo += x[campoPos]; M.set(k, y); });
+    return [...M.values()].sort((a, b) => b.dias - a.dias || a.abaixo - b.abaixo);
+  };
+  const tituloMot = s => s.toLowerCase().replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(E|De|Da|Do)\b/g, w => w.toLowerCase());
+  const blocoJust = (nome, cor, dias, ultimo, campoPos, campoMot) => {
+    const ms = motivos(dias, campoPos, campoMot), mx = ms[0] ? ms[0].dias : 1;
+    const pos = ultimo ? ultimo[campoPos] : null;
+    const abaixo = dias.filter(x => (x[campoPos] || 0) < 0).length;
+    return `<article class="card tj">
+      <header class="tj-h"><i class="sw" style="background:${cor}"></i><b>${nome}</b><span class="tj-dias">${abaixo} de ${dias.length} dias abaixo da cota</span></header>
+      ${ultimo ? `<div class="tj-ult ${pos < 0 ? 'neg' : 'pos'}"><span>${brC(ultimo.d)}</span><b>${pos != null ? sg(pos, 0) + ' t' : '—'}</b><em>${esc(ultimo[campoMot] ? tituloMot(ultimo[campoMot]) : 'sem justificativa')}</em></div>` : ''}
+      <div class="tj-sec">Motivos no período</div>
+      <div class="hrank tj-rank">${ms.map((m, i) => `<div><span class="n">${i + 1}</span><span class="nm" title="${esc(m.nome)}">${esc(tituloMot(m.nome))}</span><span class="bar"><i style="width:${m.dias / mx * 100}%;background:${cor}"></i></span><b>${m.dias} ${m.dias === 1 ? 'dia' : 'dias'}${m.abaixo < 0 ? `<small>${sg(m.abaixo, 0)} t</small>` : ''}</b></div>`).join('') || '<p class="hint">Sem justificativas no período.</p>'}</div>
+      <details class="tj-lista"><summary>Ver dia a dia</summary><div class="tj-tab"><table><tbody>${[...dias].reverse().map(x => `<tr><td>${brC(x.d)}</td><td class="${(x[campoPos] || 0) < 0 ? 'neg' : 'pos'}">${x[campoPos] != null ? sg(x[campoPos], 0) + ' t' : '—'}</td><td>${esc(x[campoMot] ? tituloMot(x[campoMot]) : '—')}</td></tr>`).join('')}</tbody></table></div></details>
+    </article>`;
+  };
+  let TPV = { modo: 'prest', un: 't' };
+  // se o período termina no último relatório, a planilha entra até o último dia dela
+  const ateTP = () => { const ds = datas(); return PER.ate >= ds[ds.length - 1] ? '9999-12-31' : PER.ate; };
+  const htmlTransporte = () => {
+    const todos = TRANSP.dias.filter(x => x.d <= ateTP());
+    const comMoagem = todos.filter(x => x.moagem > 0);
+    const ancora = (comMoagem[comMoagem.length - 1] || todos[todos.length - 1]);
+    if (!ancora) return '';
+    const mes = ancora.d.slice(0, 7);
+    const doMes = todos.filter(x => x.d.startsWith(mes));
+    const periodo = TRANSP.dias.filter(x => x.d >= PER.de && x.d <= ateTP());
+    const Ap = aggT(periodo), dPer = periodo.filter(x => x.moagem > 0).length || 1;
+    const fonte = IDX.transporte ? IDX.transporte.nome : TRANSP.meta.arquivo;
+    return `
+      <section class="section" id="hTransp" data-nome="Transporte">
+        <div class="tp-topo"><h2 class="tp-tit"><i class="fa-solid fa-truck-moving"></i>Divisão do transporte</h2><span class="hint">Planilha ${esc(fonte)} · até ${br(TRANSP.dias[TRANSP.dias.length - 1].d)}</span></div>
+        <div class="tp-grid">
+          ${cartaoTP('Dia', br(ancora.d), [ancora])}
+          ${cartaoTP('Mês', MESES[+mes.slice(5) - 1].replace(/^./, c => c.toUpperCase()) + ' até ' + brC(ancora.d), doMes)}
+          ${cartaoTP('Safra', `${brC(todos[0].d)} a ${brC(ancora.d)}`, todos)}
+        </div>
+        <div class="g-k g-k4" style="margin-top:14px">
+          ${k({ t: 'Entregue média por dia', ic: 'fa-route', v: nf(Ap.t / dPer, 0), un: 't/dia', sub: `${dPer} ${dPer === 1 ? 'dia' : 'dias'} com entrega no período` })}
+          ${k({ t: 'Viagens por dia', ic: 'fa-truck-fast', v: nf(Ap.v / dPer, 0), un: 'viagens', sub: `${nf(Ap.v, 0)} viagens no período` })}
+          ${k({ t: 'Carga média', ic: 'fa-weight-hanging', v: nf(Ap.v ? Ap.t / Ap.v : null, 1), un: 't/viagem', sub: `Rodotrem ${nf(Ap.tipo.Rodotrem ? Ap.tipo.Rodotrem.t / Ap.tipo.Rodotrem.v : null, 1)} · Tritrem ${nf(Ap.tipo.Tritrem ? Ap.tipo.Tritrem.t / Ap.tipo.Tritrem.v : null, 1)}` })}
+          ${k({ t: 'Próprio x Happening', ic: 'fa-people-arrows', v: `${nf(Ap.t && Ap.prest['Próprio'] ? Ap.prest['Próprio'].t / Ap.t * 100 : 0, 0)}<small>%</small> · ${nf(Ap.t && Ap.prest.Happening ? Ap.prest.Happening.t / Ap.t * 100 : 0, 0)}`, un: '%', sub: 'participação no entregue do período' })}
+        </div>
+        <article class="card" style="margin-top:14px"><header class="card__head"><div><h3>Entregue por dia</h3><p class="hint" id="tpHint"></p></div>
+          <div class="tp-ctl">${seg('segTpModo', [['prest', 'Prestador'], ['tipo', 'Rodotrem x Tritrem']], TPV.modo)}${seg('segTpUn', [['t', 't'], ['p', '%']], TPV.un)}</div></header>
+          <div class="chart-box hist-cv"><canvas id="hcTp" role="img" aria-label="Entregue por dia"></canvas></div></article>
+        <div class="tp-topo" style="margin-top:22px"><h2 class="tp-tit"><i class="fa-solid fa-clipboard-list"></i>Justificativas da cota</h2><span class="hint">Posição na cota (t) e motivo informado em cada dia do período</span></div>
+        <div class="grid grid--2">
+          ${blocoJust('Próprio', CP['Próprio'], periodo, [...periodo].reverse().find(x => x.motP || x.posP != null), 'posP', 'motP')}
+          ${blocoJust('Happening', CP.Happening, periodo, [...periodo].reverse().find(x => x.motH || x.posH != null), 'posH', 'motH')}
+        </div>
+        <article class="card" style="margin-top:14px"><header class="card__head"><div><h3>Carga média por dia</h3><p class="hint">t por viagem de cada prestador</p></div></header>
+          <div class="chart-box hist-cv sm"><canvas id="hcTpCarga" role="img" aria-label="Carga média por prestador"></canvas></div></article>
+      </section>`;
+  };
+  const desenharTP = () => {
+    const P = TRANSP.dias.filter(x => x.d >= PER.de && x.d <= ateTP() && x.moagem > 0);
+    if (!P.length || !$('#hcTp')) return;
+    const pct = TPV.un === 'p';
+    const tot = P.map(x => Object.values(x.fr).reduce((s, f) => s + f[0], 0));
+    const grupos = TPV.modo === 'prest'
+      ? ordemPrest([...new Set(P.flatMap(x => Object.keys(x.fr).map(prestOf)))]).map(p => ({ nome: p, cor: corPrest(p), f: k => prestOf(k) === p }))
+      : ['Rodotrem', 'Tritrem'].map(t => ({ nome: t, cor: t === 'Rodotrem' ? CR.rod : CR.tri, f: k => tipoOf(k) === t }));
+    const serie = g => P.map(x => Object.entries(x.fr).filter(([k2]) => g.f(k2)).reduce((s, [, f]) => s + f[0], 0));
+    const brutos = grupos.map(serie);
+    $('#tpHint').textContent = `${TPV.modo === 'prest' ? 'Próprio e Happening' : 'Rodotrem e Tritrem'} empilhados · ${pct ? 'participação no entregue do dia' : 'total no topo · tracejado = média'}`;
+    const dl = P.map(x => brC(x.d));
+    const ds = grupos.map((g, gi) => ({ label: g.nome, data: brutos[gi].map((v, i) => (pct ? (tot[i] ? v / tot[i] * 100 : 0) : v)), backgroundColor: g.cor, hoverBackgroundColor: g.cor + 'D9', borderColor: '#fff', borderWidth: { top: 2 }, borderSkipped: false, borderRadius: { topLeft: 4, topRight: 4 }, maxBarThickness: 34, categoryPercentage: .78, stack: 's' }));
+    const lista = P.map(x => ({ d: x.d }));
+    const o = opc(lista, { stacked: true, legenda: true, clicavel: false, y: pct ? { max: 100, ticks: { callback: v => v + '%', maxTicksLimit: 6, color: C.muted } } : { ticks: { callback: v => curto(v), maxTicksLimit: 6, color: C.muted } },
+      tooltip: { callbacks: { title: it => { const dt = new Date(P[it[0].dataIndex].d + 'T12:00:00'); return `${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dt.getDay()]}, ${br(P[it[0].dataIndex].d)}`; }, label: c => { const v = brutos[c.datasetIndex][c.dataIndex], t = tot[c.dataIndex]; return ` ${c.dataset.label}: ${nf(v, 0)} t · ${nf(t ? v / t * 100 : 0, 1)}%`; }, footer: it => ` Total: ${nf(tot[it[0].dataIndex], 0)} t` } } });
+    o.scales.x.ticks = { ...o.scales.x.ticks, maxTicksLimit: 16 };
+    graf('hcTp', { type: 'bar', data: { labels: dl, datasets: ds }, options: o,
+      plugins: pct
+        ? [{ id: 'pctIn', afterDatasetsDraw(ch) { const { ctx } = ch; ctx.save(); ctx.font = '700 10.5px Archivo, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ch.data.datasets.forEach((d, k2) => { const m = ch.getDatasetMeta(k2); if (m.hidden) return; m.data.forEach((b, i) => { if (b.height > 16 && b.width > 22) ctx.fillText(nf(d.data[i], 0) + '%', b.x, b.y + b.height / 2 + 4); }); }); ctx.restore(); } }]
+        : [linhas({ media: soma(tot) / P.length, fmtMedia: v => 'média ' + curtoK(v) }), rotulos({ fmt: curtoK, ds: grupos.map((_, i) => i), total: () => P.map((_, i) => { const ch = G.hcTp; return grupos.reduce((s, g, gi) => s + (!ch || !ch.getDatasetMeta(gi).hidden ? brutos[gi][i] : 0), 0); }) })],
+    });
+    // carga média por prestador
+    const ps = ordemPrest([...new Set(P.flatMap(x => Object.keys(x.fr).map(prestOf)))]);
+    graf('hcTpCarga', {
+      type: 'line',
+      data: { labels: dl, datasets: ps.map(p => ({ label: p, data: P.map(x => { let t = 0, v = 0; Object.entries(x.fr).forEach(([k2, f]) => { if (prestOf(k2) === p) { t += f[0]; v += f[1]; } }); return v ? t / v : null; }), borderColor: corPrest(p), backgroundColor: corPrest(p), borderWidth: 2.2, tension: .35, pointRadius: 3, pointHoverRadius: 6, pointBorderColor: '#fff', pointBorderWidth: 1.5, spanGaps: true })) },
+      options: opc(lista, { clicavel: false, legenda: true, y: { beginAtZero: false, ticks: { callback: v => nf(v, 0), maxTicksLimit: 5, color: C.muted } }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${nf(c.raw, 1)} t/viagem` } } }),
+      plugins: [mira],
+    });
+    // barras 100% crescem ao aparecer
+    requestAnimationFrame(() => requestAnimationFrame(() => $$('.tp-bar').forEach(b => b.classList.add('on'))));
   };
 
   const lbl = () => L.map(r => brC(r.d));
@@ -667,6 +861,7 @@
     const antes = Layout.aoEntrar;
     Layout.aoEntrar = pg => { if (antes) antes(pg); Object.values(G).forEach(c => { try { if (pg.contains(c.canvas)) { c.resize(); c.reset(); c.update(); } } catch (e) { /* */ } }); };
     await carregarIndice();
+    TRANSP = await lerSite('historico/transporte.json');
     atualizarTela();
     $('#hDe')?.addEventListener('change', () => { PER.de = $('#hDe').value; if (PER.de > PER.ate) [PER.de, PER.ate] = [PER.ate, PER.de]; $$('.hist-pre button').forEach(b => b.classList.remove('is-on')); renderPeriodo(); });
     $('#hAte')?.addEventListener('change', () => { PER.ate = $('#hAte').value; if (PER.de > PER.ate) [PER.de, PER.ate] = [PER.ate, PER.de]; $$('.hist-pre button').forEach(b => b.classList.remove('is-on')); renderPeriodo(); });
@@ -674,7 +869,7 @@
       const b = e.target.closest('button[data-pre]'); if (!b) return;
       const ds = datas(), ult = ds[ds.length - 1]; if (!ult) return;
       const p = b.dataset.pre; PER.ate = ult;
-      PER.de = p === 'mes' ? ult.slice(0, 8) + '01' : p === 'safra' ? inicioSafra(ult) : p === 'tudo' ? ds[0] : addDias(ult, -(+p - 1));
+      PER.de = p === 'mes' ? ult.slice(0, 8) + '01' : p === 'safra' ? (TRANSP && TRANSP.dias && TRANSP.dias[0] && TRANSP.dias[0].d.slice(0, 4) === ult.slice(0, 4) ? TRANSP.dias[0].d : inicioSafra(ult)) : p === 'tudo' ? ds[0] : addDias(ult, -(+p - 1));
       $$('.hist-pre button').forEach(x => x.classList.toggle('is-on', x === b));
       renderPeriodo();
     });
