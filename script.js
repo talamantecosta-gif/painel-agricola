@@ -624,6 +624,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const dt = meta.dataRelatorio ? meta.dataRelatorio.split('-').reverse().join('/') : 'sem data';
     const chip = $('#reportChip');
     chip.querySelector('span').textContent = dt;
+    $$('.pgData').forEach(el => { el.textContent = meta.dataRelatorio ? `Relatório de ${dt}` : 'Relatório do dia'; });
     chip.title = `${meta.arquivo || 'dados.json'} · ${fmtDate(meta.dataRelatorio)}`;
     const fa = $('#filterAlert');
     if (state.frente || state.fazenda) {
@@ -642,33 +643,55 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       ${bar != null ? `<div class="bar"><i class="${barCls}" style="width:${Math.max(0, Math.min(100, bar))}%"></i></div>` : ''}
     </div>`;
 
-  /* Cabeçalho executivo (hero) + cards de KPI */
+  /* Visão geral do CT: abertura, indicadores com semáforo e velocímetro da cota */
+  let gCota = null;
+  const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
   const renderKpis = () => {
     const M = state.M, fr = filteredFrentes(), T = totals(fr, M);
-    const withCota = fr.filter(f => f.cota);
-    const best = [...withCota].sort((a, b) => b.pct - a.pct || b.diferenca - a.diferenca)[0];
-    const worst = [...withCota].sort((a, b) => a.pct - b.pct)[0];
-    const st = statusOf(T.pct || 0), stEf = statusVsMeta(T.eficiencia, M.metas.eficiencia);
-    const hs = (k, v, stt = '', title = '') => `<div class="hstat" title="${escapeHtml(title)}"><span>${stt ? `<i class="sem sem--${stt}"></i>` : ''}${k}</span><strong>${v}</strong></div>`;
-    // Placar do dia: 5 indicadores com uma linha de contexto cada
+    const metas = M.metas, filtro = !!(state.frente || state.fazenda);
     const pct = T.cota ? T.producao / T.cota * 100 : 0;
-    const naCota = fr.filter(f => f.cota && f.pct >= 100).length, comCota = fr.filter(f => f.cota).length;
-    const metaEf = M.metas.eficiencia;
-    const pi = (k, v, sub, stt = '', extra = '') => `<div class="pl-item${stt ? ' is-' + stt : ''}"><span class="pl-k">${k}</span><strong>${v}</strong>${extra}<span class="pl-s">${stt ? `<i class="sem sem--${stt}"></i>` : ''}${sub}</span></div>`;
-    const hero = $('#hero'); hero.classList.add('placar');
-    hero.innerHTML = [
-      pi('Total produzido', `${fmt(T.producao)} t`, `<b>${fmt(pct, 1)}%</b> da cota`, st, `<span class="pl-bar"><i style="width:${Math.min(100, pct)}%"></i></span>`),
-      pi('Total da cota', `${fmt(T.cota)} t`, `${comCota} frentes com cota`),
-      pi(T.diferenca < 0 ? 'Diferença (faltou)' : 'Diferença', `${fmtSigned(T.diferenca)} t`, `${fmtSigned(pct - 100, 1)} p.p. vs. cota`, st),
-      pi('Eficiência operacional', fmtPct(T.eficiencia), `meta ${fmt(metaEf, 0)}%`, stEf),
-      pi('Frentes', T.n, `${naCota} na cota · ${comCota - naCota} abaixo`),
+    const comCota = fr.filter(f => f.cota), naCota = comCota.filter(f => f.pct >= 100).length;
+    const ind = indispTotal(M, fr);
+    const ader = (() => { const l = fr.filter(f => Number.isFinite(f.aderencia) && f.producao); const w = sum(l, f => f.producao); return w ? sum(l, f => f.aderencia * f.producao) / w : null; })();
+    const st = statusOf(pct || 0), stEf = statusVsMeta(T.eficiencia, metas.eficiencia), stInd = statusIndisp(ind, metas.indisponibilidade);
+    const pior = [...comCota].sort((a, b) => a.pct - b.pct)[0];
+    const iso = M.raw.meta?.dataRelatorio;
+    const dt = iso ? new Date(iso + 'T12:00:00') : null;
+    $('#olaData').textContent = dt ? `${DIAS[dt.getDay()].replace(/^./, c => c.toUpperCase())}, ${iso.split('-').reverse().slice(0, 2).join('/')}` : 'Relatório do dia';
+    const h = new Date().getHours();
+    $('#olaTit').textContent = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+    const quem = filtro ? `A <b>${escapeHtml(state.fazenda ? titleCase(state.fazenda) : state.frente)}</b>` : 'A usina';
+    $('#olaTxt').innerHTML = `${quem} produziu <b>${fmt(T.producao, 0)} t</b> para ${fmt(T.cota, 0)} t de cota (${fmt(pct, 1)}%).` +
+      (!filtro && comCota.length ? ` <b>${comCota.length - naCota} ${comCota.length - naCota === 1 ? 'frente ficou' : 'frentes ficaram'}</b> abaixo da cota${pior && pior.pct < 100 ? `, com a <b>${escapeHtml(pior.frente)}</b> no pior resultado (${fmt(pior.pct, 0)}%)` : ''}.` : '') +
+      (Number.isFinite(T.eficiencia) ? ` Eficiência operacional de ${fmt(T.eficiencia, 1)}%, ${T.eficiencia >= metas.eficiencia ? 'dentro' : 'abaixo'} da meta de ${fmt(metas.eficiencia, 0)}%.` : '');
+    const k = ({ t, ic, v, un = '', sub = '', st: s = '', bar = null }) => `<div class="k${s ? ' is-' + s : ''}"><div class="k__t"><span>${t}</span><i class="fa-solid ${ic}"></i></div><div class="k__v">${v}${un ? `<small>${un}</small>` : ''}</div><div class="k__s">${sub}</div>${bar != null ? `<div class="k__bar"><i style="width:${Math.max(0, Math.min(100, bar))}%"></i></div>` : ''}</div>`;
+    $('#ctKpis').innerHTML = [
+      k({ t: 'Total produzido', ic: 'fa-wheat-awn', v: fmt(T.producao, 0), un: 't', sub: `<b>${fmt(pct, 1)}%</b> da cota de ${fmt(T.cota, 0)} t`, st, bar: pct }),
+      k({ t: T.diferenca < 0 ? 'Diferença (faltou)' : 'Diferença da cota', ic: 'fa-scale-unbalanced', v: fmtSigned(T.diferenca, 0), un: 't', sub: `<span class="d ${T.diferenca >= 0 ? 'up' : 'dn'}">${fmtSigned(pct - 100, 1)}%</span> sobre a cota`, st }),
+      k({ t: 'Eficiência operacional', ic: 'fa-gauge-high', v: fmt(T.eficiencia, 1), un: '%', sub: `meta ${fmt(metas.eficiencia, 0)}%`, st: stEf }),
+      k({ t: 'Frentes na cota', ic: 'fa-flag-checkered', v: String(naCota), un: `de ${comCota.length}`, sub: `${comCota.length - naCota} abaixo da cota`, st: !comCota.length ? '' : naCota / comCota.length >= .8 ? 'ok' : naCota / comCota.length >= .5 ? 'warn' : 'bad' }),
+      k({ t: 'Indisponibilidade', ic: 'fa-screwdriver-wrench', v: Number.isFinite(ind) ? fmt(ind, 1) : '—', un: Number.isFinite(ind) ? '%' : '', sub: `meta ≤ ${fmt(metas.indisponibilidade, 0)}% · ${fr.filter(f => statusIndisp(f.indisp, metas.indisponibilidade) === 'bad').length} frente(s) acima`, st: Number.isFinite(ind) ? stInd : '' }),
+      k({ t: 'Aderência de velocidade', ic: 'fa-gauge', v: Number.isFinite(ader) ? fmtSigned(ader, 1) : '—', un: Number.isFinite(ader) ? '%' : '', sub: 'realizada sobre a dimensionada', st: !Number.isFinite(ader) ? '' : ader >= -5 ? 'ok' : ader >= -10 ? 'warn' : 'bad' }),
     ].join('');
-    if ($('#kpis')) $('#kpis').innerHTML = [
-      kpiCard({ label: 'Atingimento da Cota', value: fmt(T.pct, 1), unit: '%', icon: 'fa-bullseye', st, sub: `${fmtSigned((T.pct || 0) - 100, 1)}% vs. cota`, bar: T.pct, barCls: st === 'ok' ? '' : st }),
-      best && withCota.length > 1 ? kpiCard({ label: 'Melhor Frente', value: escapeHtml(best.frente), icon: 'fa-trophy', st: 'ok', sub: `<b>${fmtPct(best.pct)}</b> · ${fmtSigned(best.diferenca, 0)} t` }) : '',
-      worst && withCota.length > 1 ? kpiCard({ label: 'Pior Frente', value: escapeHtml(worst.frente), icon: 'fa-arrow-trend-down', st: worst.status, sub: `<b>${fmtPct(worst.pct)}</b> · ${fmtSigned(worst.diferenca, 0)} t` }) : '',
-      Number.isFinite(indispTotal(M, fr)) ? kpiCard({ label: 'Indisponibilidade Manutenção', value: fmt(indispTotal(M, fr), 1), unit: '%', icon: 'fa-screwdriver-wrench', st: statusIndisp(indispTotal(M, fr), M.metas.indisponibilidade), sub: `meta ≤ ${M.metas.indisponibilidade}% · ${fr.filter(f => statusIndisp(f.indisp, M.metas.indisponibilidade) === 'bad' || statusIndisp(f.indisp, M.metas.indisponibilidade) === 'warn').length} frente(s) acima` }) : '',
-    ].join('');
+    // velocímetro: entrega x meta do Flow quando a análise tem; senão produção x cota do PDF
+    const EC = (typeof ANALISE !== 'undefined' && ANALISE && ANALISE.entregaCota && Array.isArray(ANALISE.entregaCota.frentes) && ANALISE.entregaCota.frentes.length) ? ANALISE.entregaCota : null;
+    let gEnt = T.producao, gMeta = T.cota;
+    if (EC) {
+      const nomes = new Set(fr.map(f => f.frente));
+      const l = EC.frentes.filter(f => !filtro || nomes.has(f.frente));
+      gEnt = sum(l, f => f.entrega); gMeta = sum(l, f => f.meta);
+    }
+    const gp = gMeta ? gEnt / gMeta * 100 : 0;
+    $('#gCotaHint').textContent = EC ? 'Entrega sobre a meta do período · Solinftec Flow' : 'Produção sobre a cota · relatório';
+    $('#gEntL').textContent = EC ? 'Entregue' : 'Produção'; $('#gMetaL').textContent = EC ? 'Meta' : 'Cota';
+    if (!gCota && window.Layout) gCota = Layout.gauge($('#gCota'), [[90, '#C62828'], [100, '#E0A100'], [120, '#2E7D32']], 120);
+    if (gCota) gCota.set(gp);
+    $('#gCotaV').textContent = `${fmt(gp, 1)}%`;
+    $('#gCotaL').textContent = gp >= 100 ? 'Cota batida' : gp >= 90 ? 'Perto da cota' : 'Abaixo da cota';
+    $('#gEnt').textContent = `${fmt(gEnt, 0)} t`; $('#gMeta').textContent = `${fmt(gMeta, 0)} t`;
+    $('#gFal').textContent = gEnt >= gMeta ? '—' : `${fmt(gMeta - gEnt, 0)} t`;
+    // selo do trilho: frentes abaixo da cota no dia (sem filtro)
+    if (window.Layout && !filtro) Layout.selo('seloCT', M.frentes.filter(f => f.cota && f.pct < 100).length);
   };
 
   /* Resumo executivo do dia (um único card horizontal) */
@@ -740,6 +763,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       hint = 'Produção − Cota (t)';
     }
     const h = $('#difHint'); if (h) h.textContent = hint;
+    const dTot = sum(rows, r => r.dif || 0), pt = $('#difTot');
+    if (pt) { pt.textContent = `${fmtSigned(dTot, 0)} t no total`; pt.className = 'ph-pill ' + (dTot >= 0 ? 'ok' : 'bad'); }
     const lr = EC ? 'Entrega' : 'Produção', lm = EC ? 'Meta período' : 'Cota';
     makeChart('chDif', {
       type: 'bar',
@@ -1105,6 +1130,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   /* ---------- Render: vinhaça ---------- */
   const renderVinhaca = () => {
     const vin = sortFrentes(state.M.raw.vinhaca || []);
+    if (window.Layout) Layout.selo('seloVin', vin.filter(v => v.dimensionado && v.realizado / v.dimensionado * 100 < 90).length);
     const d = sum(vin, v => v.dimensionado), r = sum(vin, v => v.realizado);
     const ad = d ? r / d * 100 : 0;
     const worst = [...vin].sort((a, b) => a.realizado / a.dimensionado - b.realizado / b.dimensionado)[0];
@@ -1323,7 +1349,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       if (r.ok) { const x = await Acesso.readJson(await r.json()); ANALISE = x.data; }
       else ANALISE = null;
     } catch (e) { console.warn('[painel] analise.json:', e.message); ANALISE = null; }
-    try { renderCxt(); renderPerda(); renderDif(); } catch (e) { console.error('[painel] falha em renderCxt/renderPerda:', e); }
+    if (!state.M) return; // o relatório ainda está carregando; setData desenha tudo depois
+    try { renderCxt(); renderPerda(); renderDif(); renderKpis(); } catch (e) { console.error('[painel] falha em renderCxt/renderPerda:', e); }
   };
 
   /* ---------- Render: indisponibilidade manutenção ---------- */
@@ -1375,10 +1402,12 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     safe(renderHeader, renderKpis, renderFrenteCharts, renderInteligencia,
       renderMaquinas, renderLogistica, renderVinhaca, renderOfensores, renderEquip, renderIndisp, renderPerda, renderCxt,
       renderAgroKpis, renderFazChart, renderTables);
+    if (window.Layout) Layout.animar(document.querySelector('.page.is-on'));
   };
   const renderFiltered = () => {
     safe(renderHeader, renderKpis, renderFrenteCharts, renderInteligencia,
       renderMaquinas, renderIndisp, renderPerda, renderCxt, renderAgroKpis, renderFazChart, applyTableFilters);
+    if (window.Layout) Layout.animar(document.querySelector('.page.is-on'));
   };
 
   const setData = (raw, { persist = false } = {}) => {
@@ -1496,10 +1525,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       use = cached; fromCache = true;
     }
     if (!use) {
-      $('#hero').innerHTML = `<div class="skeleton-msg"><i class="fa-solid fa-file-arrow-up" style="font-size:28px;color:var(--green-700)"></i>
-        <h3 style="margin:10px 0 4px">Nenhum dado carregado</h3>
-        <p>Não foi possível ler <b>dados.json</b> (ao abrir o arquivo direto do computador o navegador bloqueia a leitura).<br>
-        Publique no GitHub Pages / use um servidor local, ou clique em <b>Importar PDF</b> para carregar o relatório.</p></div>`;
+      $('#olaTit').textContent = 'Nenhum dado carregado';
+      $('#olaTxt').innerHTML = 'Não foi possível ler o <b>dados.json</b>. Clique em <b>Importar PDF</b> (ícone verde no topo) para carregar o relatório.';
       $('#reportChip span').textContent = 'sem dados';
       return;
     }
@@ -1598,16 +1625,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq);
   }
 
-  // Destaque da seção ativa no menu
-  const links = $$('.subnav a');
-  const spy = new IntersectionObserver(entries => {
-    entries.forEach(en => { if (en.isIntersecting) links.forEach(a => a.classList.toggle('is-active', a.getAttribute('href') === '#' + en.target.id)); });
-  }, { rootMargin: '-45% 0px -50% 0px' });
-  $$('main section[id]').forEach(s => spy.observe(s));
-
-  // Altura real do topo (a barra de pesquisa fica fixa logo abaixo)
-  const syncTop = () => document.documentElement.style.setProperty('--topbar-h', `${$('.topbar').offsetHeight}px`);
-  syncTop(); window.addEventListener('resize', syncTop);
+  // Botões que levam a uma seção da página
+  $$('[data-ir]').forEach(b => b.addEventListener('click', () => { const el = document.getElementById(b.dataset.ir); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+  // Ao entrar numa página: gráficos redesenham com animação e os números contam
+  if (window.Layout) {
+    Layout.aoEntrar = pg => Object.values(charts).forEach(c => { try { if (pg.contains(c.canvas)) { c.resize(); c.reset(); c.update(); } } catch (e) { /* gráfico indisponível */ } });
+    Layout.iniciar();
+  }
 
   $('#year').textContent = new Date().getFullYear();
   // só carrega os dados depois do login

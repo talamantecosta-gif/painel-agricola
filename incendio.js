@@ -207,6 +207,7 @@
       });
     }
     drawChart(calc(D, null).porHora);
+    if (window.Layout) Layout.secoes();
     (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => mostrar(D, HORA, true));
   };
 
@@ -217,6 +218,7 @@
     const F = faixa(C.risco), iF = BANDAS.indexOf(F);
     const dt = D.meta?.dataLeitura ? D.meta.dataLeitura.split('-').reverse().slice(0, 2).join('/') : '';
     const lh = C.hora != null ? 'leitura das ' + hh(C.hora) : 'última leitura';
+    { const rd = $('#rfData'); if (rd) rd.textContent = `${C.atual.length} locais · ${lh}${dt ? ' · ' + dt : ''}`; }
     $('#rfChip span').innerHTML = `${C.hora != null ? '<em>Leitura das </em>' + hh(C.hora) : 'Leitura'}${dt ? ' · ' + dt : ''}`;
 
     // velocímetro, número e faixa

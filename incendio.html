@@ -12,64 +12,48 @@
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
-  <link rel="stylesheet" href="style.css?v=20261026a">
-  <link rel="stylesheet" href="tema.css?v=20261026a">
-  <link rel="stylesheet" href="incendio.css?v=20261026a">
+  <link rel="stylesheet" href="style.css?v=20261027a">
+  <link rel="stylesheet" href="tema.css?v=20261027a">
+  <link rel="stylesheet" href="incendio.css?v=20261027a">
+  <link rel="stylesheet" href="layout.css?v=20261027a">
 </head>
-<body class="auth-locked rf-page">
+<body class="auth-locked rf-page lay">
 
-  <!-- ================= TOPO ================= -->
-  <header class="topbar" id="topo">
-    <div class="topbar__inner">
-      <a class="brand" href="index.html" aria-label="Início">
-        <span class="brand__logo">
-          <img src="logo-icon.png" alt="" onerror="this.parentNode.classList.add('is-fallback'); this.remove();">
-          <i class="fa-solid fa-seedling brand__fallback" aria-hidden="true"></i>
-        </span>
-        <span class="brand__text">
-          <strong>Gerenciamento Diário</strong>
-          <small>Centro de Operações Agrícolas</small>
-        </span>
-      </a>
+  <!-- ================= TRILHO DE PÁGINAS ================= -->
+  <nav class="rail" aria-label="Páginas">
+    <div class="rail__logo"><img src="logo-icon.png" alt="Bioenergética Aroeira" onerror="this.remove()"></div>
+    <a href="index.html#ct" aria-label="CT · Colheita e Transbordamento"><i class="fa-solid fa-wheat-awn"></i><span class="tip">CT · Colheita e Transbordamento</span></a>
+    <a href="index.html#transporte" aria-label="T · Transporte"><i class="fa-solid fa-truck-moving"></i><span class="tip">T · Transporte</span></a>
+    <a href="index.html#vinhaca" aria-label="Vinhaça e ofensores"><i class="fa-solid fa-droplet"></i><span class="tip">Vinhaça e ofensores</span></a>
+    <hr>
+    <a href="incendio.html" class="is-on is-fogo" aria-current="page" aria-label="Risco de incêndio"><i class="fa-solid fa-fire"></i><span class="tip">Risco de incêndio</span></a>
+    <span class="rail__sp"></span>
+    <button id="btnSair" aria-label="Sair"><i class="fa-solid fa-right-from-bracket"></i><span class="tip">Sair</span></button>
+  </nav>
 
-      <nav class="pages" aria-label="Páginas">
-        <a href="index.html"><i class="fa-solid fa-chart-column"></i><span>Operação diária</span></a>
-        <a href="incendio.html" class="is-on" aria-current="page"><i class="fa-solid fa-fire"></i><span>Risco de incêndio</span></a>
-      </nav>
-
-      <div class="toolbar" role="toolbar" aria-label="Ações">
+  <div class="shell">
+    <header class="top">
+      <div class="brand2"><b>Gerenciamento Diário</b><small>Centro de Operações Agrícolas · Bioenergética Aroeira</small></div>
+      <nav class="secs" id="secs" aria-label="Seções da página" data-lista="rfVisao:Visão geral|rfLocais:Locais|rfHora:Por hora"></nav>
+      <div class="tools" role="toolbar" aria-label="Ações">
         <span class="report-chip" id="rfChip" title="Leitura exibida"><i class="fa-regular fa-file-lines"></i><span>—</span></span>
-        <button class="btn btn--primary btn--icon" id="rfImport" title="Importar a planilha Risco de Incêndio (.xlsm / .xlsx)" aria-label="Importar planilha">
-          <i class="fa-solid fa-arrow-up-from-bracket"></i>
-        </button>
-        <button class="btn btn--icon" id="rfJson" title="Baixar incendio.json protegido (para publicar no GitHub)" aria-label="Baixar incendio.json">
-          <i class="fa-solid fa-code"></i>
-        </button>
-        <button class="btn btn--icon" id="rfCsv" title="Exportar a leitura exibida em CSV" aria-label="Exportar CSV">
-          <i class="fa-regular fa-file-lines"></i>
-        </button>
-        <button class="btn btn--icon" id="btnPrint" title="Imprimir / salvar em PDF" aria-label="Imprimir">
-          <i class="fa-solid fa-print"></i>
-        </button>
-        <button class="btn btn--icon" id="btnSair" title="Sair" aria-label="Sair">
-          <i class="fa-solid fa-right-from-bracket"></i>
-        </button>
+        <button class="ib pri" id="rfImport" aria-label="Importar planilha"><i class="fa-solid fa-arrow-up-from-bracket"></i><span class="tip">Importar planilha</span></button>
+        <button class="ib opt" id="rfJson" aria-label="Baixar incendio.json"><i class="fa-solid fa-code"></i><span class="tip">Baixar incendio.json</span></button>
+        <button class="ib opt" id="rfCsv" aria-label="Exportar CSV"><i class="fa-regular fa-file-lines"></i><span class="tip">Exportar CSV da hora</span></button>
+        <button class="ib" id="btnPrint" aria-label="Imprimir"><i class="fa-solid fa-print"></i><span class="tip">Imprimir</span></button>
         <input type="file" id="rfFile" accept=".xlsm,.xlsx,.xls,.csv,.json" hidden>
       </div>
-    </div>
+    </header>
 
-    <nav class="subnav" aria-label="Seções">
-      <a href="#rfVisao" class="is-active">Visão geral</a>
-      <a href="#rfLocais">Locais</a>
-      <a href="#rfHora">Por hora</a>
-    </nav>
-  </header>
-
-  <main class="container" id="rfApp">
-    <div id="rfContent">
-      <div class="card rf-empty"><i class="fa-solid fa-fire"></i><h3>Carregando…</h3></div>
-    </div>
-  </main>
+    <main class="container" id="rfApp">
+      <div class="ph">
+        <div><small><span class="dot fogo"></span><span id="rfData">Leituras do dia</span></small><h1>Risco de incêndio</h1></div>
+      </div>
+      <div id="rfContent">
+        <div class="card rf-empty"><i class="fa-solid fa-fire"></i><h3>Carregando…</h3></div>
+      </div>
+    </main>
+  </div>
 
   <footer class="footer">
     <div class="footer__inner">
@@ -99,6 +83,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="acesso.js?v=20261026a"></script>
-  <script src="incendio.js?v=20261026a"></script>
+  <script src="layout.js?v=20261027a"></script>
+  <script src="incendio.js?v=20261027a"></script>
 </body>
 </html>
