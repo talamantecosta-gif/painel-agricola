@@ -9,6 +9,14 @@
    encontra os relatórios novos ou alterados, lê cada PDF no próprio navegador e
    publica tudo no GitHub num único commit (com o token salvo neste navegador).
    Sem token, gera um .zip com as pastas prontas para subir manualmente.
+
+   A pasta concentra tudo o que o painel publica (cada arquivo só sobe quando muda):
+     Relatório DD-MM-AAAA.pdf          → historico/dias + índice (+ dados.json do dia mais novo)
+     planilha de viagens (transporte)  → historico/transporte.json
+     planilha de incêndio (Local/Risco)→ incendio.json
+     planilha de usuários (Usuário/Senha[/Ativo]) → acesso.json (mesma chave; senhas < 8 ficam como estavam)
+     analise.json                      → analise.json + arquivo do dia
+     historico_analise_coa.json        → historico/analise-coa.json
    ========================================================================= */
 (function () {
   'use strict';
@@ -223,6 +231,62 @@
     return { meta: { arquivo: file.name, mtime: file.lastModified, lidoEm: new Date().toISOString() }, dias: lista };
   };
 
+  // planilha sem nome conhecido: descobre pelo conteúdo
+  const COL_USER = ['usuario', 'usuarios', 'login', 'user', 'nome de usuario', 'usuario do site', 'usuario painel'];
+  const COL_SENHA = ['senha', 'password', 'senha do site', 'senha painel'];
+  const COL_ATIVO = ['ativo', 'status', 'situacao', 'acesso', 'liberado'];
+  const normU = s => normT(s).replace(/[^a-z0-9]+/g, ' ').trim();
+  const achaCab = rows => {
+    for (let i = 0; i < Math.min(rows.length, 30); i++) {
+      const h = (rows[i] || []).map(normU);
+      const u = h.findIndex(x => COL_USER.includes(x)), p = h.findIndex(x => COL_SENHA.includes(x));
+      if (u >= 0 && p >= 0) return { i, u, p, a: h.findIndex(x => COL_ATIVO.includes(x)) };
+    }
+    return null;
+  };
+  const tipoPlanilha = async f => {
+    const X = await carregaXlsx();
+    const wb = X.read(await f.arrayBuffer(), { type: 'array', cellDates: true });
+    const linhas = n => X.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null });
+    if (wb.SheetNames.some(n => { const r = linhas(n); return r.length && normT(r[0][0]) === 'data' && normT(r[0][1]) === 'moagem'; })) return 'transporte';
+    if (wb.SheetNames.some(n => achaCab(linhas(n)))) return 'usuarios';
+    if (window.IncPlanilha && IncPlanilha.ehIncendio(wb, X)) return 'incendio';
+    return null;
+  };
+  // planilha de usuários → acesso.json (mesma chave do painel: os dados publicados continuam abrindo)
+  const atualizarUsuarios = async (file, c) => {
+    const X = await carregaXlsx();
+    const wb = X.read(await file.arrayBuffer(), { type: 'array' });
+    let tab = null;
+    for (const n of wb.SheetNames) { const rows = X.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: null }); const cab = achaCab(rows); if (cab) { tab = { rows, cab }; break; } }
+    if (!tab) throw new Error('não encontrei as colunas "Usuário" e "Senha"');
+    const inativo = v => /^(nao|n|inativo|bloqueado|desativado|removido|sem acesso|0|false)$/.test(normU(v));
+    const lista = new Map(), avisos = [];
+    tab.rows.slice(tab.cab.i + 1).forEach((r, k) => {
+      const u = String(r[tab.cab.u] ?? '').trim().toLowerCase(); if (!u) return;
+      if (tab.cab.a >= 0 && inativo(r[tab.cab.a])) return; // fica de fora (é removido)
+      const p = String(r[tab.cab.p] ?? '');
+      if (!Acesso.checkPass(p)) { avisos.push(`a senha de ${u} tem menos de 8 caracteres (linha ${tab.cab.i + k + 2}) — mantive o acesso como estava`); lista.set(u, null); return; }
+      lista.set(u, p);
+    });
+    if (![...lista.values()].some(Boolean)) throw new Error('nenhum usuário com senha válida na planilha');
+    // acesso.json mais novo (repositório quando há token; senão o do site)
+    let cfgA = null;
+    if (c && c.token) { try { const x = await gh(c, 'GET', `/contents/acesso.json?ref=${encodeURIComponent(c.branch)}`); if (x && x.content) cfgA = JSON.parse(b64utf8(x.content)); } catch (e) { cfgA = null; } }
+    if (!cfgA) cfgA = await Acesso.loadConfig();
+    if (!cfgA || !Array.isArray(cfgA.usuarios)) throw new Error('não consegui ler o acesso.json atual');
+    const atuais = await Acesso.listUsers(cfgA);
+    const eu = String(Acesso.user || '').toLowerCase();
+    let cfgN = cfgA, removidos = 0;
+    for (const [u, p] of lista) if (p) cfgN = await Acesso.addUser(cfgN, u, p);
+    for (const x of atuais) {
+      const nome = String(x.nome || '').toLowerCase();
+      if (lista.has(nome) || nome === eu || nome === '(sem nome)') continue;
+      cfgN = await Acesso.removeUser(cfgN, x.id); removidos++;
+    }
+    return { cfg: cfgN, mudou: true, total: cfgN.usuarios.length, removidos, avisos };
+  };
+
   H.sincronizar = async ({ silencioso = false, trocarPasta = false } = {}) => {
     if (SYNC) return; SYNC = true; marcarStatus();
     try {
@@ -235,12 +299,16 @@
       await carregarIndice(c && c.token ? c : null);
       // arquivos da pasta
       const pdfs = [], analises = [], planilhas = [];
+      let coaArq = null;
       for await (const [nome, h] of dir.entries()) {
         if (h.kind !== 'file') continue;
         if (/\.pdf$/i.test(nome)) pdfs.push({ nome, h });
+        else if (/\.json$/i.test(nome) && /hist.*analise|analise.*coa/i.test(nome)) { const f = await h.getFile(); if (!coaArq || f.lastModified > coaArq.f.lastModified) coaArq = { nome, h, f }; }
         else if (/analise.*\.json$/i.test(nome)) analises.push({ nome, h });
-        else if (/\.xls[xm]?$/i.test(nome) && !nome.startsWith('~$')) planilhas.push({ nome, h });
+        else if (/\.xls[xmb]?$/i.test(nome) && !nome.startsWith('~$')) planilhas.push({ nome, h });
       }
+      const F = IDX.fontes || {};
+      const mudou = (k, a) => a && (!F[k] || F[k].nome !== a.nome || F[k].mtime < a.f.lastModified);
       // dias que estão no índice mas cujo arquivo completo não foi publicado (ex.: upload manual incompleto)
       progresso('Conferindo os arquivos publicados…');
       let publicados = null;
@@ -259,15 +327,33 @@
         if (!ja || !ja.src || ja.src.mtime < f.lastModified || ja.src.nome !== p.nome || faltaArquivo) novos.push({ ...p, f, d });
       }
       // análises (entrega x cota do Flow) por data: da pasta e a publicada hoje
-      const anMap = new Map();
-      for (const a of analises) { try { const x = (await Acesso.readJson(JSON.parse(await (await a.h.getFile()).text()))).data; if (x && x.data) anMap.set(x.data, x); } catch (e) { /* ignora */ } }
+      const anMap = new Map(), anFontes = new Map();
+      let anArq = null; // analise.json mais recente da pasta (vira o analise.json do site)
+      for (const a of analises) {
+        try {
+          const f = await a.h.getFile();
+          const x = (await Acesso.readJson(JSON.parse(await f.text()))).data;
+          if (!x || !x.data) continue;
+          anMap.set(x.data, x); anFontes.set(x.data, { nome: a.nome, f });
+          if (!anArq || f.lastModified > anArq.f.lastModified) anArq = { nome: a.nome, f, x };
+        } catch (e) { /* ignora */ }
+      }
       if (Painel.analise && Painel.analise.data && !anMap.has(Painel.analise.data)) anMap.set(Painel.analise.data, Painel.analise);
-      const anNovas = [...anMap.keys()].filter(d => IDX.dias[d] && !IDX.dias[d].ec && !novos.some(n => n.d === d));
-      // planilha de transporte: a mais recente da pasta
-      let pl = null;
-      for (const p of planilhas) { const f = await p.h.getFile(); if (!pl || f.lastModified > pl.f.lastModified) pl = { ...p, f }; }
+      const anArqNovo = mudou('analise', anArq);
+      const anNovas = [...anMap.keys()].filter(d => IDX.dias[d] && (!IDX.dias[d].ec || (anArqNovo && anArq.x.data === d)) && !novos.some(n => n.d === d));
+      // planilhas: cada uma pelo nome (ou pelo conteúdo, se o nome não disser)
+      progresso('Conferindo as planilhas…');
+      const pls = { transporte: null, incendio: null, usuarios: null };
+      for (const p of planilhas) {
+        const f = await p.h.getFile();
+        let tipo = /usu[aá]rio/i.test(p.nome) ? 'usuarios' : /inc[eê]ndio|risco|queimada/i.test(p.nome) ? 'incendio' : /viage|transporte|happ/i.test(p.nome) ? 'transporte' : null;
+        if (!tipo) { try { tipo = await tipoPlanilha(f); } catch (e) { tipo = null; } }
+        if (tipo && (!pls[tipo] || f.lastModified > pls[tipo].f.lastModified)) pls[tipo] = { ...p, f };
+      }
+      const pl = pls.transporte;
       const plNova = pl && (!IDX.transporte || IDX.transporte.mtime < pl.f.lastModified || IDX.transporte.nome !== pl.nome);
-      if (!novos.length && !anNovas.length && !plNova) {
+      const incNova = mudou('incendio', pls.incendio), usNova = mudou('usuarios', pls.usuarios), coaNova = mudou('coa', coaArq);
+      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !anArqNovo) {
         if (!silencioso) { Painel.fecharModal(); toast(`<i class="fa-solid fa-circle-check"></i> Histórico em dia · ${datas().length} relatórios`, 3500); }
         await guardarUltima(); marcarStatus(); return;
       }
@@ -306,33 +392,80 @@
           TRANSP = T; plLida = true;
         } catch (e) { erros.push(`${pl.nome}: ${e.message || e}`); }
       }
-      if (!resumos.length && !plLida) { Painel.modal('Nada foi publicado', `<p>Não consegui ler os arquivos novos:</p><ul class="check-list">${erros.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>`, [{ html: 'Fechar', onClick: Painel.fecharModal }]); return; }
+      // demais arquivos da pasta: incêndio, usuários, análise do COA
+      const extras = []; // o que foi lido, para a mensagem
+      const novasF = { ...F };
+      if (incNova) {
+        const p = pls.incendio; progresso(`Lendo a planilha ${p.nome}`);
+        try {
+          const X = await carregaXlsx();
+          const D = IncPlanilha.parse(X.read(await p.f.arrayBuffer(), { type: 'array' }), p.nome, X);
+          D.meta.dataLeitura = isoT(new Date(p.f.lastModified)) || D.meta.dataLeitura;
+          arquivos.push({ path: 'incendio.json', content: JSON.stringify(await Acesso.encryptJson(D)) });
+          novasF.incendio = { nome: p.nome, mtime: p.f.lastModified };
+          extras.push(`risco de incêndio (${D.leituras.length} leituras)`);
+        } catch (e) { erros.push(`${p.nome}: ${e.message || e}`); }
+      }
+      if (usNova) {
+        const p = pls.usuarios; progresso('Atualizando os usuários do painel…');
+        try {
+          const r = await atualizarUsuarios(p.f, c);
+          if (r.mudou) arquivos.push({ path: 'acesso.json', content: JSON.stringify(r.cfg, null, 1) });
+          novasF.usuarios = { nome: p.nome, mtime: p.f.lastModified };
+          extras.push(`usuários (${r.total} liberados${r.removidos ? `, ${r.removidos} removido${r.removidos > 1 ? 's' : ''}` : ''})`);
+          r.avisos.forEach(a => erros.push(`${p.nome}: ${a}`));
+        } catch (e) { erros.push(`${p.nome}: ${e.message || e}`); }
+      }
+      if (coaNova) {
+        progresso(`Lendo ${coaArq.nome}`);
+        try {
+          const x = (await Acesso.readJson(JSON.parse(await coaArq.f.text()))).data;
+          if (!x || typeof x !== 'object') throw new Error('arquivo vazio');
+          arquivos.push({ path: 'historico/analise-coa.json', content: JSON.stringify(await Acesso.encryptJson(x)) });
+          novasF.coa = { nome: coaArq.nome, mtime: coaArq.f.lastModified };
+          extras.push(`histórico da análise COA${Array.isArray(x.dias) ? ` (${x.dias.length} dias)` : ''}`);
+        } catch (e) { erros.push(`${coaArq.nome}: ${e.message || e}`); }
+      }
+      if (anArqNovo) novasF.analise = { nome: anArq.nome, mtime: anArq.f.lastModified };
+      if (!resumos.length && !plLida && !extras.length && !anArqNovo) { Painel.modal('Nada foi publicado', `<p>Não consegui ler os arquivos novos:</p><ul class="check-list">${erros.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>`, [{ html: 'Fechar', onClick: Painel.fecharModal }]); return; }
       resumos.forEach(r => { IDX.dias[r.d] = r; });
       const ordenado = {}; datas().forEach(d => { ordenado[d] = IDX.dias[d]; });
-      IDX = { versao: 1, atualizado: new Date().toISOString(), pasta: dir.name, transporte: IDX.transporte, dias: ordenado };
+      IDX = { versao: 1, atualizado: new Date().toISOString(), pasta: dir.name, transporte: IDX.transporte, fontes: novasF, dias: ordenado };
       arquivos.push({ path: 'historico/indice-operacao.json', content: JSON.stringify(await Acesso.encryptJson(IDX)) });
       // o relatório mais novo também vira o dados.json da página
       const ultimo = lidos.sort((a, b) => a.d.localeCompare(b.d)).pop();
       const atualD = Painel.atual?.raw?.meta?.dataRelatorio || '';
       const virouAtual = ultimo && ultimo.d >= atualD;
+      let anRaiz = null;
       if (virouAtual) {
         arquivos.push({ path: 'dados.json', content: JSON.stringify(await Acesso.encryptJson(ultimo.raw)) });
-        if (ultimo.an) arquivos.push({ path: 'analise.json', content: JSON.stringify(await Acesso.encryptJson(ultimo.an)) });
+        if (ultimo.an) anRaiz = ultimo.an;
       }
+      // analise.json novo na pasta: vira o analise.json do site se for do dia exibido (ou mais novo)
+      if (anArqNovo && !anRaiz && anArq.x.data >= (virouAtual ? ultimo.d : atualD)) anRaiz = anArq.x;
+      if (anRaiz) arquivos.push({ path: 'analise.json', content: JSON.stringify(await Acesso.encryptJson(anRaiz)) });
       const dias = resumos.map(r => r.d).sort();
-      const titulo = (!dias.length ? 'Histórico: planilha de transporte' : dias.length === 1 ? `Histórico: relatório de ${br(dias[0])}` : `Histórico: ${dias.length} relatórios (${brC(dias[0])} a ${brC(dias[dias.length - 1])})`) + (plLida && dias.length ? ' + planilha de transporte' : '');
+      const partes = [];
+      if (dias.length) partes.push(dias.length === 1 ? `relatório de ${br(dias[0])}` : `${dias.length} relatórios (${brC(dias[0])} a ${brC(dias[dias.length - 1])})`);
+      if (plLida) partes.push('planilha de transporte');
+      if (anRaiz || (anArqNovo && anNovas.length)) partes.push(`análise do dia ${br(anArq ? anArq.x.data : anRaiz.data)}`);
+      partes.push(...extras);
+      const lista = partes.length > 1 ? partes.slice(0, -1).join(', ') + ' e ' + partes[partes.length - 1] : (partes[0] || 'índice');
+      const titulo = `Painel: ${lista}`;
+      const ul = xs => `<ul class="check-list">${xs.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>`;
       if (c && c.token) {
         progresso('Publicando no GitHub…');
         await commit(c, arquivos, titulo);
-        if (!silencioso) Painel.modal('Histórico publicado', `<p><b>${dias.length ? `${dias.length} ${dias.length === 1 ? 'relatório publicado' : 'relatórios publicados'}` : 'Planilha de transporte publicada'}</b>${plLida && dias.length ? ' e a planilha de transporte' : ''} no GitHub num único envio${virouAtual ? `, e o painel passou a abrir em <b>${br(ultimo.d)}</b>` : ''}.</p><p class="hint">O site atualiza para todos em cerca de 1 minuto.</p>${erros.length ? `<p>Não li:</p><ul class="check-list">${erros.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>` : ''}`, [{ html: 'Fechar', primary: true, onClick: Painel.fecharModal }]);
-        else toast(`<i class="fa-solid fa-cloud-arrow-up"></i> Histórico: ${titulo.replace('Histórico: ', '')} publicado`, 5000);
+        if (!silencioso) Painel.modal('Painel atualizado', `<p>Publiquei no GitHub num único envio:</p><ul class="check-list">${partes.map(x => `<li><i class="fa-solid fa-circle-check"></i>${esc(x)}</li>`).join('')}</ul>${virouAtual ? `<p>O painel passou a abrir em <b>${br(ultimo.d)}</b>.</p>` : ''}<p class="hint">O site atualiza para todos em cerca de 1 minuto.</p>${erros.length ? `<p>Atenção:</p>${ul(erros)}` : ''}`, [{ html: 'Fechar', primary: true, onClick: Painel.fecharModal }]);
+        else toast(`<i class="fa-solid fa-cloud-arrow-up"></i> Publicado: ${esc(lista)}${erros.length ? ` · ${erros.length} arquivo(s) com problema` : ''}`, 6000);
       } else {
-        baixar(zip(arquivos), `historico-${dias[dias.length - 1] || 'transporte'}.zip`);
-        Painel.modal('Pacote do histórico baixado', `<p>Sem o GitHub configurado, juntei <b>${dias.length} ${dias.length === 1 ? 'relatório' : 'relatórios'}</b> num .zip.</p>
-          <ol class="hist-passos"><li>Extraia o .zip.</li><li>No GitHub: <b>Add file → Upload files</b>.</li><li>Arraste tudo o que foi extraído (a pasta <b>historico</b>${virouAtual ? ' e o dados.json' : ''}) e clique em <b>Commit changes</b>.</li></ol>
-          <p class="hint">Para não precisar mais disso, use <b>Configurar GitHub</b> na página Histórico.</p>`, [{ html: 'Fechar', primary: true, onClick: Painel.fecharModal }]);
+        baixar(zip(arquivos), `painel-${dias[dias.length - 1] || new Date().toISOString().slice(0, 10)}.zip`);
+        Painel.modal('Pacote baixado', `<p>Sem o GitHub configurado, juntei num .zip: ${esc(lista)}.</p>
+          <ol class="hist-passos"><li>Extraia o .zip.</li><li>No GitHub: <b>Add file → Upload files</b>.</li><li>Arraste tudo o que foi extraído (mantendo a pasta <b>historico</b>) e clique em <b>Commit changes</b>.</li></ol>
+          <p class="hint">Para não precisar mais disso, use <b>Configurar GitHub</b> na página Histórico.</p>${erros.length ? `<p>Atenção:</p>${ul(erros)}` : ''}`, [{ html: 'Fechar', primary: true, onClick: Painel.fecharModal }]);
       }
-      if (virouAtual) Painel.definirAtual(ultimo.raw, ultimo.an || (Painel.analise && Painel.analise.data === ultimo.d ? Painel.analise : null));
+      if (virouAtual) Painel.definirAtual(ultimo.raw, ultimo.an || (anRaiz && anRaiz.data === ultimo.d ? anRaiz : (Painel.analise && Painel.analise.data === ultimo.d ? Painel.analise : null)));
+      else if (anRaiz && Painel.atual?.raw) Painel.definirAtual(Painel.atual.raw, anRaiz);
       await guardarUltima();
       atualizarTela();
     } catch (e) {
