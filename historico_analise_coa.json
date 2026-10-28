@@ -9341,6 +9341,1111 @@
      "diferenca": -1373
     }
    }
+  },
+  {
+   "data": "2026-10-26",
+   "frentes": {
+    "Frente 01": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 95,
+      "disponibilidade": 100,
+      "horasCorte": 8.3,
+      "manobraProdutivo": 22.1,
+      "aguardTransbordo": 1.22,
+      "aguardTransbordoPct": 8.5
+     },
+     "transbordo": {
+      "eficiencia": 89.5,
+      "disponibilidade": 86,
+      "aguardColhedora": 0.75,
+      "fila": 2.18
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 3,
+       "media": 5.4,
+       "pico": 35
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 2,
+       "media": 2.8,
+       "pico": 37.1
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 4,
+       "media": 3.0,
+       "pico": 10.6
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 13,
+       "media": 9.7,
+       "pico": 32.8
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 1.3,
+       "pct": 5.3
+      },
+      "transbordo": {
+       "horas": 6.5,
+       "pct": 12.0
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [
+       "22h",
+       "23h"
+      ],
+      "possivelDivergencia": [
+       "19h"
+      ],
+      "soTransbordo": []
+     },
+     "entrega": 994,
+     "meta": 1111,
+     "diferenca": -117
+    },
+    "Frente 02": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 56.2,
+      "disponibilidade": 72.0,
+      "horasCorte": 3.6,
+      "manobraProdutivo": 17.6,
+      "aguardTransbordo": 2.9,
+      "aguardTransbordoPct": 21.4
+     },
+     "transbordo": {
+      "eficiencia": 61.9,
+      "disponibilidade": 88.6,
+      "aguardColhedora": 1.38,
+      "fila": 0.54
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 9,
+       "media": 15.0,
+       "pico": 50
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 4,
+       "media": 2.4,
+       "pico": 13.6
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 8,
+       "media": 6.5,
+       "pico": 31.6
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 7,
+       "media": 2.9,
+       "pico": 14.3
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 5.8,
+       "pct": 22.5
+      },
+      "transbordo": {
+       "horas": 7.0,
+       "pct": 16.6
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [
+       "21h",
+       "22h"
+      ],
+      "possivelDivergencia": [
+       "00h",
+       "14h",
+       "20h"
+      ],
+      "soTransbordo": []
+     },
+     "entrega": 1132,
+     "meta": 1487,
+     "diferenca": -355
+    },
+    "Frente 03": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 0,
+      "disponibilidade": 0,
+      "horasCorte": 0,
+      "manobraProdutivo": 0,
+      "aguardTransbordo": 0,
+      "aguardTransbordoPct": 0
+     },
+     "transbordo": {
+      "eficiencia": 87.2,
+      "disponibilidade": 84.2,
+      "aguardColhedora": 1.74,
+      "fila": 0.54
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 0,
+       "media": 0,
+       "pico": null
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 8,
+       "media": 7.2,
+       "pico": 29.4
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 9,
+       "media": 8.5,
+       "pico": 45
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 5,
+       "media": 2.9,
+       "pico": 15.8
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 0,
+       "pct": 0
+      },
+      "transbordo": {
+       "horas": 4.3,
+       "pct": 14.4
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [],
+      "soTransbordo": [
+       "10h",
+       "11h",
+       "16h",
+       "17h",
+       "19h",
+       "21h",
+       "22h",
+       "23h"
+      ]
+     },
+     "entrega": 1557,
+     "meta": 1500,
+     "diferenca": 57
+    },
+    "Frente 04": {
+     "status": "warn",
+     "colhedora": {
+      "eficiencia": 91.8,
+      "disponibilidade": 93.9,
+      "horasCorte": 7.4,
+      "manobraProdutivo": 19.0,
+      "aguardTransbordo": 1.43,
+      "aguardTransbordoPct": 11.9
+     },
+     "transbordo": {
+      "eficiencia": 92.9,
+      "disponibilidade": 97.0,
+      "aguardColhedora": 0.83,
+      "fila": 1.53
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 7,
+       "media": 9.7,
+       "pico": 40
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 2,
+       "media": 0.9,
+       "pico": 8.9
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 8,
+       "media": 5.3,
+       "pico": 20
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 10,
+       "media": 9.2,
+       "pico": 40.8
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 2.6,
+       "pct": 8.3
+      },
+      "transbordo": {
+       "horas": 4.8,
+       "pct": 8.0
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [
+       "02h",
+       "16h"
+      ],
+      "soTransbordo": []
+     },
+     "entrega": 1947,
+     "meta": 1190,
+     "diferenca": 757
+    },
+    "Frente 05": {
+     "status": "warn",
+     "colhedora": {
+      "eficiencia": 89.6,
+      "disponibilidade": 94.7,
+      "horasCorte": 10.4,
+      "manobraProdutivo": 7.9,
+      "aguardTransbordo": 1.76,
+      "aguardTransbordoPct": 10.1
+     },
+     "transbordo": {
+      "eficiencia": 89.3,
+      "disponibilidade": 98.1,
+      "aguardColhedora": 1.05,
+      "fila": 2.37
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 5,
+       "media": 6.8,
+       "pico": 30.8
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 1,
+       "media": 1.1,
+       "pico": 5.1
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 7,
+       "media": 4.8,
+       "pico": 15.4
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 17,
+       "media": 21.0,
+       "pico": 100
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 4.1,
+       "pct": 10.0
+      },
+      "transbordo": {
+       "horas": 10.3,
+       "pct": 12.0
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [],
+      "soTransbordo": [
+       "21h",
+       "22h"
+      ]
+     },
+     "entrega": 2048,
+     "meta": 1459,
+     "diferenca": 589
+    },
+    "Frente 11": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 61.3,
+      "disponibilidade": 82.1,
+      "horasCorte": 5.1,
+      "manobraProdutivo": 18.3,
+      "aguardTransbordo": 1.01,
+      "aguardTransbordoPct": 6.7
+     },
+     "transbordo": {
+      "eficiencia": 73.2,
+      "disponibilidade": 92.8,
+      "aguardColhedora": 1.85,
+      "fila": 3.68
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 2,
+       "media": 2.2,
+       "pico": 14.3
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 0,
+       "media": 0.4,
+       "pico": 5
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 9,
+       "media": 8.6,
+       "pico": 36.7
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 24,
+       "media": 25.1,
+       "pico": 66.7
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 7.2,
+       "pct": 15.6
+      },
+      "transbordo": {
+       "horas": 10.0,
+       "pct": 12.9
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [
+       "17h"
+      ],
+      "soTransbordo": []
+     },
+     "entrega": 1522,
+     "meta": 1648,
+     "diferenca": -126
+    },
+    "Frente 13": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 9.1,
+      "disponibilidade": 55.0,
+      "horasCorte": 0.7,
+      "manobraProdutivo": 41.6,
+      "aguardTransbordo": 0.25,
+      "aguardTransbordoPct": 1.4
+     },
+     "transbordo": {
+      "eficiencia": 41.9,
+      "disponibilidade": 100,
+      "aguardColhedora": 1.04,
+      "fila": 0.99
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 0,
+       "media": 1.0,
+       "pico": 10
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 1,
+       "media": 0.4,
+       "pico": 10
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 5,
+       "media": 4.3,
+       "pico": 35
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 8,
+       "media": 4.3,
+       "pico": 22.5
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 0.3,
+       "pct": 7.5
+      },
+      "transbordo": {
+       "horas": 3.9,
+       "pct": 19.4
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [],
+      "soTransbordo": [
+       "22h"
+      ]
+     },
+     "entrega": 280,
+     "meta": 660,
+     "diferenca": -380
+    },
+    "Frente 34": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 92.9,
+      "disponibilidade": 100,
+      "horasCorte": 3.8,
+      "manobraProdutivo": 6.3,
+      "aguardTransbordo": 0.27,
+      "aguardTransbordoPct": 5.9
+     },
+     "transbordo": {
+      "eficiencia": 0,
+      "disponibilidade": 100,
+      "aguardColhedora": 0,
+      "fila": 0
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 0,
+       "media": 0,
+       "pico": null
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 0,
+       "media": 0,
+       "pico": null
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 0,
+       "media": 0,
+       "pico": null
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 0,
+       "media": 0,
+       "pico": null
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 0.3,
+       "pct": 6.7
+      },
+      "transbordo": {
+       "horas": 0,
+       "pct": 0
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [],
+      "soTransbordo": []
+     },
+     "entrega": 264,
+     "meta": 1559,
+     "diferenca": -1295
+    },
+    "Frente 37": {
+     "status": "warn",
+     "colhedora": {
+      "eficiencia": 88.4,
+      "disponibilidade": 100,
+      "horasCorte": 6.7,
+      "manobraProdutivo": 13.1,
+      "aguardTransbordo": 1.36,
+      "aguardTransbordoPct": 12.6
+     },
+     "transbordo": {
+      "eficiencia": 91.5,
+      "disponibilidade": 100,
+      "aguardColhedora": 1.38,
+      "fila": 0.24
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 1,
+       "media": 4.6,
+       "pico": 13.3
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 2,
+       "media": 1.5,
+       "pico": 10
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 6,
+       "media": 12.0,
+       "pico": 38.5
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 4,
+       "media": 2.7,
+       "pico": 11.4
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 2.9,
+       "pct": 11.0
+      },
+      "transbordo": {
+       "horas": 3.1,
+       "pct": 8.9
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [],
+      "soTransbordo": [
+       "22h"
+      ]
+     },
+     "entrega": 1061,
+     "meta": 1379,
+     "diferenca": -318
+    }
+   }
+  },
+  {
+   "data": "2026-10-27",
+   "frentes": {
+    "Frente 01": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 90.5,
+      "disponibilidade": 79.3,
+      "horasCorte": 12.3,
+      "manobraProdutivo": 22.3,
+      "aguardTransbordo": 1.21,
+      "aguardTransbordoPct": 5.0
+     },
+     "transbordo": {
+      "eficiencia": 88.8,
+      "disponibilidade": 93,
+      "aguardColhedora": 4.79,
+      "fila": 5.29
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 0,
+       "media": 2.3,
+       "pico": 10
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 1,
+       "media": 0.4,
+       "pico": 7.2
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 20,
+       "media": 20.1,
+       "pico": 65.2
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 23,
+       "media": 22,
+       "pico": 38.2
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 3.4,
+       "pct": 9.2
+      },
+      "transbordo": {
+       "horas": 9.4,
+       "pct": 12.8
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [],
+      "soTransbordo": [
+       "16h"
+      ]
+     },
+     "entrega": 1872,
+     "meta": 2161,
+     "diferenca": -289
+    },
+    "Frente 02": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 78.4,
+      "disponibilidade": 82.8,
+      "horasCorte": 4.6,
+      "manobraProdutivo": 22.1,
+      "aguardTransbordo": 3.46,
+      "aguardTransbordoPct": 20.9
+     },
+     "transbordo": {
+      "eficiencia": 86.1,
+      "disponibilidade": 84.7,
+      "aguardColhedora": 1.56,
+      "fila": 0.95
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 12,
+       "media": 23.6,
+       "pico": 63.2
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 4,
+       "media": 2.3,
+       "pico": 16.3
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 13,
+       "media": 7.7,
+       "pico": 30.6
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 10,
+       "media": 5.5,
+       "pico": 26.5
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 4.3,
+       "pct": 14.1
+      },
+      "transbordo": {
+       "horas": 12.5,
+       "pct": 15.2
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [
+       "00h"
+      ],
+      "possivelDivergencia": [
+       "01h",
+       "02h",
+       "15h"
+      ],
+      "soTransbordo": []
+     },
+     "entrega": 2657,
+     "meta": 2947,
+     "diferenca": -290
+    },
+    "Frente 03": {
+     "status": "bad",
+     "colhedora": null,
+     "transbordo": {
+      "eficiencia": 86.7,
+      "disponibilidade": 79.9,
+      "aguardColhedora": 1.58,
+      "fila": 1.99
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 0,
+       "media": 0,
+       "pico": null
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 4,
+       "media": 2.8,
+       "pico": 26.5
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 9,
+       "media": 6.4,
+       "pico": 17.5
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 15,
+       "media": 8.5,
+       "pico": 34.7
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 0,
+       "pct": 0
+      },
+      "transbordo": {
+       "horas": 9.8,
+       "pct": 14.9
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [],
+      "soTransbordo": [
+       "06h",
+       "08h",
+       "11h",
+       "13h"
+      ]
+     },
+     "entrega": 2736,
+     "meta": 2615,
+     "diferenca": 121
+    },
+    "Frente 04": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 93.3,
+      "disponibilidade": 87.8,
+      "horasCorte": 12.0,
+      "manobraProdutivo": 18.9,
+      "aguardTransbordo": 3.4,
+      "aguardTransbordoPct": 14.7
+     },
+     "transbordo": {
+      "eficiencia": 88.7,
+      "disponibilidade": 83.9,
+      "aguardColhedora": 1.17,
+      "fila": 2.54
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 11,
+       "media": 13.9,
+       "pico": 33.3
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 0,
+       "media": 0.4,
+       "pico": 3.4
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 7,
+       "media": 4.7,
+       "pico": 14.8
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 15,
+       "media": 10.3,
+       "pico": 40.7
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 3.5,
+       "pct": 7.0
+      },
+      "transbordo": {
+       "horas": 7.7,
+       "pct": 8.3
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [],
+      "soTransbordo": []
+     },
+     "entrega": 1859,
+     "meta": 1920,
+     "diferenca": -61
+    },
+    "Frente 05": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 89.8,
+      "disponibilidade": 94.4,
+      "horasCorte": 9.6,
+      "manobraProdutivo": 12.5,
+      "aguardTransbordo": 2.14,
+      "aguardTransbordoPct": 11.9
+     },
+     "transbordo": {
+      "eficiencia": 88.2,
+      "disponibilidade": 98.7,
+      "aguardColhedora": 1.53,
+      "fila": 3.06
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 6,
+       "media": 7.8,
+       "pico": 20
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 9,
+       "media": 6.1,
+       "pico": 43
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 11,
+       "media": 6,
+       "pico": 12.5
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 17,
+       "media": 12.6,
+       "pico": 31.3
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 5.7,
+       "pct": 10.3
+      },
+      "transbordo": {
+       "horas": 16.4,
+       "pct": 14.0
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [
+       "01h",
+       "07h",
+       "13h",
+       "14h",
+       "18h"
+      ],
+      "possivelDivergencia": [
+       "04h",
+       "05h",
+       "09h",
+       "16h",
+       "17h",
+       "20h",
+       "21h"
+      ],
+      "soTransbordo": [
+       "11h",
+       "22h"
+      ]
+     },
+     "entrega": 2825,
+     "meta": 2770,
+     "diferenca": 55
+    },
+    "Frente 11": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 66.2,
+      "disponibilidade": 91,
+      "horasCorte": 7.1,
+      "manobraProdutivo": 17.9,
+      "aguardTransbordo": 1.31,
+      "aguardTransbordoPct": 6.5
+     },
+     "transbordo": {
+      "eficiencia": 90.6,
+      "disponibilidade": 99.2,
+      "aguardColhedora": 1.95,
+      "fila": 2.44
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 1,
+       "media": 2.7,
+       "pico": 10.2
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 1,
+       "media": 1.3,
+       "pico": 6.3
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 15,
+       "media": 9.9,
+       "pico": 29
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 22,
+       "media": 12.1,
+       "pico": 24.1
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 10.9,
+       "pct": 16.7
+      },
+      "transbordo": {
+       "horas": 13.1,
+       "pct": 10.6
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [
+       "02h"
+      ],
+      "soTransbordo": [
+       "01h"
+      ]
+     },
+     "entrega": 2329,
+     "meta": 3032,
+     "diferenca": -703
+    },
+    "Frente 13": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 25.2,
+      "disponibilidade": 62,
+      "horasCorte": 2.7,
+      "manobraProdutivo": 40.9,
+      "aguardTransbordo": 0.78,
+      "aguardTransbordoPct": 3.6
+     },
+     "transbordo": {
+      "eficiencia": 60.6,
+      "disponibilidade": 100,
+      "aguardColhedora": 1.59,
+      "fila": 4.32
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 1,
+       "media": 1.8,
+       "pico": 16.7
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 4,
+       "media": 2.8,
+       "pico": 25.6
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 8,
+       "media": 6.7,
+       "pico": 28.9
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 21,
+       "media": 17.9,
+       "pico": 32.5
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 0.9,
+       "pct": 6.1
+      },
+      "transbordo": {
+       "horas": 10.5,
+       "pct": 19.1
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [
+       "04h",
+       "05h",
+       "10h",
+       "14h"
+      ],
+      "soTransbordo": []
+     },
+     "entrega": 1028,
+     "meta": 1213,
+     "diferenca": -185
+    },
+    "Frente 34": {
+     "status": "bad",
+     "colhedora": {
+      "eficiencia": 94.9,
+      "disponibilidade": 93.2,
+      "horasCorte": 13.3,
+      "manobraProdutivo": 13.2,
+      "aguardTransbordo": 0.8,
+      "aguardTransbordoPct": 4.5
+     },
+     "transbordo": {
+      "eficiencia": 44.3,
+      "disponibilidade": 100,
+      "aguardColhedora": 0.81,
+      "fila": 1.13
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 0,
+       "media": 0,
+       "pico": null
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 0,
+       "media": 0,
+       "pico": null
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 5,
+       "media": 3.3,
+       "pico": 12.5
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 10,
+       "media": 5,
+       "pico": 12.5
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 0.8,
+       "pct": 4.9
+      },
+      "transbordo": {
+       "horas": 3.5,
+       "pct": 8.8
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [],
+      "soTransbordo": []
+     },
+     "entrega": 2685,
+     "meta": 2868,
+     "diferenca": -183
+    },
+    "Frente 37": {
+     "status": "warn",
+     "colhedora": {
+      "eficiencia": 90.5,
+      "disponibilidade": 98.6,
+      "horasCorte": 15.5,
+      "manobraProdutivo": 10.5,
+      "aguardTransbordo": 2.94,
+      "aguardTransbordoPct": 12.3
+     },
+     "transbordo": {
+      "eficiencia": 72.6,
+      "disponibilidade": 99.5,
+      "aguardColhedora": 2.12,
+      "fila": 1.5
+     },
+     "timeline": {
+      "Aguardando Transbordo": {
+       "horasAcimaMeta": 8,
+       "media": 7.3,
+       "pico": 30
+      },
+      "Aguardando Caminhão - Transbordo": {
+       "horasAcimaMeta": 3,
+       "media": 1.8,
+       "pico": 14
+      },
+      "Aguardando Colhedora": {
+       "horasAcimaMeta": 13,
+       "media": 9,
+       "pico": 22
+      },
+      "Equipamento em Fila": {
+       "horasAcimaMeta": 8,
+       "media": 6.3,
+       "pico": 26
+      }
+     },
+     "motorLigadoParado": {
+      "colhedora": {
+       "horas": 5.3,
+       "pct": 9.1
+      },
+      "transbordo": {
+       "horas": 7.1,
+       "pct": 9.2
+      }
+     },
+     "aguardandoCaminhao": {
+      "faltaCaminhao": [],
+      "possivelDivergencia": [
+       "16h",
+       "17h",
+       "22h"
+      ],
+      "soTransbordo": []
+     },
+     "entrega": 2929,
+     "meta": 2537,
+     "diferenca": 392
+    }
+   }
   }
  ]
 }
