@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="style.css?v=20261027a">
   <link rel="stylesheet" href="tema.css?v=20261027a">
   <link rel="stylesheet" href="layout.css?v=20261027h">
+  <link rel="stylesheet" href="pluviometrico.css?v=20261029a">
 </head>
 <body class="auth-locked lay">
 
@@ -27,6 +28,7 @@
     <div class="rail__logo"><img src="logo-icon.png" alt="Bioenergética Aroeira" onerror="this.remove()"></div>
     <a href="#ct" data-p="ct" aria-label="CT · Colheita e Transbordamento"><i class="fa-solid fa-wheat-awn"></i><span class="tip">CT · Colheita e Transbordamento</span></a>
     <a href="#transporte" data-p="transporte" aria-label="T · Transporte"><i class="fa-solid fa-truck-moving"></i><span class="tip">T · Transporte</span></a>
+    <a href="#pluvio" data-p="pluvio" aria-label="Pluviométrico"><i class="fa-solid fa-cloud-rain"></i><span class="tip">Pluviométrico</span></a>
     <a href="#vinhaca" data-p="vinhaca" aria-label="Vinhaça e ofensores"><i class="fa-solid fa-droplet"></i><span class="tip">Vinhaça e ofensores</span></a>
     <a href="#historico" data-p="historico" aria-label="Histórico"><i class="fa-solid fa-calendar-days"></i><span class="tip">Histórico · dia e período</span></a>
     <hr>
@@ -379,6 +381,22 @@
           </div>
         </section>
       </div>
+      <!-- =============================== PLUVIOMÉTRICO =============================== -->
+      <div class="page" data-p="pluvio" data-titulo="Pluviométrico">
+        <div class="ph">
+          <div><small><span class="dot" style="background:#2a78d6;box-shadow:0 0 0 4px rgba(42,120,214,.15)"></span><span id="pvPgData">Chuva do dia</span></small><h1>Pluviométrico</h1></div>
+          <div class="filtros pv-filtros" aria-label="Filtros">
+            <div class="pv-seg" id="pvTurno" role="tablist" aria-label="Turno"><span class="ind"></span><button type="button" data-t="todos" class="is-on">Todos</button><button type="button" data-t="A">Turno A</button><button type="button" data-t="B">Turno B</button><button type="button" data-t="C">Turno C</button></div>
+            <div class="pv-dia"><button type="button" id="pvAnt" aria-label="Dia anterior"><i class="fa-solid fa-chevron-left"></i></button><input type="date" id="pvData" aria-label="Dia"><button type="button" id="pvProx" aria-label="Próximo dia"><i class="fa-solid fa-chevron-right"></i></button></div>
+            <label class="fsel">Frente<select id="pvFrente"></select></label>
+            <label class="fsel">Cód. fazenda<select id="pvCod"></select></label>
+            <label class="fsel">Fazenda<select id="pvFaz"></select></label>
+            <button class="ib" id="pvLimpar" aria-label="Limpar filtros"><i class="fa-solid fa-filter-circle-xmark"></i><span class="tip">Limpar filtros</span></button>
+          </div>
+        </div>
+        <div id="pvConteudo"></div>
+      </div>
+
       <!-- =============================== HISTÓRICO =============================== -->
       <div class="page" data-p="historico" data-titulo="Histórico">
         <div class="hist-bar">
@@ -442,6 +460,7 @@
   <script src="layout.js?v=20261027h"></script>
   <script src="script.js?v=20261027d"></script>
   <script src="incendio-planilha.js?v=20261028a"></script>
-  <script src="historico.js?v=20261029b"></script>
+  <script src="pluviometrico.js?v=20261029a"></script>
+  <script src="historico.js?v=20261029c"></script>
 </body>
 </html>

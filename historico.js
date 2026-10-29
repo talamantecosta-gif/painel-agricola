@@ -17,6 +17,7 @@
      planilha de usuários (Usuário/Senha[/Ativo]) → acesso.json (mesma chave; senhas < 8 ficam como estavam)
      analise.json                      → analise.json + arquivo do dia
      historico_analise_coa.json        → historico/analise-coa.json
+     Pluviométrico 2026.xlsm (aba Acumulado) → pluviometrico.json
    ========================================================================= */
 (function () {
   'use strict';
@@ -258,6 +259,7 @@
     const wb = X.read(await f.arrayBuffer(), { type: 'array', cellDates: true });
     const linhas = n => X.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null });
     if (wb.SheetNames.some(n => { const r = linhas(n); return r.length && normT(r[0][0]) === 'data' && normT(r[0][1]) === 'moagem'; })) return 'transporte';
+    if (wb.SheetNames.some(n => linhas(n).slice(0, 10).some(r => r && normU(r[0]) === 'data' && r.some(c => normU(c) === 'turno') && r.some(c => normU(c).startsWith('chuva'))))) return 'pluvio';
     if (wb.SheetNames.some(n => achaCab(linhas(n)))) return 'usuarios';
     if (window.IncPlanilha && IncPlanilha.ehIncendio(wb, X)) return 'incendio';
     return null;
@@ -352,17 +354,17 @@
       const anNovas = [...anMap.keys()].filter(d => IDX.dias[d] && (!IDX.dias[d].ec || (anArqNovo && anArq.x.data === d)) && !novos.some(n => n.d === d));
       // planilhas: cada uma pelo nome (ou pelo conteúdo, se o nome não disser)
       progresso('Conferindo as planilhas…');
-      const pls = { transporte: null, incendio: null, usuarios: null };
+      const pls = { transporte: null, incendio: null, usuarios: null, pluvio: null };
       for (const p of planilhas) {
         const f = await p.h.getFile();
-        let tipo = /usu[aá]rio/i.test(p.nome) ? 'usuarios' : /inc[eê]ndio|risco|queimada/i.test(p.nome) ? 'incendio' : /viage|transporte|happ/i.test(p.nome) ? 'transporte' : null;
+        let tipo = /usu[aá]rio/i.test(p.nome) ? 'usuarios' : /pluvi/i.test(p.nome) ? 'pluvio' : /inc[eê]ndio|risco|queimada/i.test(p.nome) ? 'incendio' : /viage|transporte|happ/i.test(p.nome) ? 'transporte' : null;
         if (!tipo) { try { tipo = await tipoPlanilha(f); } catch (e) { tipo = null; } }
         if (tipo && (!pls[tipo] || f.lastModified > pls[tipo].f.lastModified)) pls[tipo] = { ...p, f };
       }
       const pl = pls.transporte;
       const plNova = pl && (!IDX.transporte || IDX.transporte.mtime < pl.f.lastModified || IDX.transporte.nome !== pl.nome);
-      const incNova = mudou('incendio', pls.incendio), usNova = mudou('usuarios', pls.usuarios), coaNova = mudou('coa', coaArq);
-      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !anArqNovo) {
+      const incNova = mudou('incendio', pls.incendio), usNova = mudou('usuarios', pls.usuarios), coaNova = mudou('coa', coaArq), pvNova = mudou('pluvio', pls.pluvio);
+      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !anArqNovo) {
         if (!silencioso) { Painel.fecharModal(); toast(`<i class="fa-solid fa-circle-check"></i> Histórico em dia · ${datas().length} relatórios`, 3500); }
         await guardarUltima(); marcarStatus(); return;
       }
@@ -425,6 +427,18 @@
           r.avisos.forEach(a => erros.push(`${p.nome}: ${a}`));
         } catch (e) { erros.push(`${p.nome}: ${e.message || e}`); }
       }
+      let pvLido = null;
+      if (pvNova) {
+        const p = pls.pluvio; progresso(`Lendo a planilha ${p.nome}`);
+        try {
+          if (!window.Pluvio) throw new Error('o leitor do pluviométrico não carregou (atualize a página)');
+          const X = await carregaXlsx();
+          const PV = Pluvio.ler(X.read(await p.f.arrayBuffer(), { type: 'array', cellDates: true }), X, p.nome);
+          arquivos.push({ path: 'pluviometrico.json', content: JSON.stringify(await Acesso.encryptJson(PV)) });
+          novasF.pluvio = { nome: p.nome, mtime: p.f.lastModified };
+          extras.push(`pluviométrico (até ${brC(PV.meta.ate)})`); pvLido = PV;
+        } catch (e) { erros.push(`${p.nome}: ${e.message || e}`); }
+      }
       if (coaNova) {
         progresso(`Lendo ${coaArq.nome}`);
         try {
@@ -473,6 +487,7 @@
           <ol class="hist-passos"><li>Extraia o .zip.</li><li>No GitHub: <b>Add file → Upload files</b>.</li><li>Arraste tudo o que foi extraído (mantendo a pasta <b>historico</b>) e clique em <b>Commit changes</b>.</li></ol>
           <p class="hint">Para não precisar mais disso, use <b>Configurar GitHub</b> na página Histórico.</p>${erros.length ? `<p>Atenção:</p>${ul(erros)}` : ''}`, [{ html: 'Fechar', primary: true, onClick: Painel.fecharModal }]);
       }
+      if (pvLido && window.Pluvio) Pluvio.definir(pvLido);
       if (virouAtual) Painel.definirAtual(ultimo.raw, ultimo.an || (anRaiz && anRaiz.data === ultimo.d ? anRaiz : (Painel.analise && Painel.analise.data === ultimo.d ? Painel.analise : null)));
       else if (anRaiz && Painel.atual?.raw) Painel.definirAtual(Painel.atual.raw, anRaiz);
       await guardarUltima();
@@ -1050,6 +1065,7 @@
     montarPop();
     // gráficos do histórico também redesenham ao entrar na página
     const antes = Layout.aoEntrar;
+    if (window.Pluvio) Pluvio.iniciar();
     Layout.aoEntrar = pg => { if (antes) antes(pg); Object.values(G).forEach(c => { try { if (pg.contains(c.canvas)) { c.resize(); c.reset(); c.update(); } } catch (e) { /* */ } }); };
     await carregarIndice();
     TRANSP = await lerSite('historico/transporte.json');
