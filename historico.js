@@ -193,7 +193,7 @@
     const X = await carregaXlsx();
     const wb = X.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
     const hoje = isoT(new Date());
-    const dias = new Map();
+    const dias = new Map(), meses = {};
     wb.SheetNames.forEach(nome => {
       const rows = X.utils.sheet_to_json(wb.Sheets[nome], { header: 1, raw: true, defval: null });
       if (!rows.length || normT(rows[0][0]) !== 'data' || normT(rows[0][1]) !== 'moagem') return;
@@ -207,28 +207,37 @@
           const frota = `${m[1].trim()} - ${m[2].trim()}`;
           if (sub.startsWith('peso')) cols.push({ i, k: 'peso', frota });
           else if (sub === 'viagens totais') cols.push({ i, k: 'viagens', frota });
+          else if (sub.replace(/\s/g, '') === '%transportada') cols.push({ i, k: 'pct', frota });
         } else if (sub.startsWith('posicao na cota - proprio')) cols.push({ i, k: 'posP' });
         else if (sub === 'motivo proprio') cols.push({ i, k: 'motP' });
         else if (sub.startsWith('posicao na cota - happening')) cols.push({ i, k: 'posH' });
         else if (sub === 'motivo happening') cols.push({ i, k: 'motH' });
         else if (sub.startsWith('projecao de moagem')) cols.push({ i, k: 'proj' });
       });
+      // frota → [t, viagens, % transportada (fração da moagem)]
+      const lerFr = (r, x) => cols.forEach(c => {
+        const v = r[c.i];
+        if (c.frota) { const f = x.fr[c.frota] || (x.fr[c.frota] = [0, 0, null]); if (c.k === 'peso') f[0] = numT(v) || 0; else if (c.k === 'viagens') f[1] = numT(v) || 0; else f[2] = numT(v); }
+        else if (c.k.startsWith('mot')) x[c.k] = v ? String(v).trim() : null;
+        else x[c.k] = numT(v);
+      });
+      const limpa = x => Object.keys(x.fr).forEach(k => { if (!x.fr[k][0] && !x.fr[k][1]) delete x.fr[k]; });
+      let mesAba = null; const totais = {};
       rows.slice(2).forEach(r => {
-        const d = isoT(r[0]); if (!d || d > hoje) return;
+        const rot = normT(r[0]);
+        if (rot === 'total' || rot === 'total safra') { const x = { moagem: numT(r[1]) || 0, fr: {} }; lerFr(r, x); limpa(x); delete x.posP; delete x.posH; delete x.motP; delete x.motH; delete x.proj; totais[rot === 'total' ? 'total' : 'safra'] = x; return; }
+        const d = isoT(r[0]); if (!d) return;
+        if (!mesAba) mesAba = d.slice(0, 7);
+        if (d > hoje) return;
         const x = { d, moagem: numT(r[1]) || 0, fr: {} };
-        cols.forEach(c => {
-          const v = r[c.i];
-          if (c.frota) { const f = x.fr[c.frota] || (x.fr[c.frota] = [0, 0]); if (c.k === 'peso') f[0] = numT(v) || 0; else f[1] = numT(v) || 0; }
-          else if (c.k.startsWith('mot')) x[c.k] = v ? String(v).trim() : null;
-          else x[c.k] = numT(v);
-        });
-        Object.keys(x.fr).forEach(k => { if (!x.fr[k][0] && !x.fr[k][1]) delete x.fr[k]; });
+        lerFr(r, x); limpa(x);
         if (x.moagem > 0 || x.motP || x.motH) dias.set(d, x);
       });
+      if (mesAba && (totais.total || totais.safra)) meses[mesAba] = totais;
     });
     const lista = [...dias.values()].sort((a, b) => a.d.localeCompare(b.d));
     if (!lista.length) throw new Error('não encontrei as abas por mês (colunas Data e Moagem) na planilha');
-    return { meta: { arquivo: file.name, mtime: file.lastModified, lidoEm: new Date().toISOString() }, dias: lista };
+    return { meta: { arquivo: file.name, mtime: file.lastModified, lidoEm: new Date().toISOString() }, dias: lista, meses };
   };
 
   // planilha sem nome conhecido: descobre pelo conteúdo
@@ -796,21 +805,47 @@
   };
   const ordemPrest = ps => ['Próprio', 'Happening', 'RGE', ...ps.filter(p => !['Próprio', 'Happening', 'RGE'].includes(p))].filter(p => ps.includes(p));
   const barra100 = (partes, total) => `<div class="tp-bar">${partes.filter(p => p.t > 0).map(p => { const w = total ? p.t / total * 100 : 0; return `<span style="--w:${w.toFixed(2)}%;background:${p.cor}" title="${esc(p.nome)}: ${nf(p.t, 0)} t · ${nf(w, 1)}%">${w >= 14 ? `<b>${esc(p.nome)}</b> ${nf(w, 0)}%` : w >= 6 ? `${nf(w, 0)}%` : ''}</span>`; }).join('')}</div>`;
-  const cartaoTP = (rotulo, titulo, dias) => {
-    const A = aggT(dias);
+  // % sempre sobre a moagem (t totais) do dia, do mês ou da safra — o mesmo "%Transportada" da planilha
+  const resumoTP = (dias, linha) => {
+    if (linha && linha.moagem > 0) return { moagem: linha.moagem, fr: linha.fr, n: dias.filter(x => x.moagem > 0).length };
+    const o = { moagem: 0, fr: {}, n: dias.filter(x => x.moagem > 0).length };
+    dias.forEach(x => { o.moagem += x.moagem || 0; Object.entries(x.fr).forEach(([k, [t, v]]) => { const f = o.fr[k] || (o.fr[k] = [0, 0, null]); f[0] += t; f[1] += v; }); });
+    if (dias.length === 1) Object.entries(dias[0].fr).forEach(([k, f]) => { if (Number.isFinite(f[2])) o.fr[k][2] = f[2]; });
+    return o;
+  };
+  // arredonda para inteiros que somam exatamente 100 (maiores restos)
+  const arred100 = vals => {
+    const tot = vals.reduce((s, v) => s + v, 0); if (!tot) return vals.map(() => 0);
+    const ex = vals.map(v => v / tot * 100), base = ex.map(Math.floor);
+    let falta = 100 - base.reduce((s, v) => s + v, 0);
+    ex.map((v, i) => [v - base[i], i]).sort((x, y) => y[0] - x[0]).forEach(([, i]) => { if (falta > 0) { base[i]++; falta--; } });
+    return base;
+  };
+  const cartaoTP = (rotulo, titulo, R) => {
+    // % de cada frota = "%Transportada" da planilha, normalizada para o conjunto fechar 100%
+    const pctDe = f => (Number.isFinite(f[2]) ? f[2] : (R.moagem ? f[0] / R.moagem : 0));
+    const A = { t: 0, v: 0, prest: {}, tipo: {}, pt: {} };
+    const add = (m, k, f) => { const x = m[k] || (m[k] = { t: 0, v: 0, p: 0 }); x.t += f[0]; x.v += f[1]; x.p += pctDe(f); };
+    Object.entries(R.fr).forEach(([k, f]) => { A.t += f[0]; A.v += f[1]; add(A.prest, prestOf(k), f); add(A.tipo, tipoOf(k), f); add(A.pt, `${prestOf(k)}|${tipoOf(k)}`, f); });
     if (!A.t) return `<article class="card tp"><div class="tp-h"><span>${rotulo}</span><b>${titulo}</b><small>sem entregas</small></div></article>`;
     const ps = ordemPrest(Object.keys(A.prest));
+    const chaves = ps.flatMap(p => ['Rodotrem', 'Tritrem'].map(tp => `${p}|${tp}`));
+    const c100 = arred100(chaves.map(k => (A.pt[k] ? A.pt[k].p : 0))), CEL = {}; chaves.forEach((k, i) => { CEL[k] = c100[i]; });
+    const pr100 = arred100(ps.map(p => A.prest[p].p));
+    const tps = ['Rodotrem', 'Tritrem'], tp100 = arred100(tps.map(tp => (A.tipo[tp] || {}).p || 0));
+    const cel = k => { const x = A.pt[k]; return `${CEL[k]}%<small>${nf(x ? x.t : 0, 0)} t</small>`; };
     return `<article class="card tp">
-      <div class="tp-h"><span>${rotulo}</span><b>${titulo}</b><small>${nf(A.t, 0)} t · ${nf(A.v, 0)} viagens${A.n > 1 ? ` · ${A.n} dias` : ''}</small></div>
+      <div class="tp-h"><span>${rotulo}</span><b>${titulo}</b><small>${nf(A.t, 0)} t transportadas · ${nf(A.v, 0)} viagens${R.n > 1 ? ` · ${R.n} dias` : ''}</small></div>
       <div class="tp-sec">Por prestador</div>
-      ${barra100(ps.map(p => ({ nome: p, t: A.prest[p].t, cor: corPrest(p) })), A.t)}
+      ${barraPct(ps.map((p, i) => ({ nome: p, t: A.prest[p].t, p: pr100[i], cor: corPrest(p) })))}
       <div class="tp-sec">Rodotrem x Tritrem</div>
-      ${barra100(['Rodotrem', 'Tritrem'].map(tp => ({ nome: tp, t: (A.tipo[tp] || {}).t || 0, cor: tp === 'Rodotrem' ? CR.rod : CR.tri })), A.t)}
+      ${barraPct(tps.map((tp, i) => ({ nome: tp, t: (A.tipo[tp] || {}).t || 0, p: tp100[i], cor: tp === 'Rodotrem' ? CR.rod : CR.tri })))}
       <table class="tp-tab"><thead><tr><th></th><th>Rodotrem</th><th>Tritrem</th><th>Carga média</th></tr></thead><tbody>
-        ${ps.map(p => { const r = A.pt[`${p}|Rodotrem`] || { t: 0, v: 0 }, tr = A.pt[`${p}|Tritrem`] || { t: 0, v: 0 }, tp = A.prest[p]; return `<tr><td><i class="sw" style="background:${corPrest(p)}"></i>${esc(p)}</td><td>${tp.t ? nf(r.t / tp.t * 100, 0) + '%' : '—'}<small>${nf(r.t, 0)} t</small></td><td>${tp.t ? nf(tr.t / tp.t * 100, 0) + '%' : '—'}<small>${nf(tr.t, 0)} t</small></td><td>${tp.v ? nf(tp.t / tp.v, 1) : '—'}<small>t/viagem</small></td></tr>`; }).join('')}
+        ${ps.map(p => { const tp = A.prest[p]; return `<tr><td><i class="sw" style="background:${corPrest(p)}"></i>${esc(p)}</td><td>${cel(`${p}|Rodotrem`)}</td><td>${cel(`${p}|Tritrem`)}</td><td>${tp.v ? nf(tp.t / tp.v, 1) : '—'}<small>t/viagem</small></td></tr>`; }).join('')}
       </tbody></table>
     </article>`;
   };
+  const barraPct = partes => `<div class="tp-bar">${partes.filter(x => x.t > 0).map(x => `<span style="--w:${x.p}%;background:${x.cor}" title="${esc(x.nome)}: ${nf(x.t, 0)} t · ${x.p}%">${x.p >= 14 ? `<b>${esc(x.nome)}</b> ${x.p}%` : x.p >= 6 ? `${x.p}%` : ''}</span>`).join('')}</div>`;
   const motivos = (dias, campoPos, campoMot) => {
     const M = new Map();
     dias.forEach(x => { const m = x[campoMot]; if (!m) return; const k = m.trim().toUpperCase(); const y = M.get(k) || { nome: k, dias: 0, abaixo: 0 }; y.dias++; if ((x[campoPos] || 0) < 0) y.abaixo += x[campoPos]; M.set(k, y); });
@@ -838,6 +873,9 @@
     if (!ancora) return '';
     const mes = ancora.d.slice(0, 7);
     const doMes = todos.filter(x => x.d.startsWith(mes));
+    // linhas Total e Total Safra da aba do mês (valem quando o dia de referência é o último lançado no mês)
+    const linhaMes = (TRANSP.meses && TRANSP.meses[mes]) || {};
+    const ultimoDoMes = !TRANSP.dias.some(x => x.d.startsWith(mes) && x.d > ancora.d && x.moagem > 0);
     const periodo = TRANSP.dias.filter(x => x.d >= PER.de && x.d <= ateTP());
     const Ap = aggT(periodo), dPer = periodo.filter(x => x.moagem > 0).length || 1;
     const fonte = IDX.transporte ? IDX.transporte.nome : TRANSP.meta.arquivo;
@@ -845,9 +883,9 @@
       <section class="section" id="hTransp" data-nome="Transporte">
         <div class="tp-topo"><h2 class="tp-tit"><i class="fa-solid fa-truck-moving"></i>Divisão do transporte</h2><span class="hint">Planilha ${esc(fonte)} · até ${br(TRANSP.dias[TRANSP.dias.length - 1].d)}</span></div>
         <div class="tp-grid">
-          ${cartaoTP('Dia', br(ancora.d), [ancora])}
-          ${cartaoTP('Mês', MESES[+mes.slice(5) - 1].replace(/^./, c => c.toUpperCase()) + ' até ' + brC(ancora.d), doMes)}
-          ${cartaoTP('Safra', `${brC(todos[0].d)} a ${brC(ancora.d)}`, todos)}
+          ${cartaoTP('Dia', br(ancora.d), resumoTP([ancora]))}
+          ${cartaoTP('Mês', MESES[+mes.slice(5) - 1].replace(/^./, c => c.toUpperCase()) + ' até ' + brC(ancora.d), resumoTP(doMes, ultimoDoMes ? linhaMes.total : null))}
+          ${cartaoTP('Safra', `${brC(todos[0].d)} a ${brC(ancora.d)}`, resumoTP(todos, ultimoDoMes ? linhaMes.safra : null))}
         </div>
         <div class="g-k g-k4" style="margin-top:14px">
           ${k({ t: 'Entregue média por dia', ic: 'fa-route', v: nf(Ap.t / dPer, 0), un: 't/dia', sub: `${dPer} ${dPer === 1 ? 'dia' : 'dias'} com entrega no período` })}
