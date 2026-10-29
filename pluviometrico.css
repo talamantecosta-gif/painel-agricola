@@ -176,3 +176,6 @@
 .pv-vazio > i { font-size: 34px; color: var(--chuva); }
 .pv-vazio h3 { margin: 12px 0 6px; }
 .pv-vazio p { max-width: 520px; margin: 0 auto; }
+
+.pv-per[hidden] { display: none !important; }
+.pv-per { margin: -4px 0 16px; }

@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="style.css?v=20261027a">
   <link rel="stylesheet" href="tema.css?v=20261027a">
   <link rel="stylesheet" href="layout.css?v=20261027h">
-  <link rel="stylesheet" href="pluviometrico.css?v=20261029b">
+  <link rel="stylesheet" href="pluviometrico.css?v=20261029c">
 </head>
 <body class="auth-locked lay">
 
@@ -394,6 +394,11 @@
             <button class="ib" id="pvLimpar" aria-label="Limpar filtros"><i class="fa-solid fa-filter-circle-xmark"></i><span class="tip">Limpar filtros</span></button>
           </div>
         </div>
+        <div class="hist-per pv-per" aria-label="Período">
+          <label>De <input type="date" id="pvDe"></label>
+          <label>até <input type="date" id="pvAte"></label>
+          <div class="hist-pre" id="pvPre"><button type="button" data-pre="7">7 dias</button><button type="button" data-pre="30">30 dias</button><button type="button" data-pre="mes">Mês</button><button type="button" data-pre="safra" class="is-on">Safra</button><button type="button" data-pre="tudo">Tudo</button></div>
+        </div>
         <div id="pvConteudo"></div>
       </div>
 
@@ -460,7 +465,7 @@
   <script src="layout.js?v=20261027h"></script>
   <script src="script.js?v=20261027d"></script>
   <script src="incendio-planilha.js?v=20261028a"></script>
-  <script src="pluviometrico.js?v=20261029b"></script>
+  <script src="pluviometrico.js?v=20261029c"></script>
   <script src="historico.js?v=20261029d"></script>
 </body>
 </html>

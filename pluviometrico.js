@@ -105,15 +105,25 @@
 
   /* ---------- estado e cálculos ---------- */
   let D = null, IDX = null;
-  const F = { turno: 'todos', dia: null, frente: '', cod: '', faz: '' };
+  const F = { turno: 'todos', dia: null, frente: '', cod: '', faz: '', de: null, ate: null, pre: 'safra' };
   const preparar = data => {
     D = data;
     const dias = []; for (let d = D.meta.inicio; d <= D.meta.ate; d = addDias(d, 1)) dias.push(d);
     const porDia = new Map(); // d → Map(li → {A,B,C})
     D.reg.forEach(([d, li, t, v]) => { const m = porDia.get(d) || porDia.set(d, new Map()).get(d); const x = m.get(li) || m.set(li, { A: 0, B: 0, C: 0 }).get(li); x[t] += v; });
     IDX = { dias, porDia, frentes: [...new Set(D.locais.map(l => l.frente))].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true })) };
-    if (!F.dia || !dias.includes(F.dia)) F.dia = dias[dias.length - 1];
+    if (F.pre) aplicarPre(F.pre);
+    else { F.de = F.de && F.de >= dias[0] ? F.de : dias[0]; F.ate = F.ate && F.ate <= dias[dias.length - 1] ? F.ate : dias[dias.length - 1]; }
+    if (!F.dia || F.dia < F.de || F.dia > F.ate) F.dia = F.ate;
   };
+  // período (De / até) e atalhos
+  const aplicarPre = pre => {
+    const ult = IDX.dias[IDX.dias.length - 1], pri = IDX.dias[0];
+    const de = { 7: addDias(ult, -6), 30: addDias(ult, -29), mes: ult.slice(0, 8) + '01', safra: [pri, ult.slice(0, 4) + '-01-01'].sort().pop(), tudo: pri }[pre] || pri;
+    F.pre = pre; F.de = de < pri ? pri : de; F.ate = ult; F.dia = F.ate;
+  };
+  const noPer = d => d >= F.de && d <= F.ate;
+  const diasPer = () => IDX.dias.filter(noPer);
   const tSel = () => (F.turno === 'todos' ? TURNOS : [F.turno]);
   const localOk = l => (!F.frente || l.frente === F.frente) && (!F.cod || l.cod === F.cod) && (!F.faz || l.faz === F.faz);
   const valLocal = x => tSel().reduce((s, t) => s + (x[t] || 0), 0);
@@ -125,7 +135,8 @@
     const med = k => p.reduce((s, x) => s + x[k], 0) / n;
     return { d, v: p.reduce((s, x) => s + x.v, 0) / n, n, A: med('A'), B: med('B'), C: med('C'), max: p.reduce((a, b) => (b.v > (a ? a.v : -1) ? b : a), null), p };
   };
-  const serie = () => { let acc = 0; return IDX.dias.map(d => { const x = diaInfo(d); acc += x.v; return { ...x, acc }; }); };
+  // acumulado conta a partir do início do período
+  const serie = () => { let acc = 0; return IDX.dias.map(d => { const x = diaInfo(d); if (d >= F.de) acc += x.v; return { ...x, acc: d >= F.de ? acc : 0 }; }); };
 
   /* ---------- números que contam ---------- */
   const contar = (el, alvo, dec = 0, ms = 900) => {
@@ -187,7 +198,7 @@
           </article>
           <div class="pv-kcol">
             <article class="k pv-k"><div class="k__t">Total de chuvas no mês<i class="fa-solid fa-calendar-week"></i></div><div class="k__v"><b id="pvMes">0</b><small>mm</small></div><div class="k__s" id="pvMesSub"></div><div class="pv-mini" id="pvMesMini"></div></article>
-            <article class="k pv-k"><div class="k__t"><span id="pvAccT">Acumulado da safra</span><i class="fa-solid fa-droplet"></i></div><div class="k__v"><b id="pvAcc">0</b><small>mm</small></div><div class="k__s" id="pvAccSub"></div><div class="pv-prog"><i id="pvAccBar"></i></div></article>
+            <article class="k pv-k"><div class="k__t"><span id="pvAccT">Acumulado no período</span><i class="fa-solid fa-droplet"></i></div><div class="k__v"><b id="pvAcc">0</b><small>mm</small></div><div class="k__s" id="pvAccSub"></div><div class="pv-prog"><i id="pvAccBar"></i></div></article>
           </div>
           <article class="card pv-leitura"><span class="pv-eyebrow"><i class="fa-regular fa-lightbulb"></i>Leitura do dia</span><p id="pvLeitura"></p></article>
         </div>
@@ -196,7 +207,6 @@
         <article class="card pv-tl">
           <header class="card__head"><div><h3>Linha do tempo</h3><p class="hint">Chuva de cada dia (média dos pontos) · clique ou arraste para escolher o dia · dia sem registro = sem chuva</p></div>
             <div class="pv-tl__ctl"><button type="button" class="pv-play" id="pvPlay" aria-label="Reproduzir a linha do tempo"><i class="fa-solid fa-play"></i><span>Reproduzir</span></button></div></header>
-          <div class="pv-meses" id="pvMeses" role="tablist" aria-label="Mês"></div>
           <div class="pv-tl__box" id="pvTl"></div>
           <div class="pv-tl__acc"><div class="pv-tl__lbl"><b>Acumulado</b><span class="hint" id="pvTlAccH">mm na safra</span></div><div id="pvTlAcc"></div></div>
         </article>
@@ -204,11 +214,11 @@
       <section class="section" id="pvFrentes" data-nome="Por frente">
         <div class="grid grid--2 pv-g2">
           <article class="card"><header class="card__head"><div><h3>Chuva por frente</h3><p class="hint" id="pvFrHint"></p></div><div class="pv-leg">${TURNOS.map(t => `<span><i style="background:${COR_T[t]}"></i>Turno ${t}</span>`).join('')}</div></header><div class="pv-fr" id="pvFr"></div></article>
-          <article class="card"><header class="card__head"><div><h3>Acumulado por frente</h3><p class="hint">Soma da safra até o dia escolhido</p></div></header><div class="pv-fr" id="pvFrAcc"></div></article>
+          <article class="card"><header class="card__head"><div><h3>Acumulado por frente</h3><p class="hint" id="pvFrAccH">Soma do período até o dia escolhido</p></div></header><div class="pv-fr" id="pvFrAcc"></div></article>
         </div>
       </section>
       <section class="section" id="pvMapa" data-nome="Mapa de chuva">
-        <article class="card"><header class="card__head"><div><h3>Mapa de chuva</h3><p class="hint" id="pvHeatH">Frentes x dias do mês · cor = milímetros · clique numa coluna para ver o dia</p></div><div class="pv-escbar" id="pvEsc"></div></header><div class="pv-heat" id="pvHeat"></div></article>
+        <article class="card"><header class="card__head"><div><h3>Mapa de chuva</h3><p class="hint" id="pvHeatH">Frentes x dias do período · cor = milímetros · clique numa coluna para ver o dia</p></div><div class="pv-escbar" id="pvEsc"></div></header><div class="pv-heat" id="pvHeat"></div></article>
       </section>
       <section class="section" id="pvLocais" data-nome="Fazendas">
         <article class="card"><header class="card__head"><div><h3>Fazendas</h3><p class="hint">Chuva por ponto de medição</p></div></header><div class="table-wrap"><table class="pv-tab" id="pvTab"></table></div></article>
@@ -228,7 +238,11 @@
     opt('#pvFrente', IDX.frentes, F.frente, 'Todas');
     opt('#pvCod', [...new Set(L.filter(l => !F.faz || l.faz === F.faz).map(l => l.cod))].sort((a, b) => a - b), F.cod, 'Todos');
     opt('#pvFaz', [...new Set(L.filter(l => !F.cod || l.cod === F.cod).map(l => l.faz))].sort((a, b) => a.localeCompare(b, 'pt-BR')), F.faz, 'Todas');
-    const di = $('#pvData'); if (di) { di.min = IDX.dias[0]; di.max = IDX.dias[IDX.dias.length - 1]; di.value = F.dia; }
+    const di = $('#pvData'); if (di) { di.min = F.de; di.max = F.ate; di.value = F.dia; }
+    const pi = IDX.dias[0], pu = IDX.dias[IDX.dias.length - 1];
+    const de = $('#pvDe'), at = $('#pvAte');
+    if (de) { de.min = pi; de.max = pu; de.value = F.de; } if (at) { at.min = pi; at.max = pu; at.value = F.ate; }
+    $$('#pvPre button').forEach(b => b.classList.toggle('is-on', b.dataset.pre === F.pre));
     $$('#pvTurno button').forEach(b => b.classList.toggle('is-on', b.dataset.t === F.turno));
     const ativo = F.turno !== 'todos' || F.frente || F.cod || F.faz; const lp = $('#pvLimpar'); if (lp) lp.classList.toggle('is-on', !!ativo);
   };
@@ -240,7 +254,15 @@
     on('#pvFrente', 'change', e => { F.frente = e.target.value; F.cod = ''; F.faz = ''; atualizar(); });
     on('#pvCod', 'change', e => { F.cod = e.target.value; if (F.cod) F.faz = D.locais.find(l => l.cod === F.cod).faz; atualizar(); });
     on('#pvFaz', 'change', e => { F.faz = e.target.value; F.cod = ''; atualizar(); });
-    on('#pvData', 'change', e => { if (IDX.dias.includes(e.target.value)) { F.dia = e.target.value; atualizar(); } });
+    on('#pvData', 'change', e => { if (IDX.dias.includes(e.target.value) && noPer(e.target.value)) { F.dia = e.target.value; atualizar(); } });
+    on('#pvPre', 'click', e => { const b = e.target.closest('button[data-pre]'); if (!b) return; aplicarPre(b.dataset.pre); atualizar(true); });
+    const periodo = () => {
+      let de = $('#pvDe').value, at = $('#pvAte').value; const pi = IDX.dias[0], pu = IDX.dias[IDX.dias.length - 1];
+      if (!ISO.test(de) || !ISO.test(at)) return;
+      if (de > at) [de, at] = [at, de];
+      F.de = de < pi ? pi : de > pu ? pu : de; F.ate = at > pu ? pu : at < pi ? pi : at; F.pre = null; F.dia = F.ate; atualizar(true);
+    };
+    on('#pvDe', 'change', periodo); on('#pvAte', 'change', periodo);
     on('#pvAnt', 'click', () => passo(-1));
     on('#pvProx', 'click', () => passo(1));
     on('#pvLimpar', 'click', () => { Object.assign(F, { turno: 'todos', frente: '', cod: '', faz: '' }); mover('#pvTurno', $('#pvTurno button[data-t="todos"]')); atualizar(); });
@@ -249,13 +271,13 @@
     requestAnimationFrame(() => mover('#pvTurno', $('#pvTurno button.is-on'), true));
   };
   const mover = (seg, b, ja) => { const s = $(seg); if (!s || !b) return; const ind = s.querySelector('.ind'); if (!ind) return; if (ja) ind.style.transition = 'none'; ind.style.left = b.offsetLeft + 'px'; ind.style.width = b.offsetWidth + 'px'; if (ja) { void ind.offsetWidth; ind.style.transition = ''; } $$(seg + ' button').forEach(x => x.classList.toggle('is-on', x === b)); };
-  const passo = n => { const i = IDX.dias.indexOf(F.dia) + n; if (i >= 0 && i < IDX.dias.length) { F.dia = IDX.dias[i]; atualizar(); } };
+  const passo = n => { const ds = diasPer(), i = ds.indexOf(F.dia) + n; if (i >= 0 && i < ds.length) { F.dia = ds[i]; atualizar(); } };
   let PLAY = null;
   const tocar = () => {
     const b = $('#pvPlay');
     if (PLAY) { clearInterval(PLAY); PLAY = null; b.classList.remove('is-on'); b.innerHTML = '<i class="fa-solid fa-play"></i><span>Reproduzir</span>'; return; }
     b.classList.add('is-on'); b.innerHTML = '<i class="fa-solid fa-pause"></i><span>Pausar</span>';
-    const doMes = IDX.dias.filter(d => d.startsWith(F.dia.slice(0, 7)));
+    const doMes = diasPer();
     let i = F.dia === doMes[doMes.length - 1] ? 0 : doMes.indexOf(F.dia);
     F.dia = doMes[i]; atualizar(false, true);
     PLAY = setInterval(() => { i++; if (i >= doMes.length) { tocar(); return; } F.dia = doMes[i]; atualizar(false, true); }, 420);
@@ -269,7 +291,7 @@
     const x = S.find(s => s.d === F.dia), mes = F.dia.slice(0, 7);
     const doMes = S.filter(s => s.d.startsWith(mes) && s.d <= F.dia);
     const totMes = doMes.reduce((s, y) => s + y.v, 0), diasChuvaMes = doMes.filter(y => y.v > 0).length;
-    const ate = S.filter(s => s.d <= F.dia), diasChuva = ate.filter(y => y.v > 0).length;
+    const ate = S.filter(s => s.d >= F.de && s.d <= F.dia), diasChuva = ate.filter(y => y.v > 0).length;
     const maior = ate.reduce((a, b) => (b.v > (a ? a.v : 0) ? b : a), null);
     const dt = new Date(F.dia + 'T12:00:00');
     // cabeçalho
@@ -285,12 +307,12 @@
     const mx = Math.max(1, ...doMes.map(y => y.v));
     $('#pvMesMini').innerHTML = S.filter(s => s.d.startsWith(mes)).map(y => `<i class="${y.d === F.dia ? 'is-sel' : ''}${y.d > F.dia ? ' fut' : ''}" style="height:${y.d > F.dia ? 0 : Math.max(y.v > 0 ? 8 : 3, y.v / mx * 100)}%"></i>`).join('');
     contar($('#pvAcc'), x.acc, x.acc >= 100 ? 0 : 1, rapido ? 300 : 900);
-    const totGeral = S[S.length - 1].acc || 1;
-    $('#pvAccT').textContent = `Acumulado desde ${brC(D.meta.inicio)}`; const th = $('#pvTlAccH'); if (th) th.textContent = `mm acumulados desde ${brC(D.meta.inicio)}`;
+    const totGeral = (S.find(s => s.d === F.ate) || {}).acc || 1;
+    $('#pvAccT').textContent = F.dia === F.ate ? `Acumulado ${brC(F.de)} a ${brC(F.ate)}` : `Acumulado ${brC(F.de)} a ${brC(F.dia)}`; const th = $('#pvTlAccH'); if (th) th.textContent = `mm acumulados desde ${brC(F.de)}`;
     $('#pvAccSub').innerHTML = `<b>${diasChuva}</b> de ${ate.length} dias com chuva${maior && maior.v > 0 ? ` · maior: ${mm(maior.v)} mm em ${brC(maior.d)}` : ''}`;
     requestAnimationFrame(() => { $('#pvAccBar').style.width = (x.acc / totGeral * 100).toFixed(1) + '%'; });
     // pluviômetro
-    const esc0 = Math.max(10, Math.ceil(Math.max(...S.map(s => s.v)) / 10) * 10);
+    const esc0 = Math.max(10, Math.ceil(Math.max(...S.filter(s => noPer(s.d)).map(s => s.v)) / 10) * 10);
     const g = $('.pv-escala');
     if (g && g.dataset.m !== String(esc0)) { g.dataset.m = esc0; g.innerHTML = [0, .25, .5, .75, 1].map(f => { const y = 208 - f * 172; return `<line x1="86" x2="${f % .5 ? 94 : 100}" y1="${y}" y2="${y}" stroke="#AEB8AA"/>${f % .5 ? '' : `<text x="104" y="${y + 4}" font-size="11" fill="#6E7C72">${Math.round(esc0 * f)}</text>`}`; }).join(''); }
     const niv = $('.pv-nivel'); if (niv) niv.style.transform = `translateY(${(186 - Math.min(1, x.v / esc0) * 172).toFixed(1)}px)`;
@@ -299,7 +321,7 @@
     const tMax = TURNOS.map(t => [t, x[t]]).sort((a, b) => b[1] - a[1])[0];
     $('#pvLeitura').innerHTML = x.v > 0
       ? `Choveu em média <b>${mm(x.v)} mm</b> em ${brC(F.dia)}${F.turno === 'todos' && tMax[1] > 0 ? `, principalmente no <b>turno ${tMax[0]}</b>` : ''}. ${top.length ? `Mais chuva na <b>${esc(top[0].frente)}</b> (${mm(top[0].v)} mm)${top.length > 1 ? ` e na <b>${esc(top[1].frente)}</b> (${mm(top[1].v)} mm)` : ''}. ` : ''}No mês já são <b>${mm(totMes)} mm</b> em ${diasChuvaMes} ${diasChuvaMes === 1 ? 'dia' : 'dias'} de chuva.`
-      : `Sem chuva registrada em ${brC(F.dia)}${F.frente || F.faz ? ' para o filtro escolhido' : ''}. No mês, <b>${mm(totMes)} mm</b> em ${diasChuvaMes} ${diasChuvaMes === 1 ? 'dia' : 'dias'} de chuva; acumulado de <b>${mm(x.acc)} mm</b> na safra (desde ${brC(D.meta.inicio)}).`;
+      : `Sem chuva registrada em ${brC(F.dia)}${F.frente || F.faz ? ' para o filtro escolhido' : ''}. No mês, <b>${mm(totMes)} mm</b> em ${diasChuvaMes} ${diasChuvaMes === 1 ? 'dia' : 'dias'} de chuva; acumulado de <b>${mm(x.acc)} mm</b> desde ${brC(F.de)}.`;
     desenharTL(primeira);
     desenharFrentes(fr);
     desenharHeat();
@@ -330,7 +352,7 @@
     // acumulado por frente até o dia
     const ac = $('#pvFrAcc'); if (!ac) return;
     const tot = new Map(IDX.frentes.map(f => [f, 0]));
-    IDX.dias.filter(d => d <= F.dia).forEach(d => porFrente(d).forEach(f => tot.set(f.frente, tot.get(f.frente) + f.v)));
+    IDX.dias.filter(d => d >= F.de && d <= F.dia).forEach(d => porFrente(d).forEach(f => tot.set(f.frente, tot.get(f.frente) + f.v)));
     const la = [...tot].filter(([f]) => fr.some(x => x.frente === f)).sort((a, b) => b[1] - a[1]); const mxa = Math.max(1, ...la.map(x => x[1]));
     ac.innerHTML = la.map(([f, v], i) => `<div class="pv-fr__l" style="--i:${i}"><span class="nm">${esc(f.replace(' · ', ' '))}</span><span class="trk"><i style="--w:${(v / mxa * 100).toFixed(2)}%;background:#2a78d6"></i></span><b>${mm(v)}<small> mm</small></b></div>`).join('');
     requestAnimationFrame(() => requestAnimationFrame(() => ac.querySelectorAll('.trk i').forEach(i => i.classList.add('on'))));
@@ -340,15 +362,14 @@
   const nice = v => { const p = Math.pow(10, Math.floor(Math.log10(v))); return [1, 2, 2.5, 5, 10].map(m => m * p).find(m => m >= v) || v; };
   const desenharTL = anima => {
     const box = $('#pvTl'), boxA = $('#pvTlAcc'); if (!box || !S) return;
-    desenharMeses();
-    const SM = S.filter(s => s.d.startsWith(F.dia.slice(0, 7)));
+    const SM = S.filter(s => noPer(s.d));
     const W = Math.max(320, box.clientWidth), H = 190, m = { l: 38, r: 12, t: 22, b: 34 };
     const n = SM.length, cw = (W - m.l - m.r) / n, bw = Math.max(4, Math.min(26, cw * .62));
     const ymax = nice(Math.max(5, ...SM.map(s => s.v)) * 1.08), y = v => m.t + (H - m.t - m.b) * (1 - v / ymax);
     const x = i => m.l + cw * i + cw / 2;
     const ticks = [0, ymax / 2, ymax];
     const lbl = new Set(); // rótulos seletivos: maiores, dia escolhido
-    [...SM].map((s, i) => [s.v, i]).filter(a => a[0] > 0).sort((a, b) => b[0] - a[0]).slice(0, Math.max(3, Math.floor(n / 6))).forEach(a => lbl.add(a[1]));
+    [...SM].map((s, i) => [s.v, i]).filter(a => a[0] > 0).sort((a, b) => b[0] - a[0]).slice(0, n > 45 ? 6 : Math.max(3, Math.floor(n / 6))).forEach(a => lbl.add(a[1]));
     const sel = SM.findIndex(s => s.d === F.dia); lbl.add(sel);
     const passoX = Math.ceil(28 / cw);
     box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="pv-svg">
@@ -358,7 +379,7 @@
         const h = Math.max(0, y(0) - y(s.v)), dt = new Date(s.d + 'T12:00:00'), fds = dt.getDay() === 0;
         const bar = s.v > 0 ? `<path class="bar${i === sel ? ' is-sel' : ''}" style="--i:${i}" d="M${x(i) - bw / 2} ${y(0)} V${y(0) - h + Math.min(4, h)} q0 -${Math.min(4, h)} ${Math.min(4, bw / 2)} -${Math.min(4, h)} H${x(i) + bw / 2 - Math.min(4, bw / 2)} q${Math.min(4, bw / 2)} 0 ${Math.min(4, bw / 2)} ${Math.min(4, h)} V${y(0)} Z"/>` : `<circle class="zero${i === sel ? ' is-sel' : ''}" cx="${x(i)}" cy="${y(0) - 4}" r="2.6"/>`;
         const t = lbl.has(i) && s.v > 0 ? `<text class="vl${i === sel ? ' is-sel' : ''}" x="${x(i)}" y="${y(s.v) - 6}" text-anchor="middle">${mm(s.v)}</text>` : '';
-        const ax = (i % passoX === 0 || i === sel) ? `<text class="ax${i === sel ? ' is-sel' : ''}${fds ? ' fds' : ''}" x="${x(i)}" y="${H - m.b + 16}" text-anchor="middle">${s.d.slice(8)}</text>` : '';
+        const ax = ((n <= 62 ? i % passoX === 0 : /-(01|15)$/.test(s.d)) || i === sel) ? `<text class="ax${i === sel ? ' is-sel' : ''}${fds ? ' fds' : ''}" x="${x(i)}" y="${H - m.b + 16}" text-anchor="middle">${s.d.slice(8)}</text>` : '';
         const mesIni = s.d.endsWith('-01') ? `<text class="ax mes" x="${x(i) - cw / 2 + 2}" y="${H - 4}">${MESES[+s.d.slice(5, 7) - 1]}</text>` : '';
         return bar + t + ax + mesIni;
       }).join('')}
@@ -393,24 +414,11 @@
     if (anima && !semMov()) svg.classList.add('cresce');
   };
 
-  /* ---------- meses (seletor da linha do tempo e do mapa) ---------- */
-  const desenharMeses = () => {
-    const el = $('#pvMeses'); if (!el || !S) return;
-    const ms = [...new Set(S.map(s => s.d.slice(0, 7)))];
-    const tot = ms.map(m => { const a = S.filter(s => s.d.startsWith(m)); return { m, v: a.reduce((t, s) => t + s.v, 0), n: a.filter(s => s.n).length }; }).filter(x => x.n || x.m === F.dia.slice(0, 7) || x.m === ms[ms.length - 1]);
-    const mx = Math.max(1, ...tot.map(t => t.v)), cur = F.dia.slice(0, 7);
-    el.innerHTML = tot.map(t => `<button type="button" data-m="${t.m}" class="${t.m === cur ? 'is-on' : ''}" title="${MESES[+t.m.slice(5) - 1]}: ${mm(t.v)} mm"><span>${MESES[+t.m.slice(5) - 1].slice(0, 3)}</span><b>${mm(t.v)}<small> mm</small></b><i style="--w:${(t.v / mx * 100).toFixed(1)}%"></i></button>`).join('');
-    el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-      const m = b.dataset.m; if (m === F.dia.slice(0, 7)) return;
-      const ds = IDX.dias.filter(d => d.startsWith(m)); F.dia = ds[ds.length - 1]; atualizar(true);
-    }));
-  };
-
   /* ---------- mapa de calor ---------- */
   const desenharHeat = () => {
     const el = $('#pvHeat'); if (!el) return;
     const fr = IDX.frentes.filter(f => !F.frente || f === F.frente);
-    const diasM = IDX.dias.filter(d => d.startsWith(F.dia.slice(0, 7)));
+    const diasM = diasPer();
     const val = {}; diasM.forEach(d => porFrente(d).forEach(f => { (val[f.frente] || (val[f.frente] = {}))[d] = f; }));
     const linhas = fr.filter(f => !(F.cod || F.faz) || diasM.some(d => val[f] && val[f][d] && val[f][d].n));
     el.style.setProperty('--n', diasM.length);
@@ -435,9 +443,10 @@
       let dia = null, A = 0, B = 0, C = 0, mesV = 0, acc = 0, nd = 0;
       IDX.dias.filter(d => d <= F.dia).forEach(d => {
         const m = IDX.porDia.get(d); if (!m) return;
+        const dentro = d >= F.de;
         const vs = x.lis.map(li => m.get(li)).filter(Boolean); if (!vs.length) return;
         const v = vs.reduce((s, y) => s + valLocal(y), 0) / vs.length;
-        acc += v; if (d.startsWith(mes)) mesV += v; if (v > 0) nd++;
+        if (dentro) { acc += v; if (v > 0) nd++; } if (d.startsWith(mes)) mesV += v;
         if (d === F.dia) { dia = v; A = vs.reduce((s, y) => s + y.A, 0) / vs.length; B = vs.reduce((s, y) => s + y.B, 0) / vs.length; C = vs.reduce((s, y) => s + y.C, 0) / vs.length; }
       });
       return { ...x, frente: [...x.fr].join(', '), dia, A, B, C, mes: mesV, acc, nd };
@@ -445,18 +454,18 @@
     const k = ORD.k; rows.sort((a, b) => (typeof a[k] === 'string' ? a[k].localeCompare(b[k], 'pt-BR', { numeric: true }) : (a[k] ?? -1) - (b[k] ?? -1)) * ORD.dir);
     const mxA = Math.max(1, ...rows.map(r => r.acc));
     const th = (k2, t, cls = '') => `<th data-k="${k2}" class="${cls}${ORD.k === k2 ? ' ord' + (ORD.dir > 0 ? ' asc' : ' desc') : ''}">${t}</th>`;
-    el.innerHTML = `<thead><tr>${th('cod', 'Cód.')}${th('faz', 'Fazenda')}${th('frente', 'Frente')}${F.turno === 'todos' ? TURNOS.map(t => th(t, 'Turno ' + t, 'n')).join('') : ''}${th('dia', `Dia ${brC(F.dia)}`, 'n')}${th('mes', 'Mês', 'n')}${th('acc', 'Acumulado', 'n')}${th('nd', 'Dias c/ chuva', 'n')}</tr></thead>
+    el.innerHTML = `<thead><tr>${th('cod', 'Cód.')}${th('faz', 'Fazenda')}${th('frente', 'Frente')}${F.turno === 'todos' ? TURNOS.map(t => th(t, 'Turno ' + t, 'n')).join('') : ''}${th('dia', `Dia ${brC(F.dia)}`, 'n')}${th('mes', 'Mês', 'n')}${th('acc', `${brC(F.de)} a ${brC(F.dia)}`, 'n')}${th('nd', 'Dias c/ chuva', 'n')}</tr></thead>
       <tbody>${rows.map(r => `<tr><td class="cod">${esc(r.cod)}</td><td><b>${esc(r.faz)}</b></td><td class="fr">${esc(r.frente.replace(/ · /g, ' '))}</td>${F.turno === 'todos' ? TURNOS.map(t => `<td class="n">${r.dia == null ? '<span class="nd">—</span>' : mm(r[t])}</td>`).join('') : ''}<td class="n"><span class="pill" style="background:${corMm(r.dia || 0)};color:${(r.dia || 0) > 10 ? '#fff' : 'var(--ink)'}">${r.dia == null ? '—' : mm(r.dia)}</span></td><td class="n">${mm(r.mes)}</td><td class="n acc"><span class="mb"><i style="width:${(r.acc / mxA * 100).toFixed(1)}%"></i></span>${mm(r.acc)}</td><td class="n">${r.nd}</td></tr>`).join('')}</tbody>`;
     el.querySelectorAll('th[data-k]').forEach(h => h.addEventListener('click', () => { ORD = { k: h.dataset.k, dir: ORD.k === h.dataset.k ? -ORD.dir : (['cod', 'faz', 'frente'].includes(h.dataset.k) ? 1 : -1) }; desenharTab(); }));
   };
 
   /* ---------- integração com o painel ---------- */
   let MONTADO = false, DADOS = null;
-  const vazio = () => { const fl = $('.pv-filtros'); if (fl) fl.hidden = true; const r = raiz(); if (r) r.innerHTML = `<section class="section section--first" data-nome="Pluviométrico"><article class="card pv-vazio"><i class="fa-solid fa-cloud-rain"></i><h3>Ainda sem dados do pluviométrico</h3><p class="hint">Salve a planilha <b>Pluviométrico 2026.xlsm</b> na pasta Histórico e abra o painel com o usuário que publica: ela sobe para o GitHub junto com o resto.</p></article></section>`; };
+  const vazio = () => { const fl = $('.pv-filtros'); if (fl) fl.hidden = true; const pp = $('.pv-per'); if (pp) pp.hidden = true; const r = raiz(); if (r) r.innerHTML = `<section class="section section--first" data-nome="Pluviométrico"><article class="card pv-vazio"><i class="fa-solid fa-cloud-rain"></i><h3>Ainda sem dados do pluviométrico</h3><p class="hint">Salve a planilha <b>Pluviométrico 2026.xlsm</b> na pasta Histórico e abra o painel com o usuário que publica: ela sobe para o GitHub junto com o resto.</p></article></section>`; };
   const naPagina = () => window.Layout && Layout.pagina && Layout.pagina() === 'pluvio';
   const mostrar = () => {
     if (!DADOS) { vazio(); if (naPagina()) Layout.secoes(); return; }
-    const fl = $('.pv-filtros'); if (fl) fl.hidden = false;
+    const fl = $('.pv-filtros'); if (fl) fl.hidden = false; const pp = $('.pv-per'); if (pp) pp.hidden = false;
     P.montar(DADOS); MONTADO = true;
     requestAnimationFrame(() => mover('#pvTurno', $('#pvTurno button.is-on'), true));
     if (naPagina()) { Layout.secoes(); }
