@@ -363,7 +363,7 @@
       }
       const pl = pls.transporte;
       const plNova = pl && (!IDX.transporte || IDX.transporte.mtime < pl.f.lastModified || IDX.transporte.nome !== pl.nome);
-      const incNova = mudou('incendio', pls.incendio), usNova = mudou('usuarios', pls.usuarios), coaNova = mudou('coa', coaArq), pvNova = mudou('pluvio', pls.pluvio);
+      const incNova = mudou('incendio', pls.incendio), usNova = mudou('usuarios', pls.usuarios), coaNova = mudou('coa', coaArq), pvNova = mudou('pluvio', pls.pluvio) || !!(pls.pluvio && window.Pluvio && (F.pluvio || {}).v !== Pluvio.VERSAO);
       if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !anArqNovo) {
         if (!silencioso) { Painel.fecharModal(); toast(`<i class="fa-solid fa-circle-check"></i> Histórico em dia · ${datas().length} relatórios`, 3500); }
         await guardarUltima(); marcarStatus(); return;
@@ -435,7 +435,7 @@
           const X = await carregaXlsx();
           const PV = Pluvio.ler(X.read(await p.f.arrayBuffer(), { type: 'array', cellDates: true }), X, p.nome);
           arquivos.push({ path: 'pluviometrico.json', content: JSON.stringify(await Acesso.encryptJson(PV)) });
-          novasF.pluvio = { nome: p.nome, mtime: p.f.lastModified };
+          novasF.pluvio = { nome: p.nome, mtime: p.f.lastModified, v: Pluvio.VERSAO };
           extras.push(`pluviométrico (até ${brC(PV.meta.ate)})`); pvLido = PV;
         } catch (e) { erros.push(`${p.nome}: ${e.message || e}`); }
       }
