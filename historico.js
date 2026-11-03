@@ -5,7 +5,7 @@
      historico/indice-operacao.json   resumo leve de cada dia (para períodos)
      historico/dias/AAAA-MM-DD.json   relatório completo do dia (dados + análise)
 
-   Sincronização: a página lê a pasta de PDFs do computador (vinculada uma vez),
+   Sincronização (só ao clicar no botão Sincronizar): a página lê a pasta do computador (vinculada uma vez),
    encontra os relatórios novos ou alterados, lê cada PDF no próprio navegador e
    publica tudo no GitHub num único commit (com o token salvo neste navegador).
    Sem token, gera um .zip com as pastas prontas para subir manualmente.
@@ -1089,11 +1089,8 @@
       bs.addEventListener('touchend', () => clearTimeout(t));
     }
     $('#histVolta')?.addEventListener('click', () => Painel.voltarAtual());
-    // sincroniza sozinho quando a pasta já está autorizada neste navegador
-    if (SUPORTA_PASTA && Layout.editor()) {
-      const p = await pastaGuardada();
-      if (p && (await permissao(p, false))) H.sincronizar({ silencioso: true });
-    }
+    // a publicação no GitHub só acontece quando o editor clica em Sincronizar (sem envio automático ao abrir a página)
+    marcarStatus();
   };
   window.Hist = H;
 })();
