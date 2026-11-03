@@ -1,0 +1,93 @@
+/* ===================== Transporte · Master Driver Scania ===================== */
+.sc-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 6px 0 12px; }
+.sc-head h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 22px; font-stretch: 112%; color: var(--ink); }
+.sc-head h2 .sc-logo { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--canavial); color: #fff; font-size: 15px; }
+.sc-head p { margin: 0; font-size: 12.5px; color: var(--muted); }
+
+/* barra de filtros (usa os componentes pv-* do pluviométrico) */
+.sc-fbar { grid-template-columns: auto minmax(0, 1fr) auto !important; grid-template-areas: none !important; }
+.sc-fbar .pv-fg { grid-area: auto !important; border-top: 0 !important; padding-top: 0 !important; }
+.sc-range select { border: 0; background: none; height: 36px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink); cursor: pointer; max-width: 150px; }
+.sc-range select:focus { outline: none; }
+.sc-fbar .pv-sel { padding-left: 10px; }
+.sc-fbar .pv-sel select { min-width: 140px; }
+@media (max-width: 1100px) { .sc-fbar { grid-template-columns: 1fr 1fr !important; } .sc-fbar .sc-fg--per { grid-column: 1 / -1; order: -1; } .sc-fbar .pv-fg:nth-child(2) { border-left: 0; } }
+@media (max-width: 640px) { .sc-fbar { grid-template-columns: 1fr !important; } .sc-fbar .pv-fg { border-left: 0 !important; } .sc-range { width: 100%; justify-content: space-between; } }
+
+/* cards */
+.sc-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.sc-k { cursor: pointer; display: flex; flex-direction: column; border-left-color: #2E6B3A !important; opacity: 0; animation: scEntra .55s cubic-bezier(.2, .8, .2, 1) forwards; animation-delay: calc(var(--i) * 60ms); transition: transform .15s, box-shadow .2s; }
+.sc-k:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(24,48,31,.08); }
+.sc-k.is-sel { border-color: #2E6B3A; box-shadow: 0 0 0 2px rgba(46,107,58,.18); }
+.sc-k .k__v b { font-size: 30px; }
+.sc-k .k__s { white-space: normal; line-height: 1.35; min-height: 32px; }
+.sc-d { display: inline-flex; align-items: center; gap: 5px; margin-top: auto; padding-top: 8px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.sc-d.is-bom, .is-bom { color: #1c5cab; }
+.sc-d.is-ruim, .is-ruim { color: #b8401c; }
+.sc-bar { height: 6px; border-radius: 4px; background: #EEF1EC; overflow: hidden; margin-top: 8px; }
+.sc-bar i { display: block; height: 100%; width: 0; border-radius: 4px; background: #2E6B3A; transition: width 1s cubic-bezier(.2, .8, .2, 1); }
+.sc-bar.is-ruim i { background: #e5673d; }
+.sc-bar i.on { width: var(--w); }
+@keyframes scEntra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* grades */
+.sc-g2 { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 2.2fr); gap: 14px; margin-bottom: 14px; }
+.sc-g2b { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+.sc-leit { padding: 18px 20px !important; background: linear-gradient(170deg, #fff 60%, #F1F6EE 100%) !important; }
+.sc-leit p { margin: 10px 0 0; font-size: 14px; line-height: 1.65; color: #37483C; }
+.sc-leit p b { color: var(--ink); }
+.sc-met { height: 36px; margin: 0 0 8px; overflow-x: auto; max-width: 100%; }
+.sc-met button { font-size: 12.5px; flex: 0 0 auto; }
+.sc-chart { width: 100%; overflow: hidden; }
+.sc-svg .sc-ln { fill: none; stroke: #2E6B3A; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.sc-svg .sc-ln.draw { stroke-dasharray: 4000; stroke-dashoffset: 4000; animation: scDraw 1.4s cubic-bezier(.2, .8, .2, 1) forwards; }
+@keyframes scDraw { to { stroke-dashoffset: 0; } }
+.sc-svg .sc-ln-f { fill: none; stroke: #9AA79E; stroke-width: 2; stroke-dasharray: 4 4; }
+.sc-svg .sc-area { fill: url(#scG); }
+.sc-svg .sc-pt { fill: #fff; stroke: #2E6B3A; stroke-width: 2; }
+.sc-svg .sc-vl { font-size: 11.5px; font-weight: 700; fill: var(--ink); font-variant-numeric: tabular-nums; }
+.sc-svg .sc-med { stroke: #18301F; stroke-width: 1.2; stroke-dasharray: 5 4; opacity: .55; }
+.sc-svg .sc-med-b { fill: #18301F; }
+.sc-svg .sc-med-t { fill: #fff; font-size: 11.5px; font-weight: 700; }
+.sc-svg .sc-cross { stroke: #18301F; stroke-width: 1; opacity: .25; transition: opacity .15s; }
+.sc-svg .sc-bar-v { fill: #6fa85a; transform-box: fill-box; transform-origin: bottom; }
+.sc-svg.cresce .sc-bar-v { animation: pvCresce .7s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 22ms); }
+.sc-svg .sc-axt { font-size: 11.5px; fill: var(--muted); font-weight: 600; }
+.sc-svg .sc-bol { stroke: #fff; stroke-width: 2; cursor: pointer; opacity: .9; transition: opacity .2s, stroke .2s; transform-box: fill-box; transform-origin: center; }
+.sc-svg .sc-bol:hover { opacity: 1; stroke: #18301F; }
+.sc-svg .sc-bol.is-sel { stroke: #18301F; stroke-width: 3; opacity: 1; }
+.sc-svg .sc-bol.entra { animation: scBol .6s cubic-bezier(.3, 1.4, .5, 1) both; animation-delay: calc(var(--i) * 25ms); }
+@keyframes scBol { from { transform: scale(0); } }
+.sc-svg .sc-bl { font-size: 11px; font-weight: 700; fill: var(--ink); }
+
+/* ranking */
+.sc-leg { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 11.5px; color: var(--muted); }
+.sc-leg span { display: inline-flex; align-items: center; gap: 6px; }
+.sc-leg i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.sc-rank { position: relative; display: grid; gap: 2px; max-height: 360px; overflow-y: auto; padding-right: 4px; }
+.sc-rank__ref { position: absolute; top: 0; bottom: 0; left: calc(96px + (100% - 96px - 60px) * 0); pointer-events: none; }
+.sc-rank__ref { display: none; }
+.sc-rank__l { display: grid; grid-template-columns: 24px 70px minmax(0, 1fr) 56px; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 8px; font-size: 12.5px; cursor: pointer; opacity: 0; animation: scEntra .45s cubic-bezier(.2, .8, .2, 1) forwards; animation-delay: calc(var(--i) * 18ms); }
+.sc-rank__l:hover { background: #F4F7F2; }
+.sc-rank__l.is-sel { background: #EAF2E6; box-shadow: inset 0 0 0 1px #2E6B3A; }
+.sc-rank__l .n { color: #A7B2AA; font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; }
+.sc-rank__l .id { font-weight: 700; color: var(--ink); }
+.sc-rank__l .trk { height: 12px; }
+.sc-rank__l .trk i { display: block; height: 100%; width: 0; border-radius: 0 4px 4px 0; transition: width .8s cubic-bezier(.2, .8, .2, 1); }
+.sc-rank__l .trk i.on { width: var(--w); }
+.sc-rank__l b { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* tabela */
+.sc-tab tbody tr { cursor: pointer; }
+.sc-tab tbody tr.is-sel { background: #EAF2E6; }
+.sc-tab tfoot td { border-top: 2px solid var(--line); padding: 9px 10px; font-variant-numeric: tabular-nums; }
+.sc-tab tfoot td.n { text-align: right; }
+.sc-spark polyline { fill: none; stroke: #2E6B3A; stroke-width: 1.8; stroke-linejoin: round; }
+.sc-tip { min-width: 190px; }
+
+@media (max-width: 1280px) { .sc-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1000px) { .sc-g2, .sc-g2b { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .sc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sc-k .k__v b { font-size: 24px; } }
+@media (prefers-reduced-motion: reduce) { .sc-k, .sc-rank__l { animation: none !important; opacity: 1; } }
+
+#scania[hidden] { display: none !important; }

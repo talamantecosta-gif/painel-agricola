@@ -18,6 +18,7 @@
      analise.json                      → analise.json + arquivo do dia
      historico_analise_coa.json        → historico/analise-coa.json
      Pluviométrico 2026.xlsm (aba Acumulado) → pluviometrico.json
+     subpasta Master Driver Scania (relatórios semanais .xlsx) → historico/scania.json
    ========================================================================= */
 (function () {
   'use strict';
@@ -310,8 +311,9 @@
       await carregarIndice(c && c.token ? c : null);
       // arquivos da pasta
       const pdfs = [], analises = [], planilhas = [];
-      let coaArq = null;
+      let coaArq = null, scDir = null;
       for await (const [nome, h] of dir.entries()) {
+        if (h.kind === 'directory' && /master\s*driver|scania/i.test(nome)) { scDir = h; continue; }
         if (h.kind !== 'file') continue;
         if (/\.pdf$/i.test(nome)) pdfs.push({ nome, h });
         else if (/\.json$/i.test(nome) && /hist.*analise|analise.*coa/i.test(nome)) { const f = await h.getFile(); if (!coaArq || f.lastModified > coaArq.f.lastModified) coaArq = { nome, h, f }; }
@@ -363,8 +365,14 @@
       }
       const pl = pls.transporte;
       const plNova = pl && (!IDX.transporte || IDX.transporte.mtime < pl.f.lastModified || IDX.transporte.nome !== pl.nome);
+      // relatórios semanais do Master Driver Scania (subpasta)
+      const scArqs = [];
+      if (scDir) { for await (const [nome, h] of scDir.entries()) if (h.kind === 'file' && /\.xlsx?$/i.test(nome) && !nome.startsWith('~$')) scArqs.push({ nome, f: await h.getFile() }); }
+      const hashTxt = t => { let x = 5381; for (let i = 0; i < t.length; i++) x = ((x << 5) + x + t.charCodeAt(i)) | 0; return (x >>> 0).toString(36); };
+      const scSig = scArqs.length ? hashTxt(scArqs.map(a => `${a.nome}|${a.f.lastModified}`).sort().join(';')) : null;
+      const scNova = !!(scSig && window.Scania && (!F.scania || F.scania.sig !== scSig || F.scania.v !== Scania.VERSAO));
       const incNova = mudou('incendio', pls.incendio), usNova = mudou('usuarios', pls.usuarios), coaNova = mudou('coa', coaArq), pvNova = mudou('pluvio', pls.pluvio) || !!(pls.pluvio && window.Pluvio && (F.pluvio || {}).v !== Pluvio.VERSAO);
-      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !anArqNovo) {
+      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !scNova && !anArqNovo) {
         if (!silencioso) { Painel.fecharModal(); toast(`<i class="fa-solid fa-circle-check"></i> Histórico em dia · ${datas().length} relatórios`, 3500); }
         await guardarUltima(); marcarStatus(); return;
       }
@@ -439,6 +447,19 @@
           extras.push(`pluviométrico (até ${brC(PV.meta.ate)})`); pvLido = PV;
         } catch (e) { erros.push(`${p.nome}: ${e.message || e}`); }
       }
+      let scLido = null;
+      if (scNova) {
+        progresso(`Lendo ${scArqs.length} relatórios do Master Driver Scania`);
+        try {
+          const X = await carregaXlsx(); const sem = [];
+          for (const a of scArqs) { try { sem.push(Scania.lerArquivo(X.read(await a.f.arrayBuffer(), { type: 'array' }), X, a.nome)); } catch (e) { erros.push(`Master Driver Scania · ${a.nome}: ${e.message || e}`); } }
+          if (!sem.length) throw new Error('nenhum relatório semanal pôde ser lido');
+          const SC = Scania.juntar(sem);
+          arquivos.push({ path: 'historico/scania.json', content: JSON.stringify(await Acesso.encryptJson(SC)) });
+          novasF.scania = { sig: scSig, v: Scania.VERSAO, n: scArqs.length };
+          extras.push(`Master Driver Scania (${SC.semanas.length} semanas)`); scLido = SC;
+        } catch (e) { erros.push(`Master Driver Scania: ${e.message || e}`); }
+      }
       if (coaNova) {
         progresso(`Lendo ${coaArq.nome}`);
         try {
@@ -488,6 +509,7 @@
           <p class="hint">Para não precisar mais disso, use <b>Configurar GitHub</b> na página Histórico.</p>${erros.length ? `<p>Atenção:</p>${ul(erros)}` : ''}`, [{ html: 'Fechar', primary: true, onClick: Painel.fecharModal }]);
       }
       if (pvLido && window.Pluvio) Pluvio.definir(pvLido);
+      if (scLido && window.Scania) Scania.definir(scLido);
       if (virouAtual) Painel.definirAtual(ultimo.raw, ultimo.an || (anRaiz && anRaiz.data === ultimo.d ? anRaiz : (Painel.analise && Painel.analise.data === ultimo.d ? Painel.analise : null)));
       else if (anRaiz && Painel.atual?.raw) Painel.definirAtual(Painel.atual.raw, anRaiz);
       await guardarUltima();
@@ -1066,6 +1088,7 @@
     // gráficos do histórico também redesenham ao entrar na página
     const antes = Layout.aoEntrar;
     if (window.Pluvio) Pluvio.iniciar();
+    if (window.Scania) Scania.iniciar();
     Layout.aoEntrar = pg => { if (antes) antes(pg); Object.values(G).forEach(c => { try { if (pg.contains(c.canvas)) { c.resize(); c.reset(); c.update(); } } catch (e) { /* */ } }); };
     await carregarIndice();
     TRANSP = await lerSite('historico/transporte.json');

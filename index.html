@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="tema.css?v=20261027a">
   <link rel="stylesheet" href="layout.css?v=20261027h">
   <link rel="stylesheet" href="pluviometrico.css?v=20261103a">
+  <link rel="stylesheet" href="scania.css?v=20261103a">
 </head>
 <body class="auth-locked lay">
 
@@ -329,6 +330,31 @@
             </article>
           </div>
         </section>
+
+        <section class="section" id="scania" hidden data-nome="Condução Scania">
+          <div class="sc-head">
+            <h2><span class="sc-logo"><i class="fa-solid fa-gauge-high"></i></span>Condução · Master Driver Scania</h2>
+            <p id="scPgData">Relatório semanal</p>
+          </div>
+          <div class="pv-fbar pv-filtros sc-fbar" aria-label="Filtros do Master Driver">
+            <div class="pv-fg">
+              <span class="pv-fl"><i class="fa-solid fa-gas-pump"></i>Frota</span>
+              <div class="pv-seg" id="scTipo" role="tablist" aria-label="Combustível"><span class="ind"></span><button type="button" data-t="diesel" class="is-on">Diesel</button><button type="button" data-t="biogas">Biogás</button></div>
+            </div>
+            <div class="pv-fg sc-fg--per">
+              <span class="pv-fl"><i class="fa-regular fa-calendar"></i>Semanas</span>
+              <div class="pv-fctl">
+                <div class="pv-range sc-range"><select id="scDe" aria-label="Semana inicial"></select><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i><select id="scAte" aria-label="Semana final"></select></div>
+                <div class="pv-seg pv-pre" id="scPre" role="group" aria-label="Atalhos"><button type="button" data-pre="1">Última</button><button type="button" data-pre="4" class="is-on">4 semanas</button><button type="button" data-pre="12">12 semanas</button><button type="button" data-pre="tudo">Safra</button></div>
+              </div>
+            </div>
+            <div class="pv-fg">
+              <span class="pv-fl"><i class="fa-solid fa-truck"></i>Equipamento</span>
+              <div class="pv-fctl"><label class="pv-sel"><select id="scEq" aria-label="Equipamento"></select></label><button type="button" class="pv-limpar" id="scLimpar"><i class="fa-solid fa-rotate-left"></i><span>Limpar</span></button></div>
+            </div>
+          </div>
+          <div id="scConteudo"></div>
+        </section>
       </div>
 
       <!-- =============================== VINHAÇA =============================== -->
@@ -475,10 +501,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
   <script src="acesso.js?v=20261012c"></script>
-  <script src="layout.js?v=20261027h"></script>
+  <script src="layout.js?v=20261103a"></script>
   <script src="script.js?v=20261027d"></script>
   <script src="incendio-planilha.js?v=20261028a"></script>
   <script src="pluviometrico.js?v=20261029c"></script>
-  <script src="historico.js?v=20261103a"></script>
+  <script src="scania.js?v=20261103a"></script>
+  <script src="historico.js?v=20261103b"></script>
 </body>
 </html>

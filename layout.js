@@ -68,7 +68,7 @@
     const n = secs(); if (!n) return;
     if (!lista) {
       const pg = $('.page.is-on') || document;
-      lista = [...pg.querySelectorAll('[data-nome]')].map(s => [s.id, s.dataset.nome]);
+      lista = [...pg.querySelectorAll('[data-nome]')].filter(s => !s.hidden).map(s => [s.id, s.dataset.nome]);
       if (!lista.length && n.dataset.lista) lista = n.dataset.lista.split('|').map(x => x.split(':'));
     }
     n.innerHTML = '<span class="ind"></span>' + lista.map(([id, nome], i) => `<button type="button" data-s="${id}" class="${i ? '' : 'is-on'}">${nome}</button>`).join('');
