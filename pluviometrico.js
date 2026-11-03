@@ -340,7 +340,8 @@
   const desenharFrentes = fr => {
     const el = $('#pvFr'); if (!el) return;
     $('#pvFrHint').textContent = `Dia ${br(F.dia)} · média dos pontos da frente · ${F.turno === 'todos' ? 'turnos empilhados' : 'turno ' + F.turno}`;
-    const lista = [...fr].sort((a, b) => b.v - a.v || a.frente.localeCompare(b.frente, 'pt-BR', { numeric: true }));
+    const ordF = (a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }); // ordem das frentes: Colheita 01…37, depois Fertirrigação
+    const lista = [...fr].sort((a, b) => ordF(a.frente, b.frente));
     const mx = Math.max(1, ...lista.map(f => f.v));
     el.innerHTML = lista.map((f, i) => `<div class="pv-fr__l" data-f="${esc(f.frente)}" style="--i:${i}"><span class="nm">${esc(f.frente.replace(' · ', ' '))}<small>${esc(f.faz || 'sem medição')}</small></span><span class="trk">${tSel().map(t => f[t] > 0 ? `<i style="--w:${(f[t] / mx * 100).toFixed(2)}%;background:${COR_T[t]}" data-t="${t}"></i>` : '').join('')}</span><b>${f.n ? mm(f.v) : '—'}<small>${f.n ? ' mm' : ''}</small></b></div>`).join('') || '<p class="hint">Sem frentes para o filtro.</p>';
     requestAnimationFrame(() => requestAnimationFrame(() => el.querySelectorAll('.trk i').forEach(i => i.classList.add('on'))));
@@ -353,7 +354,7 @@
     const ac = $('#pvFrAcc'); if (!ac) return;
     const tot = new Map(IDX.frentes.map(f => [f, 0]));
     IDX.dias.filter(d => d >= F.de && d <= F.dia).forEach(d => porFrente(d).forEach(f => tot.set(f.frente, tot.get(f.frente) + f.v)));
-    const la = [...tot].filter(([f]) => fr.some(x => x.frente === f)).sort((a, b) => b[1] - a[1]); const mxa = Math.max(1, ...la.map(x => x[1]));
+    const la = [...tot].filter(([f]) => fr.some(x => x.frente === f)).sort((a, b) => ordF(a[0], b[0])); const mxa = Math.max(1, ...la.map(x => x[1]));
     ac.innerHTML = la.map(([f, v], i) => `<div class="pv-fr__l" style="--i:${i}"><span class="nm">${esc(f.replace(' · ', ' '))}</span><span class="trk"><i style="--w:${(v / mxa * 100).toFixed(2)}%;background:#2a78d6"></i></span><b>${mm(v)}<small> mm</small></b></div>`).join('');
     requestAnimationFrame(() => requestAnimationFrame(() => ac.querySelectorAll('.trk i').forEach(i => i.classList.add('on'))));
   };
