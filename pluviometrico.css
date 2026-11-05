@@ -163,7 +163,14 @@
 .pv-escbar i { width: 20px; height: 10px; border-radius: 2px; }
 .pv-escbar span { margin: 0 6px; }
 .pv-heat { overflow-x: auto; padding-bottom: 4px; }
-.pv-heat__g { display: grid; grid-template-columns: 150px repeat(var(--n), minmax(22px, 1fr)); gap: 2px; min-width: calc(150px + var(--n) * 24px); }
+.pv-heat__g { display: grid; gap: 2px; }
+.pv-heat .mh { display: flex; align-items: baseline; gap: 4px; padding: 0 2px 5px; margin-bottom: 4px; border-bottom: 2px solid var(--palha); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--palha); white-space: nowrap; overflow: hidden; }
+.pv-heat .mh small { font-weight: 600; color: #C9B48A; letter-spacing: .04em; }
+.pv-heat .sep { display: block; }
+/* nomes das frentes fixos ao rolar para o lado */
+.pv-heat .rl, .pv-heat .mh0, .pv-heat .hd0 { position: sticky; left: 0; z-index: 3; background: #fff; }
+.pv-heat .rl { box-shadow: 6px 0 8px -6px rgba(24,48,31,.18); height: 28px; margin: -1px 0; display: flex; align-items: center; align-self: stretch; }
+.pv-heat .hd0, .pv-heat .mh0 { align-self: stretch; }
 .pv-heat .hd { font-size: 10.5px; color: var(--muted); text-align: center; padding-bottom: 4px; cursor: pointer; font-variant-numeric: tabular-nums; }
 .pv-heat .hd.is-sel { color: var(--chuva-esc); font-weight: 700; }
 .pv-heat .rl { font-size: 12px; color: var(--ink); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px; align-self: center; }
@@ -208,7 +215,6 @@
   .pv-big b { font-size: 44px; }
   .pv-kcol { grid-template-columns: 1fr; }
   .pv-fr__l { grid-template-columns: 110px minmax(0, 1fr) 56px; gap: 8px; }
-  .pv-heat__g { grid-template-columns: 110px repeat(var(--n), 22px); }
 }
 @media (prefers-reduced-motion: reduce) { .pv-onda, .pv-fr__l, .pv-heat .cl { animation: none !important; opacity: 1; } }
 

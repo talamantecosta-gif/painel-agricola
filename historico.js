@@ -624,7 +624,7 @@
   // texto com contorno branco (legível sobre linhas e grade)
   const texto = (ctx, t, x, y, cor) => { ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineJoin = 'round'; ctx.strokeText(t, x, y); ctx.fillStyle = cor; ctx.fillText(t, x, y); };
   // rótulos de dados: todos quando cabem (e até "limite" pontos); senão, só o maior, o menor e o último
-  const rotulos = ({ fmt, ds = [0], cor = C.ink, total = null, acima = null, limite = 40 }) => ({
+  const rotulos = ({ fmt, ds = [0], cor = C.ink, total = null, acima = null, limite = 40, dentro = false }) => ({
     id: 'rotulos', afterDatasetsDraw(ch) {
       const { ctx, scales: { y: ey } } = ch;
       const meta0 = ch.getDatasetMeta(ds[0]); if (!meta0 || meta0.hidden) return;
@@ -646,6 +646,8 @@
         if (total) { const topo = ds.map(k => ch.getDatasetMeta(k)).filter(m => !m.hidden).map(m => m.data[i].y); y = Math.min(...topo); }
         else y = p.y - (p.options?.radius || 0);
         if (acima && Number.isFinite(acima[i])) y = Math.min(y, ey.getPixelForValue(acima[i]));
+        // dentro da barra (topo, texto branco) quando ela tem altura; senão logo acima dela
+        if (dentro && Number.isFinite(p.base) && p.base - p.y > 24) { ctx.fillStyle = '#fff'; ctx.fillText(fmt(v), p.x, p.y + 15); return; }
         texto(ctx, fmt(v), p.x, y - 6, cor);
       });
       ctx.restore();
@@ -993,7 +995,7 @@
       data: { labels: lbl(), datasets: [{ label: pctMode ? 'Atingimento' : 'Produção', data: val, backgroundColor: at.map(corP), hoverBackgroundColor: at.map(p => corP(p) + 'CC'), borderRadius: 5, borderSkipped: 'bottom', maxBarThickness: 34, categoryPercentage: .78 }] },
       options: opc(L, { y: pctMode ? { suggestedMax: 110, ticks: { callback: v => v + '%', maxTicksLimit: 6, color: C.muted } } : { ticks: { callback: v => curto(v), maxTicksLimit: 6, color: C.muted } },
         tooltip: { mode: 'nearest', intersect: true, callbacks: { title: titDia, label: c => { const r = L[c.dataIndex]; return [` Produção: ${nf(r.prod, 0)} t`, ` Cota: ${nf(r.cota, 0)} t`, ` Atingimento: ${nf(r.prod / r.cota * 100, 1)}%`]; }, footer: rodapeDia } } }),
-      plugins: [tracos(pctMode ? L.map(() => 100) : L.map(r => r.cota)), linhas({ media: medio, fmtMedia: pctMode ? v => 'média ' + nf(v, 1) + '%' : v => 'média ' + curtoK(v) + ' t' }), rotulos({ fmt: pctMode ? v => nf(v, 0) + '%' : curtoK, acima: pctMode ? L.map(() => 100) : L.map(r => r.cota) })],
+      plugins: [tracos(pctMode ? L.map(() => 100) : L.map(r => r.cota)), linhas({ media: medio, fmtMedia: pctMode ? v => 'média ' + nf(v, 1) + '%' : v => 'média ' + curtoK(v) + ' t' }), rotulos({ fmt: pctMode ? v => nf(v, 0) + '%' : curtoK, dentro: true })],
     });
   };
   const desenharEf = () => {
@@ -1035,7 +1037,7 @@
       type: 'bar',
       data: { labels: c.map(x => x.id), datasets: [{ label: 'Média t/dia', data: c.map(x => x.med), backgroundColor: c.map(x => (x.med >= x.meta ? ST.ok : ST.bad)), borderRadius: 5, borderSkipped: 'bottom', maxBarThickness: 28 }] },
       options: (() => { const o = opc(L, { clicavel: false, y: { suggestedMax: Math.max(0, ...c.map(x => x.meta)) * 1.08, ticks: { callback: v => nf(v, 0), maxTicksLimit: 6, color: C.muted } }, tooltip: { mode: 'nearest', intersect: true, callbacks: { title: it => `${c[it[0].dataIndex].id} · ${c[it[0].dataIndex].fr}`, label: x => { const m = c[x.dataIndex]; return [` Média: ${nf(m.med, 0)} t/dia`, ` Meta: ${nf(m.meta)} t/dia`, ` ${m.dias} dias com produção`]; } } } }); o.scales.x.ticks = { autoSkip: false, maxRotation: 90, font: { size: 10.5 }, color: C.muted }; return o; })(),
-      plugins: [tracos(c.map(x => x.meta)), rotulos({ fmt: v => nf(v, 0), acima: c.map(x => x.meta) })],
+      plugins: [tracos(c.map(x => x.meta)), rotulos({ fmt: v => nf(v, 0), dentro: true })],
     });
   };
   const desenharLog = () => {

@@ -129,11 +129,15 @@
   const valLocal = x => tSel().reduce((s, t) => s + (x[t] || 0), 0);
   // pontos medidos no dia (com os filtros) → [{li, l, v, A, B, C}]
   const pontos = d => { const m = IDX.porDia.get(d); if (!m) return []; const o = []; m.forEach((x, li) => { const l = D.locais[li]; if (localOk(l)) o.push({ li, l, v: valLocal(x), ...x }); }); return o; };
+  // chuva do dia = média das frentes que REGISTRARAM chuva (frente sem chuva no dia não entra na média)
   const diaInfo = d => {
-    const p = pontos(d), n = p.length;
-    if (!n) return { d, v: 0, n: 0, A: 0, B: 0, C: 0, max: null, p };
-    const med = k => p.reduce((s, x) => s + x[k], 0) / n;
-    return { d, v: p.reduce((s, x) => s + x.v, 0) / n, n, A: med('A'), B: med('B'), C: med('C'), max: p.reduce((a, b) => (b.v > (a ? a.v : -1) ? b : a), null), p };
+    const p = pontos(d);
+    if (!p.length) return { d, v: 0, n: 0, nc: 0, A: 0, B: 0, C: 0, max: null, p };
+    const fr = porFrente(d).filter(f => f.n), ch = fr.filter(f => f.v > 0), n = fr.length, nc = ch.length;
+    const max = p.reduce((a, b) => (b.v > (a ? a.v : -1) ? b : a), null);
+    if (!nc) return { d, v: 0, n, nc: 0, A: 0, B: 0, C: 0, max, p };
+    const med = k => ch.reduce((s, x) => s + x[k], 0) / nc;
+    return { d, v: med('v'), n, nc, A: med('A'), B: med('B'), C: med('C'), max, p };
   };
   // acumulado conta a partir do início do período
   const serie = () => { let acc = 0; return IDX.dias.map(d => { const x = diaInfo(d); if (d >= F.de) acc += x.v; return { ...x, acc: d >= F.de ? acc : 0 }; }); };
@@ -298,7 +302,7 @@
     const pg = $('#pvPgData'); if (pg) pg.textContent = `Chuva de ${br(F.dia)} · ${SEM[dt.getDay()]}`;
     $('#pvHeroData').textContent = `Chuva no dia · ${SEM[dt.getDay()]}, ${brC(F.dia)}`;
     contar($('#pvDia'), x.v, x.v >= 100 ? 0 : 1, rapido ? 300 : 900);
-    $('#pvDiaSub').innerHTML = x.n ? `Média de <b>${x.n} ${x.n === 1 ? 'ponto' : 'pontos'}</b> de medição${x.max && x.max.v > 0 ? ` · maior: <b>${mm(x.max.v)} mm</b> na ${esc(x.max.l.faz)}` : ''}` : 'Sem registro de chuva neste dia';
+    $('#pvDiaSub').innerHTML = x.nc ? `Média das <b>${x.nc} ${x.nc === 1 ? 'frente' : 'frentes'}</b> que registraram chuva (de ${x.n} com medição)${x.max && x.max.v > 0 ? ` · maior: <b>${mm(x.max.v)} mm</b> na ${esc(x.max.l.faz)}` : ''}` : x.n ? `Sem chuva nas ${x.n} frentes com medição` : 'Sem registro de chuva neste dia';
     const mxT = Math.max(1, x.A, x.B, x.C);
     $('#pvTurnos').innerHTML = TURNOS.map(t => `<div class="pv-turno${F.turno !== 'todos' && F.turno !== t ? ' off' : ''}"><span>Turno ${t}</span><span class="pv-turno__bar"><i style="--w:${(x[t] / mxT * 100).toFixed(1)}%;background:${COR_T[t]}"></i></span><b>${mm(x[t])}<small> mm</small></b></div>`).join('');
     requestAnimationFrame(() => $$('#pvTurnos .pv-turno__bar i').forEach(i => i.classList.add('on')));
@@ -339,7 +343,8 @@
   };
   const desenharFrentes = fr => {
     const el = $('#pvFr'); if (!el) return;
-    $('#pvFrHint').textContent = `Dia ${br(F.dia)} · média dos pontos da frente · ${F.turno === 'todos' ? 'turnos empilhados' : 'turno ' + F.turno}`;
+    const xd = S && S.find(s => s.d === F.dia);
+    $('#pvFrHint').textContent = `Dia ${br(F.dia)} · ${F.turno === 'todos' ? 'turnos empilhados' : 'turno ' + F.turno}${xd && xd.nc ? ` · média das ${xd.nc} ${xd.nc === 1 ? 'frente' : 'frentes'} com chuva: ${mm(xd.v)} mm` : ''}`;
     const ordF = (a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }); // ordem das frentes: Colheita 01…37, depois Fertirrigação
     const lista = [...fr].sort((a, b) => ordF(a.frente, b.frente));
     const mx = Math.max(1, ...lista.map(f => f.v));
@@ -352,9 +357,9 @@
     });
     // acumulado por frente até o dia
     const ac = $('#pvFrAcc'); if (!ac) return;
-    const tot = new Map(IDX.frentes.map(f => [f, 0]));
-    IDX.dias.filter(d => d >= F.de && d <= F.dia).forEach(d => porFrente(d).forEach(f => tot.set(f.frente, tot.get(f.frente) + f.v)));
-    const la = [...tot].filter(([f]) => fr.some(x => x.frente === f)).sort((a, b) => ordF(a[0], b[0])); const mxa = Math.max(1, ...la.map(x => x[1]));
+    const tot = new Map(IDX.frentes.map(f => [f, 0])), med = new Set();
+    IDX.dias.filter(d => d >= F.de && d <= F.dia).forEach(d => porFrente(d).forEach(f => { tot.set(f.frente, tot.get(f.frente) + f.v); if (f.n) med.add(f.frente); }));
+    const la = [...tot].filter(([f, v]) => med.has(f) && v > 0 && fr.some(x => x.frente === f)).sort((a, b) => ordF(a[0], b[0])); const mxa = Math.max(1, ...la.map(x => x[1]));
     ac.innerHTML = la.map(([f, v], i) => `<div class="pv-fr__l" style="--i:${i}"><span class="nm">${esc(f.replace(' · ', ' '))}</span><span class="trk"><i style="--w:${(v / mxa * 100).toFixed(2)}%;background:#2a78d6"></i></span><b>${mm(v)}<small> mm</small></b></div>`).join('');
     requestAnimationFrame(() => requestAnimationFrame(() => ac.querySelectorAll('.trk i').forEach(i => i.classList.add('on'))));
   };
@@ -422,16 +427,22 @@
     const diasM = diasPer();
     const val = {}; diasM.forEach(d => porFrente(d).forEach(f => { (val[f.frente] || (val[f.frente] = {}))[d] = f; }));
     const linhas = fr.filter(f => !(F.cod || F.faz) || diasM.some(d => val[f] && val[f][d] && val[f][d].n));
-    el.style.setProperty('--n', diasM.length);
-    el.innerHTML = `<div class="pv-heat__g">
-      <span class="hd"></span>${diasM.map(d => `<span class="hd${d === F.dia ? ' is-sel' : ''}" data-d="${d}">${d.slice(8)}</span>`).join('')}
-      ${linhas.map((f, r) => `<span class="rl">${esc(f.replace(' · ', ' '))}</span>${diasM.map((d, i) => { const c = val[f] && val[f][d]; const v = c ? c.v : 0; return `<span class="cl${d === F.dia ? ' is-sel' : ''}${c && c.n ? '' : ' nd'}" data-f="${esc(f)}" data-d="${d}" style="background:${corMm(v)};--d:${(r * 18 + i * 10)}ms">${v >= 1 && v >= 10 ? Math.round(v) : ''}</span>`; }).join('')}`).join('')}
-    </div>`;
-    el.querySelectorAll('.cl').forEach(c => {
-      c.addEventListener('mousemove', e => { const f = c.dataset.f, d = c.dataset.d, x = val[f] && val[f][d]; tip.show(`<b>${esc(f)}</b><small>${br(d)}${x && x.faz ? ' · ' + esc(x.faz) : ''}</small>${x && x.n ? turnosTip(x) + `<span class="pv-tt tot">Total<b>${mm(x.v)} mm</b></span>` : '<span class="pv-tt">Sem registro<b>0 mm</b></span>'}`, e.clientX, e.clientY); });
-      c.addEventListener('mouseleave', tip.hide);
+    // blocos por mês, com um espaço entre eles
+    const grupos = []; diasM.forEach(d => { const m = d.slice(0, 7), g = grupos[grupos.length - 1]; if (g && g.m === m) g.dias.push(d); else grupos.push({ m, dias: [d] }); });
+    const colunas = ['150px'].concat(grupos.flatMap((g, i) => (i ? ['12px'] : []).concat([`repeat(${g.dias.length}, minmax(22px, 1fr))`]))).join(' ');
+    const sep = i => (i ? '<span class="sep"></span>' : '');
+    let r = 0, c = 0;
+    const html = `<span class="mh0"></span>${grupos.map((g, i) => `${sep(i)}<span class="mh" style="grid-column: span ${g.dias.length}">${MESES[+g.m.slice(5) - 1]}<small> ${g.m.slice(0, 4)}</small></span>`).join('')}
+      <span class="hd hd0"></span>${grupos.map((g, i) => sep(i) + g.dias.map(d => `<span class="hd${d === F.dia ? ' is-sel' : ''}" data-d="${d}">${d.slice(8)}</span>`).join('')).join('')}
+      ${linhas.map(f => { r++; c = 0; return `<span class="rl">${esc(f.replace(' · ', ' '))}</span>${grupos.map((g, i) => sep(i) + g.dias.map(d => { c++; const x = val[f] && val[f][d]; const v = x ? x.v : 0; return `<span class="cl${d === F.dia ? ' is-sel' : ''}${x && x.n ? '' : ' nd'}" data-f="${esc(f)}" data-d="${d}" style="background:${corMm(v)};--d:${Math.min(1200, r * 18 + c * 8)}ms">${v >= 10 ? Math.round(v) : ''}</span>`; }).join('')).join('')}`; }).join('')}`;
+    el.innerHTML = `<div class="pv-heat__g" style="grid-template-columns:${colunas};min-width:${150 + diasM.length * 24 + (grupos.length - 1) * 14}px">${html}</div>`;
+    el.querySelectorAll('.cl').forEach(cl => {
+      cl.addEventListener('mousemove', e => { const f = cl.dataset.f, d = cl.dataset.d, x = val[f] && val[f][d]; tip.show(`<b>${esc(f)}</b><small>${br(d)}${x && x.faz ? ' · ' + esc(x.faz) : ''}</small>${x && x.n ? turnosTip(x) + `<span class="pv-tt tot">Total<b>${mm(x.v)} mm</b></span>` : '<span class="pv-tt">Sem registro<b>0 mm</b></span>'}`, e.clientX, e.clientY); });
+      cl.addEventListener('mouseleave', tip.hide);
     });
-    el.querySelectorAll('[data-d]').forEach(c => c.addEventListener('click', () => { F.dia = c.dataset.d; atualizar(); }));
+    el.querySelectorAll('[data-d]').forEach(x => x.addEventListener('click', () => { F.dia = x.dataset.d; atualizar(); }));
+    // rola até o mês do dia escolhido
+    const alvo = el.querySelector('.hd.is-sel'); if (alvo && el.scrollWidth > el.clientWidth) el.scrollLeft = Math.max(0, alvo.offsetLeft - el.clientWidth + 120);
   };
 
   /* ---------- tabela ---------- */
