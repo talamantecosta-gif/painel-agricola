@@ -5,12 +5,16 @@
 .sc-head p { margin: 0; font-size: 12.5px; color: var(--muted); }
 
 /* barra de filtros (usa os componentes pv-* do pluviométrico) */
-.sc-fbar { grid-template-columns: auto minmax(0, 1fr) auto !important; grid-template-areas: none !important; }
+.sc-fbar { grid-template-columns: auto auto minmax(0, 1fr) auto !important; grid-template-areas: none !important; }
+.sc-fbar .pv-seg button:disabled { opacity: .35; cursor: not-allowed; }
+.sc-fbar .pv-seg button:disabled:hover { background: none; color: var(--muted); }
 .sc-fbar .pv-fg { grid-area: auto !important; border-top: 0 !important; padding-top: 0 !important; }
 .sc-range select { border: 0; background: none; height: 36px; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink); cursor: pointer; max-width: 150px; }
 .sc-range select:focus { outline: none; }
 .sc-fbar .pv-sel { padding-left: 10px; }
 .sc-fbar .pv-sel select { min-width: 140px; }
+@media (max-width: 1360px) { .sc-fbar { grid-template-columns: auto minmax(0, 1fr) !important; row-gap: 14px !important; } .sc-fbar .sc-fg--op { border-left: 0 !important; }
+}
 @media (max-width: 1100px) { .sc-fbar { grid-template-columns: 1fr 1fr !important; } .sc-fbar .sc-fg--per { grid-column: 1 / -1; order: -1; } .sc-fbar .pv-fg:nth-child(2) { border-left: 0; } }
 @media (max-width: 640px) { .sc-fbar { grid-template-columns: 1fr !important; } .sc-fbar .pv-fg { border-left: 0 !important; } .sc-range { width: 100%; justify-content: space-between; } }
 

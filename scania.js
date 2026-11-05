@@ -79,10 +79,16 @@
 
   /* ---------- estado ---------- */
   let D = null, SEM = [];
-  const F = { tipo: 'diesel', de: null, ate: null, pre: '4', eq: '', met: 'cons' };
+  const F = { tipo: 'diesel', de: null, ate: null, pre: '4', eq: '', met: 'cons', op: 'todos' };
+  // operação de cada equipamento (quem não está na lista é canavieiro)
+  const OPERACOES = { vinhaca: ['30115', '30116', '30156', '30157'], tanque: ['30154'], prancha: ['30136', '30137', '30138'] };
+  const NOME_OP = { todos: 'Todas', canavieiro: 'Canavieiro', vinhaca: 'Vinhaça', tanque: 'Tanque', prancha: 'Prancha' };
+  const opDe = id => Object.keys(OPERACOES).find(k => OPERACOES[k].includes(String(id))) || 'canavieiro';
+  const opOk = e => F.op === 'todos' || opDe(e.id) === F.op;
+  P.operacao = opDe;
   const semanasTipo = () => D.semanas.filter(s => s.tipo === F.tipo);
   const noPer = s => s.ini >= F.de && s.ini <= F.ate;
-  const linhasDe = ss => ss.flatMap(s => s.eq.map(e => ({ ...e, sem: s.ini })));
+  const linhasDe = ss => ss.flatMap(s => s.eq.filter(opOk).map(e => ({ ...e, sem: s.ini })));
   const filtroEq = l => !F.eq || l.id === F.eq;
   const aplicarPre = pre => {
     const ss = semanasTipo(); if (!ss.length) return;
@@ -160,19 +166,23 @@
     const se = $('#scEq'); if (se) se.innerHTML = '<option value="">Toda a frota</option>' + eqs.map(e => `<option value="${esc(e)}"${e === F.eq ? ' selected' : ''}>${esc(e)}</option>`).join('');
     $$('#scPre button').forEach(b => b.classList.toggle('is-on', b.dataset.pre === F.pre));
     $$('#scTipo button').forEach(b => b.classList.toggle('is-on', b.dataset.t === F.tipo));
-    const lp = $('#scLimpar'); if (lp) lp.classList.toggle('is-on', !!(F.eq || F.pre !== '4'));
+    // operações: só as que têm equipamento na frota escolhida
+    const temOp = new Set(semanasTipo().flatMap(s => s.eq.map(e => opDe(e.id))));
+    $$('#scOp button').forEach(b => { const o = b.dataset.op; b.disabled = o !== 'todos' && !temOp.has(o); b.classList.toggle('is-on', o === F.op); b.title = b.disabled ? `Sem equipamentos de ${NOME_OP[o].toLowerCase()} na frota ${F.tipo === 'biogas' ? 'biogás' : 'diesel'}` : ''; });
+    const lp = $('#scLimpar'); if (lp) lp.classList.toggle('is-on', !!(F.eq || F.pre !== '4' || F.op !== 'todos'));
   };
   const moverInd = (seg, ja) => { const s = $(seg); if (!s) return; const b = s.querySelector('button.is-on'), ind = s.querySelector('.ind'); if (!b || !ind) return; if (ja) ind.style.transition = 'none'; ind.style.left = b.offsetLeft + 'px'; ind.style.width = b.offsetWidth + 'px'; if (ja) { void ind.offsetWidth; ind.style.transition = ''; } };
   let EV = false;
   const eventos = () => {
     if (EV) return; EV = true;
     const on = (sel, ev, fn) => { const el = $(sel); if (el) el.addEventListener(ev, fn); };
-    on('#scTipo', 'click', e => { const b = e.target.closest('button[data-t]'); if (!b || b.dataset.t === F.tipo) return; F.tipo = b.dataset.t; F.eq = ''; aplicarPre(F.pre || '4'); atualizar(true); });
+    on('#scTipo', 'click', e => { const b = e.target.closest('button[data-t]'); if (!b || b.dataset.t === F.tipo) return; F.tipo = b.dataset.t; F.eq = ''; if (F.op !== 'todos' && !semanasTipo().some(s => s.eq.some(e => opDe(e.id) === F.op))) F.op = 'todos'; aplicarPre(F.pre || '4'); atualizar(true); });
+    on('#scOp', 'click', e => { const b = e.target.closest('button[data-op]'); if (!b || b.disabled || b.dataset.op === F.op) return; F.op = b.dataset.op; if (F.eq && !(F.op === 'todos' || opDe(F.eq) === F.op)) F.eq = ''; atualizar(); requestAnimationFrame(() => moverInd('#scOp')); });
     on('#scPre', 'click', e => { const b = e.target.closest('button[data-pre]'); if (!b) return; aplicarPre(b.dataset.pre); atualizar(true); });
     const per = () => { let de = $('#scDe').value, at = $('#scAte').value; if (de > at) [de, at] = [at, de]; F.de = de; F.ate = at; F.pre = null; atualizar(true); };
     on('#scDe', 'change', per); on('#scAte', 'change', per);
     on('#scEq', 'change', e => { F.eq = e.target.value; atualizar(); });
-    on('#scLimpar', 'click', () => { F.eq = ''; aplicarPre('4'); atualizar(true); });
+    on('#scLimpar', 'click', () => { F.eq = ''; F.op = 'todos'; aplicarPre('4'); atualizar(true); });
     addEventListener('resize', () => { clearTimeout(EV._r); EV._r = setTimeout(() => { desenharEvo(false); desenharDisp(false); }, 140); });
   };
 
@@ -180,16 +190,16 @@
   let S = null; // estado calculado
   const atualizar = primeira => {
     montarFiltros();
-    requestAnimationFrame(() => moverInd('#scTipo', primeira));
+    requestAnimationFrame(() => { moverInd('#scTipo', primeira); moverInd('#scOp', primeira); });
     const ss = semanasTipo().filter(noPer), ant = periodoAnterior();
     const L = linhasDe(ss), La = linhasDe(ant);
     const frota = agg(L), frotaAnt = agg(La);
     const sel = F.eq ? agg(L.filter(filtroEq)) : frota, selAnt = F.eq ? agg(La.filter(filtroEq)) : frotaAnt;
     const porEq = new Map(); L.forEach(l => { const a = porEq.get(l.id) || porEq.set(l.id, []).get(l.id); a.push(l); });
     const eqs = [...porEq].map(([id, ls]) => ({ id, ...agg(ls), sem: ls.length }));
-    const semanal = ss.map(s => ({ s, frota: agg(s.eq), eq: F.eq ? agg(s.eq.filter(filtroEq)) : null }));
+    const semanal = ss.map(s => ({ s, frota: agg(s.eq.filter(opOk)), eq: F.eq ? agg(s.eq.filter(filtroEq)) : null }));
     S = { ss, ant, frota, frotaAnt, sel, selAnt, eqs, semanal, porEq };
-    const pg = $('#scPgData'); if (pg) pg.textContent = ss.length ? `Semanas de ${brC(ss[0].ini)} a ${brC(ss[ss.length - 1].fim)} · ${F.tipo === 'biogas' ? 'frota biogás' : 'frota diesel'}` : 'Sem semanas no período';
+    const pg = $('#scPgData'); if (pg) pg.textContent = ss.length ? `Semanas de ${brC(ss[0].ini)} a ${brC(ss[ss.length - 1].fim)} · ${F.tipo === 'biogas' ? 'frota biogás' : 'frota diesel'}${F.op !== 'todos' ? ' · ' + NOME_OP[F.op] : ''}` : 'Sem semanas no período';
     desenharKpis();
     desenharLeitura();
     desenharMet();
@@ -234,7 +244,7 @@
     const per = S.ss.length === 1 ? `na semana ${fmtSem(S.ss[0])}` : `nas ${S.ss.length} semanas de ${brC(S.ss[0].ini)} a ${brC(S.ss[S.ss.length - 1].fim)}`;
     el.innerHTML = F.eq
       ? `O <b>${esc(F.eq)}</b> rodou <b>${nf(x.km, 0)} km</b> ${per}, com consumo de <b>${nf(x.cons, 2)} ${un}</b> (frota: ${nf(f.cons, 2)}), Driver Support de <b>${nf(x.sds, 0)}%</b> (frota: ${nf(f.sds, 0)}%) e marcha lenta de <b>${nf(x.idle, 1)}%</b> (frota: ${nf(f.idle, 1)}%).${dC != null ? ` Em relação ao período anterior, o consumo ${Math.abs(dC) < 0.005 ? 'ficou igual' : dC > 0 ? `melhorou ${nf(dC, 2)} ${un}` : `piorou ${nf(-dC, 2)} ${un}`}.` : ''}`
-      : `A frota ${F.tipo === 'biogas' ? 'biogás' : 'diesel'} rodou <b>${nf(x.km, 0)} km</b> ${per}, com consumo médio de <b>${nf(x.cons, 2)} ${un}</b>${dC != null ? ` (${Math.abs(dC) < 0.005 ? 'igual ao' : dC > 0 ? `<span class="is-bom">▲ ${nf(dC, 2)}</span> sobre o` : `<span class="is-ruim">▼ ${nf(-dC, 2)}</span> sobre o`} período anterior)` : ''}. ${best.length ? `Melhores consumos: <b>${best.map(e => `${esc(e.id)} (${nf(e.cons, 2)})`).join('</b> e <b>')}</b>; piores: <b>${worst.map(e => `${esc(e.id)} (${nf(e.cons, 2)})`).join('</b> e <b>')}</b>. ` : ''}${idleW.length ? `Mais marcha lenta: <b>${idleW.map(e => `${esc(e.id)} (${nf(e.idle, 0)}%)`).join('</b> e <b>')}</b> — motor ligado parado gasta ${F.tipo === 'biogas' ? 'gás' : 'diesel'} sem rodar.` : ''}`;
+      : `A frota ${F.tipo === 'biogas' ? 'biogás' : 'diesel'}${F.op !== 'todos' ? ` de ${NOME_OP[F.op].toLowerCase()}` : ''} rodou <b>${nf(x.km, 0)} km</b> ${per}, com consumo médio de <b>${nf(x.cons, 2)} ${un}</b>${dC != null ? ` (${Math.abs(dC) < 0.005 ? 'igual ao' : dC > 0 ? `<span class="is-bom">▲ ${nf(dC, 2)}</span> sobre o` : `<span class="is-ruim">▼ ${nf(-dC, 2)}</span> sobre o`} período anterior)` : ''}. ${best.length ? `Melhores consumos: <b>${best.map(e => `${esc(e.id)} (${nf(e.cons, 2)})`).join('</b> e <b>')}</b>; piores: <b>${worst.map(e => `${esc(e.id)} (${nf(e.cons, 2)})`).join('</b> e <b>')}</b>. ` : ''}${idleW.length ? `Mais marcha lenta: <b>${idleW.map(e => `${esc(e.id)} (${nf(e.idle, 0)}%)`).join('</b> e <b>')}</b> — motor ligado parado gasta ${F.tipo === 'biogas' ? 'gás' : 'diesel'} sem rodar.` : ''}`;
   };
 
   /* ---------- evolução semanal (SVG) ---------- */
