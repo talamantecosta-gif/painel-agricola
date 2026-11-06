@@ -55,8 +55,8 @@
     if (!SEM || !ws.some(w => w.ini === SEM)) { const c = ws.filter(w => w.completa); SEM = (c.length ? c[c.length - 1] : ws[ws.length - 1]).ini; }
     const w = ws.find(x => x.ini === SEM), i = ws.indexOf(w);
     const F = calcular(w);
-    // ordem: maior falta de entrega primeiro; sem entrega, por dias críticos
-    F.sort((a, b) => (a.dif == null) - (b.dif == null) || (a.dif ?? 0) - (b.dif ?? 0) || b.ruins - a.ruins);
+    // ordem: pelo nome da frente (01, 02, 03...)
+    F.sort((a, b) => String(a.f).localeCompare(String(b.f), 'pt-BR', { numeric: true }));
     const R = RES && Array.isArray(RES.semanas) ? RES.semanas.find(s => s.ini === w.ini) : null;
     const txt = f => (R && Array.isArray(R.frentes) ? R.frentes.find(x => x.frente === f) : null);
     const T = { ent: soma(F, x => x.ent), meta: soma(F, x => x.meta), nEnt: Math.max(0, ...F.map(x => x.nEnt)), acima: F.filter(x => x.dif != null && x.dif >= 0).length, sinal: soma(F, x => x.sinal), mlp: soma(F, x => x.mlp), falta: soma(F, x => x.falta) };
@@ -82,7 +82,7 @@
         <div class="sm-grid">${F.map((x, k) => {
           const t = txt(x.f);
           return `<article class="card sm-fr" style="--i:${k}">
-            <header class="sm-fr__h"><span class="sm-n">${k + 1}</span><b>${esc(x.f)}</b>${x.pct != null ? `<span class="sm-pct" style="--c:${corPct(x.pct)}">${nf(x.pct, 0)}% · ${sg(x.dif)} t</span>` : '<span class="sm-pct sm-pct--nd">sem entrega</span>'}</header>
+            <header class="sm-fr__h"><b>${esc(x.f)}</b>${x.pct != null ? `<span class="sm-pct" style="--c:${corPct(x.pct)}">${nf(x.pct, 0)}% · ${sg(x.dif)} t</span>` : '<span class="sm-pct sm-pct--nd">sem entrega</span>'}</header>
             ${t && t.titulo ? `<div class="sm-tit${x.pct != null && x.pct >= 100 ? ' sm-tit--ok' : ''}">${esc(t.titulo)}</div>` : ''}
             <div class="sm-dias">${Array.from({ length: 7 }, (_, j) => { const d = addDias(w.ini, j), s = x.st[d]; const c = s && ST[s.s] ? ST[s.s][0] : null; return `<span class="sm-dia${c ? '' : ' nd'}" style="${c ? `--c:${c}` : ''}" title="${DSEM[j]} ${brC(d)}${s ? ` · ${ST[s.s] ? ST[s.s][1] : '—'}${Number.isFinite(s.ent) && Number.isFinite(s.meta) ? ` · ${nf(s.ent)} de ${nf(s.meta)} t` : ''}` : ' · sem análise'}"><i></i><small>${DSEM[j]}</small></span>`; }).join('')}</div>
             ${x.meta ? `<div class="sm-ent"><div class="sm-ent__bar"><i style="--w:${Math.min(100, x.ent / x.meta * 100).toFixed(1)}%;background:${corPct(x.pct)}"></i><span style="left:${Math.min(100, 100 / Math.max(1, x.ent / x.meta) ).toFixed(1)}%"></span></div><small>${nf(x.ent)} t entregues para ${nf(x.meta)} t de meta${x.nEnt < x.n ? ` (${x.nEnt} de ${x.n} dias com entrega lida)` : ''}</small></div>` : ''}
