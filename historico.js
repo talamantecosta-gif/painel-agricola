@@ -18,6 +18,7 @@
      analise.json                      → analise.json + arquivo do dia
      historico_analise_coa.json        → historico/analise-coa.json
      Pluviométrico 2026.xlsm (aba Acumulado) → pluviometrico.json
+     resumo_semanal.json (texto da semana, toda segunda) → historico/resumo-semanal.json
      subpasta Master Driver Scania (relatórios semanais .xlsx) → historico/scania.json
    ========================================================================= */
 (function () {
@@ -311,11 +312,12 @@
       await carregarIndice(c && c.token ? c : null);
       // arquivos da pasta
       const pdfs = [], analises = [], planilhas = [];
-      let coaArq = null, scDir = null;
+      let coaArq = null, scDir = null, semArq = null;
       for await (const [nome, h] of dir.entries()) {
         if (h.kind === 'directory' && /master\s*driver|scania/i.test(nome)) { scDir = h; continue; }
         if (h.kind !== 'file') continue;
         if (/\.pdf$/i.test(nome)) pdfs.push({ nome, h });
+        else if (/\.json$/i.test(nome) && /resumo.*semana/i.test(nome)) semArq = { nome, h, f: await h.getFile() };
         else if (/\.json$/i.test(nome) && /hist.*analise|analise.*coa/i.test(nome)) { const f = await h.getFile(); if (!coaArq || f.lastModified > coaArq.f.lastModified) coaArq = { nome, h, f }; }
         else if (/analise.*\.json$/i.test(nome)) analises.push({ nome, h });
         else if (/\.xls[xmb]?$/i.test(nome) && !nome.startsWith('~$')) planilhas.push({ nome, h });
@@ -371,8 +373,9 @@
       const hashTxt = t => { let x = 5381; for (let i = 0; i < t.length; i++) x = ((x << 5) + x + t.charCodeAt(i)) | 0; return (x >>> 0).toString(36); };
       const scSig = scArqs.length ? hashTxt(scArqs.map(a => `${a.nome}|${a.f.lastModified}`).sort().join(';')) : null;
       const scNova = !!(scSig && window.Scania && (!F.scania || F.scania.sig !== scSig || F.scania.v !== Scania.VERSAO));
+      const semNova = mudou('semanal', semArq);
       const incNova = mudou('incendio', pls.incendio), usNova = mudou('usuarios', pls.usuarios), coaNova = mudou('coa', coaArq), pvNova = mudou('pluvio', pls.pluvio) || !!(pls.pluvio && window.Pluvio && (F.pluvio || {}).v !== Pluvio.VERSAO);
-      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !scNova && !anArqNovo) {
+      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !scNova && !semNova && !anArqNovo) {
         if (!silencioso) { Painel.fecharModal(); toast(`<i class="fa-solid fa-circle-check"></i> Histórico em dia · ${datas().length} relatórios`, 3500); }
         await guardarUltima(); marcarStatus(); return;
       }
@@ -447,6 +450,17 @@
           extras.push(`pluviométrico (até ${brC(PV.meta.ate)})`); pvLido = PV;
         } catch (e) { erros.push(`${p.nome}: ${e.message || e}`); }
       }
+      let semLido = null;
+      if (semNova) {
+        progresso(`Lendo ${semArq.nome}`);
+        try {
+          const x = (await Acesso.readJson(JSON.parse(await semArq.f.text()))).data;
+          if (!x || !Array.isArray(x.semanas)) throw new Error('arquivo sem a lista "semanas"');
+          arquivos.push({ path: 'historico/resumo-semanal.json', content: JSON.stringify(await Acesso.encryptJson(x)) });
+          novasF.semanal = { nome: semArq.nome, mtime: semArq.f.lastModified };
+          extras.push(`resumo semanal (${x.semanas.length} ${x.semanas.length === 1 ? 'semana' : 'semanas'})`); semLido = x;
+        } catch (e) { erros.push(`${semArq.nome}: ${e.message || e}`); }
+      }
       let scLido = null;
       if (scNova) {
         progresso(`Lendo ${scArqs.length} relatórios do Master Driver Scania`);
@@ -460,12 +474,13 @@
           extras.push(`Master Driver Scania (${SC.semanas.length} semanas)`); scLido = SC;
         } catch (e) { erros.push(`Master Driver Scania: ${e.message || e}`); }
       }
+      let coaLido = null;
       if (coaNova) {
         progresso(`Lendo ${coaArq.nome}`);
         try {
           const x = (await Acesso.readJson(JSON.parse(await coaArq.f.text()))).data;
           if (!x || typeof x !== 'object') throw new Error('arquivo vazio');
-          arquivos.push({ path: 'historico/analise-coa.json', content: JSON.stringify(await Acesso.encryptJson(x)) });
+          arquivos.push({ path: 'historico/analise-coa.json', content: JSON.stringify(await Acesso.encryptJson(x)) }); coaLido = x;
           novasF.coa = { nome: coaArq.nome, mtime: coaArq.f.lastModified };
           extras.push(`histórico da análise COA${Array.isArray(x.dias) ? ` (${x.dias.length} dias)` : ''}`);
         } catch (e) { erros.push(`${coaArq.nome}: ${e.message || e}`); }
@@ -510,6 +525,7 @@
       }
       if (pvLido && window.Pluvio) Pluvio.definir(pvLido);
       if (scLido && window.Scania) Scania.definir(scLido);
+      if ((coaLido || semLido) && window.Semana) Semana.definir({ coa: coaLido, resumo: semLido });
       if (virouAtual) Painel.definirAtual(ultimo.raw, ultimo.an || (anRaiz && anRaiz.data === ultimo.d ? anRaiz : (Painel.analise && Painel.analise.data === ultimo.d ? Painel.analise : null)));
       else if (anRaiz && Painel.atual?.raw) Painel.definirAtual(Painel.atual.raw, anRaiz);
       await guardarUltima();
@@ -1091,6 +1107,7 @@
     const antes = Layout.aoEntrar;
     if (window.Pluvio) Pluvio.iniciar();
     if (window.Scania) Scania.iniciar();
+    if (window.Semana) Semana.iniciar();
     Layout.aoEntrar = pg => { if (antes) antes(pg); Object.values(G).forEach(c => { try { if (pg.contains(c.canvas)) { c.resize(); c.reset(); c.update(); } } catch (e) { /* */ } }); };
     await carregarIndice();
     TRANSP = await lerSite('historico/transporte.json');
