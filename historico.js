@@ -107,7 +107,7 @@
       const ref = await gh(c, 'GET', `/git/ref/heads/${encodeURIComponent(c.branch)}`);
       if (!ref) throw new Error(`não encontrei o branch "${c.branch}" no repositório ${c.owner}/${c.repo}.`);
       const base = await gh(c, 'GET', `/git/commits/${ref.object.sha}`);
-      const tree = await gh(c, 'POST', '/git/trees', { base_tree: base.tree.sha, tree: arquivos.map(a => ({ path: a.path, mode: '100644', type: 'blob', content: a.content })) });
+      const tree = await gh(c, 'POST', '/git/trees', { base_tree: base.tree.sha, tree: arquivos.map(a => (a.apagar ? { path: a.path, mode: '100644', type: 'blob', sha: null } : { path: a.path, mode: '100644', type: 'blob', content: a.content })) });
       const novo = await gh(c, 'POST', '/git/commits', { message: msg, tree: tree.sha, parents: [ref.object.sha] });
       try { await gh(c, 'PATCH', `/git/refs/heads/${encodeURIComponent(c.branch)}`, { sha: novo.sha }); return novo.sha; }
       catch (e) { if (tent) throw e; } // alguém publicou no meio: tenta de novo sobre a versão nova
@@ -170,7 +170,7 @@
 
   /* ---------- sincronização com a pasta ---------- */
   let SYNC = false;
-  const dataDoNome = n => { const m = String(n).match(/(\d{2})[-_.](\d{2})[-_.](\d{4})/) || String(n).match(/(\d{4})-(\d{2})-(\d{2})/); if (!m) return null; return m[1].length === 4 ? `${m[1]}-${m[2]}-${m[3]}` : `${m[3]}-${m[2]}-${m[1]}`; };
+  const dataDoNome = n => { const s = String(n); const m = s.match(/(\d{4})\s*-\s*(\d{1,2})\s*-\s*(\d{1,2})/) || s.match(/(\d{1,2})\s*[-_.]\s*(\d{1,2})\s*[-_.]\s*(\d{4})/); if (!m) return null; const [y, mo, d] = m[1].length === 4 ? [m[1], m[2], m[3]] : [m[3], m[2], m[1]]; return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`; }; // aceita espaços: "16 -11-2026"
   const pedirPasta = async () => {
     const h = await window.showDirectoryPicker({ id: 'painel-historico', mode: 'read' });
     await guardarPasta(h); return h;
@@ -388,6 +388,10 @@
         publicados = new Set();
         await Promise.all(Object.keys(IDX.dias).map(async d => { try { const r = await fetch(`historico/dias/${d}.json`, { method: 'HEAD', cache: 'no-store' }); if (r.ok) publicados.add(`${d}.json`); } catch (e) { /* */ } }));
       }
+      // dias publicados com a data errada (ex.: arquivo "Relatório 16 -11-2026.pdf" lido como 17/11 e depois renomeado):
+      // o nome de origem aponta para outra data e esse dia certo já tem o PDF na pasta → sai do histórico
+      const nomesPasta = new Set(pdfs.map(p => p.nome)), datasPasta = new Set(pdfs.map(p => dataDoNome(p.nome)).filter(Boolean));
+      const orfaos = Object.entries(IDX.dias).filter(([d, r]) => { const n = r && r.src && r.src.nome; if (!n || nomesPasta.has(n)) return false; const dn = dataDoNome(n); return !!dn && dn !== d && datasPasta.has(dn); }).map(([d]) => d);
       const novos = [];
       for (const p of pdfs) {
         const d = dataDoNome(p.nome);
@@ -433,7 +437,7 @@
       const psNova = !!(psSig && window.Pisoteio && (!F.pisoteio || F.pisoteio.sig !== psSig || F.pisoteio.v !== Pisoteio.VERSAO));
       const incNova = mudou('incendio', pls.incendio), usNova = mudou('usuarios', pls.usuarios), coaNova = mudou('coa', coaArq), pvNova = mudou('pluvio', pls.pluvio) || !!(pls.pluvio && window.Pluvio && (F.pluvio || {}).v !== Pluvio.VERSAO);
       const cotaNova = mudou('cota', pls.cota) || !!(pls.cota && (F.cota || {}).v !== COTA_V);
-      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !scNova && !semNova && !psNova && !cotaNova && !anArqNovo) {
+      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !scNova && !semNova && !psNova && !cotaNova && !orfaos.length && !anArqNovo) {
         if (!silencioso) { Painel.fecharModal(); toast(`<i class="fa-solid fa-circle-check"></i> Histórico em dia · ${datas().length} relatórios`, 3500); }
         await guardarUltima(); marcarStatus(); return;
       }
@@ -569,14 +573,21 @@
         } catch (e) { erros.push(`${coaArq.nome}: ${e.message || e}`); }
       }
       if (anArqNovo) novasF.analise = { nome: anArq.nome, mtime: anArq.f.lastModified };
-      if (!resumos.length && !plLida && !extras.length && !anArqNovo) { Painel.modal('Nada foi publicado', `<p>Não consegui ler os arquivos novos:</p><ul class="check-list">${erros.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>`, [{ html: 'Fechar', onClick: Painel.fecharModal }]); return; }
+      if (!resumos.length && !plLida && !extras.length && !anArqNovo && !orfaos.length) { Painel.modal('Nada foi publicado', `<p>Não consegui ler os arquivos novos:</p><ul class="check-list">${erros.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>`, [{ html: 'Fechar', onClick: Painel.fecharModal }]); return; }
+      orfaos.forEach(d => { delete IDX.dias[d]; if (!resumos.some(r => r.d === d) && publicados && publicados.has(`${d}.json`)) arquivos.push({ path: `historico/dias/${d}.json`, apagar: true }); });
       resumos.forEach(r => { IDX.dias[r.d] = r; });
       const ordenado = {}; datas().forEach(d => { ordenado[d] = IDX.dias[d]; });
       IDX = { versao: 1, atualizado: new Date().toISOString(), pasta: dir.name, transporte: IDX.transporte, fontes: novasF, dias: ordenado };
       arquivos.push({ path: 'historico/indice-operacao.json', content: JSON.stringify(await Acesso.encryptJson(IDX)) });
       // o relatório mais novo também vira o dados.json da página
-      const ultimo = lidos.sort((a, b) => a.d.localeCompare(b.d)).pop();
-      const atualD = Painel.atual?.raw?.meta?.dataRelatorio || '';
+      let ultimo = lidos.sort((a, b) => a.d.localeCompare(b.d)).pop();
+      let atualD = Painel.atual?.raw?.meta?.dataRelatorio || '';
+      if (orfaos.includes(atualD)) {
+        // o dia que estava aberto no painel era o errado: volta para o último dia certo
+        atualD = '';
+        const resto = datas(), dN = resto[resto.length - 1];
+        if (dN && (!ultimo || dN > ultimo.d)) { const x = await lerDia(dN); if (x && x.dados) ultimo = { d: dN, raw: x.dados, an: x.analise || null }; }
+      }
       const virouAtual = ultimo && ultimo.d >= atualD;
       let anRaiz = null;
       if (virouAtual) {
@@ -592,6 +603,7 @@
       if (plLida) partes.push('planilha de transporte');
       if (anRaiz || (anArqNovo && anNovas.length)) partes.push(`análise do dia ${br(anArq ? anArq.x.data : anRaiz.data)}`);
       partes.push(...extras);
+      if (orfaos.length) partes.push(`correção: ${orfaos.map(br).join(', ')} removido do histórico (era um arquivo com a data errada no nome)`);
       const lista = partes.length > 1 ? partes.slice(0, -1).join(', ') + ' e ' + partes[partes.length - 1] : (partes[0] || 'índice');
       const titulo = `Painel: ${lista}`;
       const ul = xs => `<ul class="check-list">${xs.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>`;
@@ -601,7 +613,7 @@
         if (!silencioso) Painel.modal('Painel atualizado', `<p>Publiquei no GitHub num único envio:</p><ul class="check-list">${partes.map(x => `<li><i class="fa-solid fa-circle-check"></i>${esc(x)}</li>`).join('')}</ul>${virouAtual ? `<p>O painel passou a abrir em <b>${br(ultimo.d)}</b>.</p>` : ''}<p class="hint">O site atualiza para todos em cerca de 1 minuto.</p>${erros.length ? `<p>Atenção:</p>${ul(erros)}` : ''}`, [{ html: 'Fechar', primary: true, onClick: Painel.fecharModal }]);
         else toast(`<i class="fa-solid fa-cloud-arrow-up"></i> Publicado: ${esc(lista)}${erros.length ? ` · ${erros.length} arquivo(s) com problema` : ''}`, 6000);
       } else {
-        baixar(zip(arquivos), `painel-${dias[dias.length - 1] || new Date().toISOString().slice(0, 10)}.zip`);
+        baixar(zip(arquivos.filter(a => !a.apagar)), `painel-${dias[dias.length - 1] || new Date().toISOString().slice(0, 10)}.zip`);
         Painel.modal('Pacote baixado', `<p>Sem o GitHub configurado, juntei num .zip: ${esc(lista)}.</p>
           <ol class="hist-passos"><li>Extraia o .zip.</li><li>No GitHub: <b>Add file → Upload files</b>.</li><li>Arraste tudo o que foi extraído (mantendo a pasta <b>historico</b>) e clique em <b>Commit changes</b>.</li></ol>
           <p class="hint">Para não precisar mais disso, use <b>Configurar GitHub</b> na página Histórico.</p>${erros.length ? `<p>Atenção:</p>${ul(erros)}` : ''}`, [{ html: 'Fechar', primary: true, onClick: Painel.fecharModal }]);
