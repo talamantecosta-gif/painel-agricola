@@ -21,6 +21,7 @@
      resumo_semanal.json (texto da semana, toda segunda) → historico/resumo-semanal.json
      subpasta Master Driver Scania (relatórios semanais .xlsx) → historico/scania.json
      Boletim Análise de Pisoteio DD-MM-AAAA.pdf (semanal)     → historico/pisoteio.json (todos os boletins)
+     Dimensionamento de cotas (AAAA).xlsx (aba Cota mensal)   → historico/cotas.json (cota proporcional do dia)
    ========================================================================= */
 (function () {
   'use strict';
@@ -184,6 +185,7 @@
 
   /* ---------- planilha de transporte (Controle de viagens Próprio e Happening) ---------- */
   let TRANSP = null; // { meta, dias: [...] }
+  let COTAS = null; // { ano, dias: { 'AAAA-MM-DD': { c: cota do dia, m: motivo, f: { frente: t } } } }
   const carregaXlsx = () => new Promise((ok, nok) => {
     if (window.XLSX) return ok(window.XLSX);
     const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -257,12 +259,62 @@
     }
     return null;
   };
+  /* Planilha de cotas (aba "Cota mensal"): um bloco por mês.
+     Linha "Moagem" = cota proporcional aos impactantes do dia (t); linha "Frente/Data" = dias;
+     linhas das frentes = cota de cada frente; linha seguinte com texto = motivo do dia.
+     O ano das datas vem do nome do arquivo, ex.: "Dimensionamento de cotas (2026).xlsx". */
+  const COTA_V = 1;
+  const lerCotas = (wb, X, nome) => {
+    const aba = wb.SheetNames.find(n => /cota\s*mensal/i.test(n));
+    if (!aba) throw new Error('aba "Cota mensal" não encontrada');
+    const rows = X.utils.sheet_to_json(wb.Sheets[aba], { header: 1, raw: true, defval: null });
+    const anoArq = (String(nome).match(/(20\d{2})/) || [])[1];
+    const iso = v => {
+      let y, m, d;
+      if (typeof v === 'number' && v > 20000) { const p = X.SSF.parse_date_code(v); if (!p) return null; ({ y, m, d } = p); }
+      else if (v instanceof Date) { const t = new Date(v.getTime() + 12 * 3600e3); y = t.getFullYear(); m = t.getMonth() + 1; d = t.getDate(); }
+      else return null;
+      return `${anoArq || y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    };
+    const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    const dias = {};
+    rows.forEach((r, i) => {
+      if (!r || normT(r[0]).replace(/\s/g, '') !== 'frente/data') return;
+      const mo = rows[i - 1] || [];
+      if (!normT(mo[0]).startsWith('moagem')) return;
+      // frentes até a próxima linha vazia / linha de motivo / próximo bloco
+      const cs = r.map((v, c) => (c && iso(v) ? c : null)).filter(c => c != null);
+      const fr = []; let mot = null;
+      for (let j = i + 1; j < rows.length && j <= i + 16; j++) {
+        const x = rows[j] || [], a = normT(x[0]);
+        if (a.startsWith('moagem') || a.replace(/\s/g, '') === 'frente/data') break;
+        const temNum = cs.some(c => num(x[c]) != null), temTxt = cs.some(c => typeof x[c] === 'string' && x[c].trim());
+        if (a && !temTxt && !/^redu|^fator|^parada/.test(a)) { fr.push(j); continue; }
+        if (temTxt) { mot = j; break; }
+        if (!a && !temNum) break;
+      }
+      r.forEach((v, c) => {
+        if (c === 0) return;
+        const d = iso(v); if (!d) return;
+        const cota = num(mo[c]); if (cota == null) return;
+        const f = {};
+        fr.forEach(j => { const val = num(rows[j][c]); if (val != null && val > 0) f[String(rows[j][0]).trim()] = Math.round(val * 100) / 100; });
+        const m = mot != null && typeof rows[mot][c] === 'string' ? rows[mot][c].replace(/\s+/g, ' ').trim() : '';
+        dias[d] = { c: Math.round(cota * 100) / 100, m, f };
+      });
+    });
+    const ds = Object.keys(dias).sort();
+    if (!ds.length) throw new Error('nenhum dia com cota na aba "Cota mensal"');
+    return { versao: COTA_V, arquivo: nome, ano: anoArq || ds[ds.length - 1].slice(0, 4), de: ds[0], ate: ds[ds.length - 1], dias };
+  };
+  H.lerCotas = lerCotas;
   const tipoPlanilha = async f => {
     const X = await carregaXlsx();
     const wb = X.read(await f.arrayBuffer(), { type: 'array', cellDates: true });
     const linhas = n => X.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null });
     if (wb.SheetNames.some(n => { const r = linhas(n); return r.length && normT(r[0][0]) === 'data' && normT(r[0][1]) === 'moagem'; })) return 'transporte';
     if (wb.SheetNames.some(n => linhas(n).slice(0, 10).some(r => r && normU(r[0]) === 'data' && r.some(c => normU(c) === 'turno') && r.some(c => normU(c).startsWith('chuva'))))) return 'pluvio';
+    if (wb.SheetNames.some(n => /cota\s*mensal/i.test(n))) return 'cota';
     if (wb.SheetNames.some(n => achaCab(linhas(n)))) return 'usuarios';
     if (window.IncPlanilha && IncPlanilha.ehIncendio(wb, X)) return 'incendio';
     return null;
@@ -361,10 +413,10 @@
       const anNovas = [...anMap.keys()].filter(d => IDX.dias[d] && (!IDX.dias[d].ec || (anArqNovo && anArq.x.data === d)) && !novos.some(n => n.d === d));
       // planilhas: cada uma pelo nome (ou pelo conteúdo, se o nome não disser)
       progresso('Conferindo as planilhas…');
-      const pls = { transporte: null, incendio: null, usuarios: null, pluvio: null };
+      const pls = { transporte: null, incendio: null, usuarios: null, pluvio: null, cota: null };
       for (const p of planilhas) {
         const f = await p.h.getFile();
-        let tipo = /usu[aá]rio/i.test(p.nome) ? 'usuarios' : /pluvi/i.test(p.nome) ? 'pluvio' : /inc[eê]ndio|risco|queimada/i.test(p.nome) ? 'incendio' : /viage|transporte|happ/i.test(p.nome) ? 'transporte' : null;
+        let tipo = /cota/i.test(p.nome) ? 'cota' : /usu[aá]rio/i.test(p.nome) ? 'usuarios' : /pluvi/i.test(p.nome) ? 'pluvio' : /inc[eê]ndio|risco|queimada/i.test(p.nome) ? 'incendio' : /viage|transporte|happ/i.test(p.nome) ? 'transporte' : null;
         if (!tipo) { try { tipo = await tipoPlanilha(f); } catch (e) { tipo = null; } }
         if (tipo && (!pls[tipo] || f.lastModified > pls[tipo].f.lastModified)) pls[tipo] = { ...p, f };
       }
@@ -380,7 +432,8 @@
       const psSig = psArqs.length ? hashTxt(psArqs.map(a => `${a.nome}|${a.f.lastModified}`).sort().join(';')) : null;
       const psNova = !!(psSig && window.Pisoteio && (!F.pisoteio || F.pisoteio.sig !== psSig || F.pisoteio.v !== Pisoteio.VERSAO));
       const incNova = mudou('incendio', pls.incendio), usNova = mudou('usuarios', pls.usuarios), coaNova = mudou('coa', coaArq), pvNova = mudou('pluvio', pls.pluvio) || !!(pls.pluvio && window.Pluvio && (F.pluvio || {}).v !== Pluvio.VERSAO);
-      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !scNova && !semNova && !psNova && !anArqNovo) {
+      const cotaNova = mudou('cota', pls.cota) || !!(pls.cota && (F.cota || {}).v !== COTA_V);
+      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !scNova && !semNova && !psNova && !cotaNova && !anArqNovo) {
         if (!silencioso) { Painel.fecharModal(); toast(`<i class="fa-solid fa-circle-check"></i> Histórico em dia · ${datas().length} relatórios`, 3500); }
         await guardarUltima(); marcarStatus(); return;
       }
@@ -479,6 +532,17 @@
           extras.push(`Master Driver Scania (${SC.semanas.length} semanas)`); scLido = SC;
         } catch (e) { erros.push(`Master Driver Scania: ${e.message || e}`); }
       }
+      let cotaLida = null;
+      if (cotaNova) {
+        const p = pls.cota; progresso(`Lendo a planilha ${p.nome}`);
+        try {
+          const X = await carregaXlsx();
+          const CT = lerCotas(X.read(await p.f.arrayBuffer(), { type: 'array' }), X, p.nome);
+          arquivos.push({ path: 'historico/cotas.json', content: JSON.stringify(await Acesso.encryptJson(CT)) });
+          novasF.cota = { nome: p.nome, mtime: p.f.lastModified, v: COTA_V };
+          extras.push(`cota diária (${Object.keys(CT.dias).length} dias, até ${br(CT.ate)})`); cotaLida = CT;
+        } catch (e) { erros.push(`${p.nome}: ${e.message || e}`); }
+      }
       let psLido = null;
       if (psNova) {
         progresso(`Lendo ${psArqs.length} ${psArqs.length === 1 ? 'boletim' : 'boletins'} de pisoteio`);
@@ -546,6 +610,7 @@
       if (scLido && window.Scania) Scania.definir(scLido);
       if ((coaLido || semLido) && window.Semana) Semana.definir({ coa: coaLido, resumo: semLido });
       if (psLido && window.Pisoteio) Pisoteio.definir(psLido);
+      if (cotaLida) COTAS = cotaLida;
       if (virouAtual) Painel.definirAtual(ultimo.raw, ultimo.an || (anRaiz && anRaiz.data === ultimo.d ? anRaiz : (Painel.analise && Painel.analise.data === ultimo.d ? Painel.analise : null)));
       else if (anRaiz && Painel.atual?.raw) Painel.definirAtual(Painel.atual.raw, anRaiz);
       await guardarUltima();
@@ -756,6 +821,11 @@
 
   let PER = { de: null, ate: null }, MODO = { prod: 't', log: 't' };
   let L = [], CTX = {};
+  /** Cota do dia: a da planilha de cotas (proporcional aos impactantes); sem ela, a do relatório. */
+  const cotaDoDia = r => {
+    const k = COTAS && COTAS.dias && COTAS.dias[r.d];
+    return k && Number.isFinite(k.c) && k.c > 0 ? { ...r, cota: k.c, cotaRel: r.cota, cotaMot: k.m || '', cotaPl: true } : { ...r, cotaPl: false };
+  };
   const renderPeriodo = () => {
     const box = $('#histConteudo'); if (!box) return;
     const ds = datas();
@@ -767,7 +837,7 @@
     if (!PER.de) PER.de = addDias(PER.ate, -29);
     $('#hDe').value = PER.de; $('#hAte').value = PER.ate;
     ['hDe', 'hAte'].forEach(id => { $('#' + id).min = ds[0]; $('#' + id).max = ds[ds.length - 1]; });
-    L = ds.filter(d => d >= PER.de && d <= PER.ate).map(d => IDX.dias[d]).filter(r => Number.isFinite(r.prod));
+    L = ds.filter(d => d >= PER.de && d <= PER.ate).map(d => IDX.dias[d]).filter(r => Number.isFinite(r.prod)).map(cotaDoDia);
     if (!L.length) { box.innerHTML = `<div class="card hist-vazio"><i class="fa-regular fa-calendar-xmark"></i><h3>Nenhum relatório entre ${br(PER.de)} e ${br(PER.ate)}</h3><p>Escolha outro intervalo.</p></div>`; return; }
     const metas = Painel.metas;
     const n = L.length, mProd = soma(L, r => r.prod) / n, mCota = soma(L, r => r.cota) / n;
@@ -1022,7 +1092,8 @@
     const pctMode = MODO.prod === 'p';
     const val = L.map(r => (pctMode ? (r.cota ? r.prod / r.cota * 100 : null) : r.prod));
     const at = L.map(r => (r.cota ? r.prod / r.cota * 100 : null));
-    $('#hpHint').textContent = pctMode ? 'Atingimento da cota em cada dia · 100% = cota batida' : 'Toneladas produzidas em cada dia contra a cota do dia';
+    const fonte = L.some(r => r.cotaPl) ? ' (planilha de cotas)' : '';
+    $('#hpHint').textContent = (pctMode ? 'Atingimento da cota em cada dia · 100% = cota batida' : 'Toneladas produzidas em cada dia contra a cota do dia') + fonte;
     $('#hpTr').textContent = pctMode ? 'cota (100%)' : 'cota do dia';
     const fmtV = pctMode ? v => nf(v, 0) + '%' : curto;
     const medio = pctMode ? CTX.pct : CTX.mProd;
@@ -1030,7 +1101,7 @@
       type: 'bar',
       data: { labels: lbl(), datasets: [{ label: pctMode ? 'Atingimento' : 'Produção', data: val, backgroundColor: at.map(corP), hoverBackgroundColor: at.map(p => corP(p) + 'CC'), borderRadius: 5, borderSkipped: 'bottom', maxBarThickness: 34, categoryPercentage: .78 }] },
       options: opc(L, { y: pctMode ? { suggestedMax: 110, ticks: { callback: v => v + '%', maxTicksLimit: 6, color: C.muted } } : { ticks: { callback: v => curto(v), maxTicksLimit: 6, color: C.muted } },
-        tooltip: { mode: 'nearest', intersect: true, callbacks: { title: titDia, label: c => { const r = L[c.dataIndex]; return [` Produção: ${nf(r.prod, 0)} t`, ` Cota: ${nf(r.cota, 0)} t`, ` Atingimento: ${nf(r.prod / r.cota * 100, 1)}%`]; }, footer: rodapeDia } } }),
+        tooltip: { mode: 'nearest', intersect: true, callbacks: { title: titDia, label: c => { const r = L[c.dataIndex]; return [` Produção: ${nf(r.prod, 0)} t`, ` Cota: ${nf(r.cota, 0)} t${r.cotaPl ? ' (planilha de cotas)' : ' (relatório)'}`, ...(r.cotaMot ? [` Impactante: ${r.cotaMot}`] : []), ` Atingimento: ${nf(r.prod / r.cota * 100, 1)}%`]; }, footer: rodapeDia } } }),
       plugins: [tracos(pctMode ? L.map(() => 100) : L.map(r => r.cota)), linhas({ media: medio, fmtMedia: pctMode ? v => 'média ' + nf(v, 1) + '%' : v => 'média ' + curtoK(v) + ' t' }), rotulos({ fmt: pctMode ? v => nf(v, 0) + '%' : curtoK, dentro: true })],
     });
   };
@@ -1131,7 +1202,7 @@
     if (window.Pisoteio) Pisoteio.iniciar();
     Layout.aoEntrar = pg => { if (antes) antes(pg); Object.values(G).forEach(c => { try { if (pg.contains(c.canvas)) { c.resize(); c.reset(); c.update(); } } catch (e) { /* */ } }); };
     await carregarIndice();
-    TRANSP = await lerSite('historico/transporte.json');
+    [TRANSP, COTAS] = await Promise.all([lerSite('historico/transporte.json'), lerSite('historico/cotas.json')]);
     atualizarTela();
     $('#hDe')?.addEventListener('change', () => { PER.de = $('#hDe').value; if (PER.de > PER.ate) [PER.de, PER.ate] = [PER.ate, PER.de]; $$('.hist-pre button').forEach(b => b.classList.remove('is-on')); renderPeriodo(); });
     $('#hAte')?.addEventListener('change', () => { PER.ate = $('#hAte').value; if (PER.de > PER.ate) [PER.de, PER.ate] = [PER.ate, PER.de]; $$('.hist-pre button').forEach(b => b.classList.remove('is-on')); renderPeriodo(); });
