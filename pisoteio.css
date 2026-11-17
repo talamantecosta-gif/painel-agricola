@@ -1,5 +1,5 @@
 /* ===================== Histórico · Análise de Pisoteio ===================== */
-:root { --ps-pior: #b8401c; --ps-melhor: #1c5cab; --ps-barra: #C2551F; }
+:root { --ps-pior: #b8401c; --ps-melhor: #1c5cab; --ps-barra: #C2551F; --ps-ant: #A9C99A; --ps-atual: #1F4D2B; --ps-top: #2E6B3A; }
 #hPisoteio { margin-top: 26px; }
 .ps-topo { align-items: center; margin-bottom: 2px; }
 .ps-sub { margin: 0 0 14px; font-size: 12.5px; color: var(--muted); }
@@ -53,7 +53,8 @@
 .ps-top { display: grid; gap: 12px; padding-top: 6px; }
 .ps-tl { display: grid; grid-template-columns: 26px minmax(0, 150px) minmax(0, 1fr) 90px; gap: 10px; align-items: center; opacity: 0; animation: psEntra .45s cubic-bezier(.2, .8, .2, 1) forwards; animation-delay: calc(var(--i) * 70ms); }
 .ps-tl .n { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--hair); font-size: 12px; font-weight: 700; color: var(--muted); }
-.ps-tl:first-child .n { background: var(--ps-barra); color: #fff; }
+.ps-tl:first-child .n { background: var(--ps-atual); color: #fff; }
+.ps-top .ps-trk i { background: linear-gradient(90deg, #3C7A35, var(--ps-top)); }
 .ps-tl .nm b { display: block; font-size: 13.5px; color: var(--ink); }
 .ps-tl .nm small { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ps-tl .v { text-align: right; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -139,3 +140,20 @@
   .ps-pc { min-width: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .ps-k, .ps-tl { animation: none; opacity: 1; } .ps-cl .p, .ps-evo .sem.draw { animation: none; stroke-dashoffset: 0; } .ps-trk i { transition: none; } }
+
+/* comparativo em colunas agrupadas */
+.ps-cmp { overflow-x: auto; }
+.ps-col { display: block; width: 100%; min-width: 560px; height: auto; }
+.ps-col .gr { stroke: var(--hair); }
+.ps-col .ax { font-size: 11px; fill: var(--muted); }
+.ps-col .cl { transform-box: fill-box; transform-origin: bottom; animation: psCol .8s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 35ms); }
+.ps-col .cl.a { fill: var(--ps-ant); }
+.ps-col .cl.b { fill: var(--ps-atual); }
+@keyframes psCol { from { transform: scaleY(0); } }
+.ps-col .vl { font-size: 11.5px; font-weight: 700; fill: var(--ink); font-variant-numeric: tabular-nums; }
+.ps-col .vl.a { fill: var(--muted); font-weight: 600; }
+.ps-col .nd { font-size: 12px; fill: #B5BEB7; }
+.ps-col .fr { font-size: 12.5px; font-weight: 700; fill: var(--ink); }
+.ps-col .dl { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ps-dica b { font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { .ps-col .cl { animation: none; } }

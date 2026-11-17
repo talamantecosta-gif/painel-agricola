@@ -181,8 +181,7 @@
         </div>
         <article class="card ps-card ps-full"><div class="ps-hd"><div><h3 class="ps-h"><i class="fa-solid fa-right-left"></i>Comparativo por frente</h3><p class="ps-hs" id="psCmpSub"></p></div>
           ${seg('psBase', [['ant', 'Semana anterior x última semana', ant ? '' : 'Disponível a partir do 2º boletim salvo'], ['safra', 'Semana x média da safra']], F.base)}</div>
-          <div class="ps-axh"><span></span><div class="t" id="psAxt"></div><span>variação</span></div>
-          <div class="ps-cmp" id="psCmp"></div><div class="ps-leg" id="psCmpLeg"></div></article>
+                    <div class="ps-cmp" id="psCmp"></div><div class="ps-leg" id="psCmpLeg"></div></article>
         <div class="ps-g2">
           <article class="card ps-card"><h3 class="ps-h"><i class="fa-solid fa-map-location-dot"></i>Fazendas mais críticas na safra</h3>
             <p class="ps-hs">% de pisoteio por fazenda · só fazendas com 500 m ou mais avaliados</p><div class="ps-fz" id="psFz"></div><p class="ps-nota" id="psFzNota"></p></article>
@@ -242,7 +241,7 @@
         <span class="ps-trk"><i style="--w:${(v / mx * 100).toFixed(1)}%"></i>${ref != null ? `<span class="ref" style="left:${(ref / mx * 100).toFixed(1)}%" data-t="safra ${nf(ref, 1)}%"></span>` : ''}</span>
         <span class="v">${F.met === 'pct' ? pc(f.pct) : nf(f.pi, 1) + ' m'}<small>${F.met === 'pct' ? nf(f.pi, 1) + ' m pisados' : pc(f.pct)}</small></span></div>`;
     }).join('') : '<p class="hint">Nenhuma frente avaliada neste período.</p>';
-    $('#psTopLeg').innerHTML = comRef ? `<span><i style="background:${BARRA}"></i>% no período</span><span><i class="ln"></i>% da frente na safra</span>` : '';
+    $('#psTopLeg').innerHTML = comRef ? `<span><i style="background:var(--ps-top)"></i>% no período</span><span><i class="ln"></i>% da frente na safra</span>` : '';
     crescer(el);
   }
 
@@ -250,25 +249,29 @@
     const ant = anterior(b), ex = F.base === 'ant' && ant;
     const S = new Map(semanaArv(b.semana).map(f => [f.n, f]));
     const A = ex ? new Map(semanaArv(ant.semana).map(f => [f.n, f])) : new Map(frentes(b.safra).map(f => [f.n, f]));
-    const subs = new Map([...frentes(b.safra), ...semanaArv(b.semana)].map(f => [f.n, f.s]));
-    $('#psCmpSub').textContent = ex ? `% de pisoteio · semana até ${brC(ant.data)} → semana até ${brC(b.data)}` : '% de pisoteio · média da frente na safra → últimos 7 dias';
-    const L = todasFrentes(b).map(n => ({ n, s: subs.get(n) || '', a: A.get(n) && A.get(n).av > 0 ? A.get(n).pct : null, b: S.get(n) && S.get(n).av > 0 ? S.get(n).pct : null }));
+    const rotA = ex ? `semana até ${brC(ant.data)}` : 'média da safra', rotB = `semana até ${brC(b.data)}`;
+    $('#psCmpSub').textContent = `% de pisoteio por frente · ${rotA} x ${rotB}`;
+    const L = todasFrentes(b).map(n => ({ n, a: A.get(n) && A.get(n).av > 0 ? A.get(n).pct : null, b: S.get(n) && S.get(n).av > 0 ? S.get(n).pct : null }));
     const top = Math.max(4, ...L.flatMap(r => [r.a || 0, r.b || 0]));
-    const passo = top > 20 ? 5 : top > 10 ? 4 : 2, mx = Math.ceil(top / passo) * passo, X = v => v / mx * 100;
-    const tk = Array.from({ length: mx / passo + 1 }, (_, i) => i * passo);
-    $('#psAxt').innerHTML = tk.map(v => `<span style="left:${X(v)}%">${v}%</span>`).join('');
-    const grade = tk.map(v => `<span class="g" style="left:${X(v)}%"></span>`).join('');
-    $('#psCmp').innerHTML = L.map(r => {
-      const cab = `<span class="nm"><b>${esc(r.n)}</b>${r.s ? `<small>${esc(r.s)}</small>` : ''}</span>`;
-      if (r.a == null || r.b == null) {
-        const so = r.b != null ? r.b : r.a, quem = r.b != null ? (ex ? 'sem avaliação na semana anterior' : 'sem histórico na safra') : 'sem avaliação na semana';
-        return `<div class="ps-cl is-sem">${cab}<div class="ax">${grade}${so != null ? `<span class="p ${r.b != null ? 'b' : 'a'}" style="left:${X(so)}%;${r.b != null ? `background:${NEUTRO}` : ''}"></span>` : ''}</div><span class="v">${quem}</span></div>`;
-      }
-      const d = r.b - r.a, c = corD(d);
-      return `<div class="ps-cl">${cab}<div class="ax">${grade}<span class="ln" style="left:${X(Math.min(r.a, r.b))}%;width:${Math.abs(X(r.b) - X(r.a))}%;background:${c}"></span><span class="p a" style="left:${X(r.a)}%"></span><span class="p b" style="left:${X(r.b)}%;background:${c}"></span></div>
-        <span class="v"><b style="color:${c}">${dif(d)}</b><small>${nf(r.a, 2)}% → ${nf(r.b, 2)}%</small></span></div>`;
-    }).join('');
-    $('#psCmpLeg').innerHTML = `<span><i class="o"></i>${ex ? 'semana anterior' : 'média da safra'}</span><span><i style="background:${PIOR};border-radius:50%"></i>última semana pior</span><span><i style="background:${MELHOR};border-radius:50%"></i>última semana melhor</span>${ex ? '' : '<span class="ps-dica"><i class="fa-solid fa-circle-info"></i>Com 2 boletins salvos, o comparativo passa a ser semana anterior x última semana.</span>'}`;
+    const passo = top > 20 ? 5 : top > 10 ? 4 : 2, mx = Math.ceil(top * 1.08 / passo) * passo;
+    const W = Math.max(560, Math.round(($('#psCmp').clientWidth || 900))), H = 300, pl = 40, pr = 8, pt = 24, pb = 52, n = L.length;
+    const gw = (W - pl - pr) / n, bw = Math.min(26, gw * 0.32), Y = v => pt + (1 - v / mx) * (H - pt - pb), y0 = Y(0);
+    let s = `<svg class="ps-col" viewBox="0 0 ${W} ${H}" role="img" aria-label="Comparativo de % de pisoteio por frente">`;
+    for (let v = 0; v <= mx; v += passo) s += `<line class="gr" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ax" x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end">${v}%</text>`;
+    L.forEach((r, i) => {
+      const cx = pl + gw * i + gw / 2;
+      [[r.a, 'a', -1], [r.b, 'b', 1]].forEach(([v, cl, k], j) => {
+        const x = cx + (k < 0 ? -bw - 2 : 2);
+        if (v == null) { s += `<text class="nd" x="${x + bw / 2}" y="${y0 - 5}" text-anchor="middle">–</text>`; return; }
+        const h = Math.max(1.5, y0 - Y(v));
+        s += `<rect class="cl ${cl}" style="--i:${i * 2 + j}" x="${x}" y="${y0 - h}" width="${bw}" height="${h}" rx="3"><title>${esc(r.n)} · ${cl === 'a' ? rotA : rotB}: ${pc(v)}</title></rect><text class="vl ${cl}" x="${x + bw / 2}" y="${y0 - h - 5}" text-anchor="middle">${nf(v, 1)}</text>`;
+      });
+      s += `<text class="fr" x="${cx}" y="${H - 32}" text-anchor="middle">${esc(r.n.replace(/^Frente\s*/, 'F'))}</text>`;
+      if (r.a != null && r.b != null) { const d = r.b - r.a; s += `<text class="dl" x="${cx}" y="${H - 15}" text-anchor="middle" fill="${corD(d)}">${dif(d)}</text>`; }
+      else s += `<text class="dl" x="${cx}" y="${H - 15}" text-anchor="middle" fill="${NEUTRO}">${r.b == null ? (gw < 95 ? 'sem aval.' : 'sem avaliação') : ex ? (gw < 95 ? 'nova' : 'nova na semana') : '—'}</text>`;
+    });
+    $('#psCmp').innerHTML = s + '</svg>';
+    $('#psCmpLeg').innerHTML = `<span><i style="background:var(--ps-ant)"></i>${rotA}</span><span><i style="background:var(--ps-atual)"></i>${rotB}</span><span class="ps-dica">variação em p.p. embaixo de cada frente: <b style="color:${PIOR}">vermelho</b> piorou, <b style="color:${MELHOR}">azul</b> melhorou</span>${ex ? '' : '<span class="ps-dica"><i class="fa-solid fa-circle-info"></i>Com 2 boletins salvos, o comparativo passa a ser semana anterior x última semana.</span>'}`;
   }
 
   function fazendas(b) {
@@ -373,6 +376,7 @@
   };
   P.dados = () => D;
   P.definir = x => { if (x) { D = x; SEL = null; F.base = null; montar(); } };
-  window.addEventListener('resize', () => $$('#hPisoteio .ps-seg').forEach(s => mover(s, true)));
+  let rz = null;
+  window.addEventListener('resize', () => { $$('#hPisoteio .ps-seg').forEach(s => mover(s, true)); clearTimeout(rz); rz = setTimeout(() => { const b = bols().find(x => x.data === SEL); if (b && $('#psCmp')) cmp(b); }, 200); });
   window.Pisoteio = P;
 })();
