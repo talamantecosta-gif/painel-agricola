@@ -20,6 +20,7 @@
      Pluviométrico 2026.xlsm (aba Acumulado) → pluviometrico.json
      resumo_semanal.json (texto da semana, toda segunda) → historico/resumo-semanal.json
      subpasta Master Driver Scania (relatórios semanais .xlsx) → historico/scania.json
+     Boletim Análise de Pisoteio DD-MM-AAAA.pdf (semanal)     → historico/pisoteio.json (todos os boletins)
    ========================================================================= */
 (function () {
   'use strict';
@@ -312,11 +313,13 @@
       await carregarIndice(c && c.token ? c : null);
       // arquivos da pasta
       const pdfs = [], analises = [], planilhas = [];
-      let coaArq = null, scDir = null, semArq = null;
+      let coaArq = null, scDir = null, semArq = null; const psArqs = [];
       for await (const [nome, h] of dir.entries()) {
         if (h.kind === 'directory' && /master\s*driver|scania/i.test(nome)) { scDir = h; continue; }
         if (h.kind !== 'file') continue;
-        if (/\.pdf$/i.test(nome)) pdfs.push({ nome, h });
+        if (window.Pisoteio && Pisoteio.ehBoletim(nome)) psArqs.push({ nome, h, f: await h.getFile() });
+        else if (/pisoteio/i.test(nome)) continue; // boletim de pisoteio nunca é relatório diário
+        else if (/\.pdf$/i.test(nome)) pdfs.push({ nome, h });
         else if (/\.json$/i.test(nome) && /resumo.*semana/i.test(nome)) semArq = { nome, h, f: await h.getFile() };
         else if (/\.json$/i.test(nome) && /hist.*analise|analise.*coa/i.test(nome)) { const f = await h.getFile(); if (!coaArq || f.lastModified > coaArq.f.lastModified) coaArq = { nome, h, f }; }
         else if (/analise.*\.json$/i.test(nome)) analises.push({ nome, h });
@@ -374,8 +377,10 @@
       const scSig = scArqs.length ? hashTxt(scArqs.map(a => `${a.nome}|${a.f.lastModified}`).sort().join(';')) : null;
       const scNova = !!(scSig && window.Scania && (!F.scania || F.scania.sig !== scSig || F.scania.v !== Scania.VERSAO));
       const semNova = mudou('semanal', semArq);
+      const psSig = psArqs.length ? hashTxt(psArqs.map(a => `${a.nome}|${a.f.lastModified}`).sort().join(';')) : null;
+      const psNova = !!(psSig && window.Pisoteio && (!F.pisoteio || F.pisoteio.sig !== psSig || F.pisoteio.v !== Pisoteio.VERSAO));
       const incNova = mudou('incendio', pls.incendio), usNova = mudou('usuarios', pls.usuarios), coaNova = mudou('coa', coaArq), pvNova = mudou('pluvio', pls.pluvio) || !!(pls.pluvio && window.Pluvio && (F.pluvio || {}).v !== Pluvio.VERSAO);
-      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !scNova && !semNova && !anArqNovo) {
+      if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !scNova && !semNova && !psNova && !anArqNovo) {
         if (!silencioso) { Painel.fecharModal(); toast(`<i class="fa-solid fa-circle-check"></i> Histórico em dia · ${datas().length} relatórios`, 3500); }
         await guardarUltima(); marcarStatus(); return;
       }
@@ -474,6 +479,20 @@
           extras.push(`Master Driver Scania (${SC.semanas.length} semanas)`); scLido = SC;
         } catch (e) { erros.push(`Master Driver Scania: ${e.message || e}`); }
       }
+      let psLido = null;
+      if (psNova) {
+        progresso(`Lendo ${psArqs.length} ${psArqs.length === 1 ? 'boletim' : 'boletins'} de pisoteio`);
+        try {
+          const lidos2 = [];
+          for (const a of psArqs.sort((x, y) => x.nome.localeCompare(y.nome))) { try { lidos2.push(await Pisoteio.lerPdf(a.f)); } catch (e) { erros.push(`${a.nome}: ${e.message || e}`); } }
+          if (!lidos2.length) throw new Error('nenhum boletim de pisoteio pôde ser lido');
+          const base = Pisoteio.dados() || await lerSite('historico/pisoteio.json');
+          const PS = Pisoteio.juntar(base, lidos2);
+          arquivos.push({ path: 'historico/pisoteio.json', content: JSON.stringify(await Acesso.encryptJson(PS)) });
+          novasF.pisoteio = { sig: psSig, v: Pisoteio.VERSAO, n: psArqs.length };
+          extras.push(`pisoteio (${PS.boletins.length} ${PS.boletins.length === 1 ? 'boletim' : 'boletins'}, último ${br(PS.boletins[PS.boletins.length - 1].data)})`); psLido = PS;
+        } catch (e) { erros.push(`Pisoteio: ${e.message || e}`); }
+      }
       let coaLido = null;
       if (coaNova) {
         progresso(`Lendo ${coaArq.nome}`);
@@ -526,6 +545,7 @@
       if (pvLido && window.Pluvio) Pluvio.definir(pvLido);
       if (scLido && window.Scania) Scania.definir(scLido);
       if ((coaLido || semLido) && window.Semana) Semana.definir({ coa: coaLido, resumo: semLido });
+      if (psLido && window.Pisoteio) Pisoteio.definir(psLido);
       if (virouAtual) Painel.definirAtual(ultimo.raw, ultimo.an || (anRaiz && anRaiz.data === ultimo.d ? anRaiz : (Painel.analise && Painel.analise.data === ultimo.d ? Painel.analise : null)));
       else if (anRaiz && Painel.atual?.raw) Painel.definirAtual(Painel.atual.raw, anRaiz);
       await guardarUltima();
@@ -1108,6 +1128,7 @@
     if (window.Pluvio) Pluvio.iniciar();
     if (window.Scania) Scania.iniciar();
     if (window.Semana) Semana.iniciar();
+    if (window.Pisoteio) Pisoteio.iniciar();
     Layout.aoEntrar = pg => { if (antes) antes(pg); Object.values(G).forEach(c => { try { if (pg.contains(c.canvas)) { c.resize(); c.reset(); c.update(); } } catch (e) { /* */ } }); };
     await carregarIndice();
     TRANSP = await lerSite('historico/transporte.json');
