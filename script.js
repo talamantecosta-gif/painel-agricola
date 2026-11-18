@@ -1,5 +1,5 @@
 /* =========================================================
-   Gerenciamento Diário · Operação Agrícola
+   Gerenciamento Operacional · Operação Agrícola
    JavaScript puro (ES6) — Chart.js · DataTables · pdf.js
    ========================================================= */
 'use strict';
@@ -326,7 +326,7 @@ function buildModel(raw) {
   }));
   const ofensores = [...pesos.values()].sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
 
-  return { raw, frentes, linhas, turnos, ofensores, metas: { ...METAS_DEFAULT, ...(raw.metas || {}) } };
+  return { raw, frentes, linhas, turnos, ofensores, metas: { ...METAS_DEFAULT, ...(raw.metas || {}), eficiencia: METAS_DEFAULT.eficiencia } }; // meta de eficiência sempre a do painel
 }
 
 /** Totais consolidados para um conjunto (filtrado) de frentes. */
@@ -362,7 +362,7 @@ const sortFrentes = list => [...list].sort((a, b) => {
 const shortFrente = n => String(n).replace(/^Frente\s*/i, 'F');
 
 /** Metas usadas no semáforo (podem ser ajustadas em dados.json → "metas"). */
-const METAS_DEFAULT = { eficiencia: 75, vinhaca: 100, disponibilidade: 90, indisponibilidade: 15, colhedoras2Linhas: ['20021', '20022', '20024', '20025'], ton2Linhas: 70, ton1Linha: 30, metaColhedora1Linha: 760, metaColhedora2Linhas: 1240 };
+const METAS_DEFAULT = { eficiencia: 72, vinhaca: 100, disponibilidade: 90, indisponibilidade: 15, colhedoras2Linhas: ['20021', '20022', '20024', '20025'], ton2Linhas: 70, ton1Linha: 30, metaColhedora1Linha: 760, metaColhedora2Linhas: 1240 };
 /** Indisponibilidade (quanto menor, melhor): verde ≤ meta · amarelo até 10% acima · vermelho > 10% acima. */
 const statusIndisp = (v, meta = METAS_DEFAULT.indisponibilidade) => (!Number.isFinite(v) ? 'info' : v <= meta ? 'ok' : v <= meta * 1.1 ? 'warn' : 'bad');
 /** Semáforo contra meta: verde ≥ meta · amarelo até 10% abaixo · vermelho > 10% abaixo. */
@@ -389,7 +389,7 @@ function indispTotal(M, frentes) {
 function buildExecutive(M, frentes) {
   const out = { resumo: [], prio: [], tiles: [] };
   if (!M || !frentes.length) return out;
-  const metas = M.metas || METAS_DEFAULT;
+  const metas = M.metas ? { ...M.metas, eficiencia: METAS_DEFAULT.eficiencia } : METAS_DEFAULT;
   const tg = M.raw.totalGeral || {};
   const T = totals(frentes, M);
   const withCota = frentes.filter(f => f.cota);

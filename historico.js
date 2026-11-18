@@ -1020,8 +1020,8 @@
           <div class="chart-box hist-cv"><canvas id="hcProd" role="img" aria-label="Produção por dia"></canvas></div></article>
         ${htmlCotaFr()}
         <div class="grid grid--2" style="margin-top:14px">
-          <article class="card"><header class="card__head"><div><h3>Eficiência operacional por dia</h3><p class="hint">Pontilhado = meta de ${nf(metas.eficiencia, 0)}% · tracejado = média</p></div></header><div class="chart-box hist-cv sm"><canvas id="hcEf" role="img" aria-label="Eficiência por dia"></canvas></div></article>
-          <article class="card"><header class="card__head"><div><h3>Indisponibilidade por dia</h3><p class="hint">Pontilhado = meta de ${nf(metas.indisponibilidade, 0)}% · tracejado = média</p></div></header><div class="chart-box hist-cv sm"><canvas id="hcInd" role="img" aria-label="Indisponibilidade por dia"></canvas></div></article>
+          <article class="card"><header class="card__head"><div><h3>Eficiência operacional por dia <span class="fr-alvo" id="efAlvo"></span></h3><p class="hint">Pontilhado = meta de ${nf(metas.eficiencia, 0)}% · tracejado = média</p></div><span class="fr-filtro" data-filtro></span></header><div class="chart-box hist-cv sm"><canvas id="hcEf" role="img" aria-label="Eficiência por dia"></canvas></div></article>
+          <article class="card"><header class="card__head"><div><h3>Indisponibilidade por dia <span class="fr-alvo" id="indAlvo"></span></h3><p class="hint">Pontilhado = meta de ${nf(metas.indisponibilidade, 0)}% · tracejado = média</p></div><span class="fr-filtro" data-filtro></span></header><div class="chart-box hist-cv sm"><canvas id="hcInd" role="img" aria-label="Indisponibilidade por dia"></canvas></div></article>
         </div>
       </section>
 
@@ -1069,8 +1069,9 @@
     if ($('#hCotaFr')) {
       desenharCF();
       $('#segCF').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; MODO_CF = b.dataset.v; $$('#segCF button').forEach(x => x.classList.toggle('is-on', x === b)); desenharCF(); });
-      $$('.cf-fr').forEach(b => b.addEventListener('click', () => { FRSEL = b.dataset.k; $$('.cf-fr').forEach(x => x.classList.toggle('is-on', x === b)); desenharCF(); }));
+      $$('.cf-fr').forEach(b => b.addEventListener('click', () => { FRSEL = b.dataset.k; FILTRO_FR = FRSEL; $$('.cf-fr').forEach(x => x.classList.toggle('is-on', x === b)); desenharCF(); desenharEf(); desenharInd(); marcarFiltro(); }));
     }
+    marcarFiltro();
     if ($('#hcTp')) {
       desenharTP();
       $('#segTpModo').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; TPV.modo = b.dataset.v; $$('#segTpModo button').forEach(x => x.classList.toggle('is-on', x === b)); desenharTP(); });
@@ -1311,24 +1312,43 @@
       plugins: [tracos(pctMode ? L.map(() => 100) : L.map(r => r.cota)), linhas({ media: medio, fmtMedia: pctMode ? v => 'média ' + nf(v, 1) + '%' : v => 'média ' + curtoK(v) + ' t' }), rotulos({ fmt: pctMode ? v => nf(v, 0) + '%' : curtoK, dentro: true })],
     });
   };
+  /* frente escolhida em "Cota x entrega por frente" filtra a eficiência e a indisponibilidade */
+  let FILTRO_FR = null;
+  const CODIGOS_FR = { JLA: ['F11', 'F31'], BISINOTO: ['F13', 'F33'], GRISOMAQ: ['F34'], ABENCOADA: ['F37'] };
+  const valFr = (r, i) => {
+    if (!FILTRO_FR) return i === 3 ? r.ef : r.ind;
+    const cs = CODIGOS_FR[FILTRO_FR] || [FILTRO_FR];
+    const v = (r.fr || []).filter(x => cs.includes(chaveFr(x[0]))).map(x => x[i]).filter(Number.isFinite);
+    return v.length ? soma(v) / v.length : null;
+  };
+  const marcarFiltro = () => {
+    const nome = FILTRO_FR ? nomeFr(FILTRO_FR) : '';
+    ['efAlvo', 'indAlvo'].forEach(id => { const el = $('#' + id); if (el) el.textContent = nome ? `· ${nome}` : ''; });
+    $$('[data-filtro]').forEach(el => {
+      el.innerHTML = FILTRO_FR ? `<button type="button" class="fr-chip" aria-label="Voltar para a usina"><i class="fa-solid fa-filter"></i>${esc(nome)}<i class="fa-solid fa-xmark"></i></button>` : (diasCF().length ? '<span class="fr-dica">usina · clique numa frente em Cota x entrega para filtrar</span>' : '');
+      const b = el.querySelector('button'); if (b) b.addEventListener('click', () => { FILTRO_FR = null; desenharEf(); desenharInd(); marcarFiltro(); });
+    });
+  };
   const desenharEf = () => {
     const m = CTX.metas.eficiencia;
+    const vals = L.map(r => valFr(r, 3)), med = FILTRO_FR ? media(vals, x => x) : CTX.ef, nome = FILTRO_FR ? nomeFr(FILTRO_FR) : null;
     graf('hcEf', {
       type: 'line',
-      data: { labels: lbl(), datasets: [{ label: 'Eficiência', data: L.map(r => r.ef), borderColor: C.folha, borderWidth: 2.2, tension: .35, fill: true,
+      data: { labels: lbl(), datasets: [{ label: 'Eficiência', data: vals, spanGaps: true, borderColor: C.folha, borderWidth: 2.2, tension: .35, fill: true,
         backgroundColor: c => { const { ctx, chartArea: a } = c.chart; if (!a) return 'rgba(60,122,53,.1)'; const g = ctx.createLinearGradient(0, a.top, 0, a.bottom); g.addColorStop(0, 'rgba(60,122,53,.22)'); g.addColorStop(1, 'rgba(60,122,53,0)'); return g; },
-        pointRadius: 4, pointHoverRadius: 7, pointBackgroundColor: L.map(r => (r.ef >= m ? ST.ok : ST.bad)), pointBorderColor: '#fff', pointBorderWidth: 2 }] },
-      options: opc(L, { y: { beginAtZero: false, suggestedMin: 40, suggestedMax: 100, ticks: { callback: v => v + '%', maxTicksLimit: 6, color: C.muted } }, tooltip: { callbacks: { title: titDia, label: c => ` Eficiência: ${nf(c.raw, 1)}%`, footer: rodapeDia } } }),
-      plugins: [linhas({ media: CTX.ef, fmtMedia: v => 'média ' + nf(v, 1) + '%', meta: m, fmtMeta: v => nf(v, 0) + '%' }), rotulos({ fmt: v => nf(v, 0) + '%', limite: 12 }), mira],
+        pointRadius: 4, pointHoverRadius: 7, pointBackgroundColor: vals.map(v => (v >= m ? ST.ok : ST.bad)), pointBorderColor: '#fff', pointBorderWidth: 2 }] },
+      options: opc(L, { y: { beginAtZero: false, suggestedMin: 40, suggestedMax: 100, ticks: { callback: v => v + '%', maxTicksLimit: 6, color: C.muted } }, tooltip: { callbacks: { title: titDia, label: c => ` Eficiência${nome ? ' · ' + nome : ''}: ${c.raw == null ? 'sem dado' : nf(c.raw, 1) + '%'}`, footer: rodapeDia } } }),
+      plugins: [linhas({ media: med, fmtMedia: v => 'média ' + nf(v, 1) + '%', meta: m, fmtMeta: v => nf(v, 0) + '%' }), rotulos({ fmt: v => nf(v, 0) + '%', limite: 12 }), mira],
     });
   };
   const desenharInd = () => {
     const m = CTX.metas.indisponibilidade;
+    const vals = L.map(r => valFr(r, 4)), med = FILTRO_FR ? media(vals, x => x) : CTX.ind, nome = FILTRO_FR ? nomeFr(FILTRO_FR) : null;
     graf('hcInd', {
       type: 'bar',
-      data: { labels: lbl(), datasets: [{ label: 'Indisponibilidade', data: L.map(r => r.ind), backgroundColor: L.map(r => (r.ind <= m ? ST.ok : ST.bad)), borderRadius: 5, borderSkipped: 'bottom', maxBarThickness: 28 }] },
-      options: opc(L, { y: { ticks: { callback: v => v + '%', maxTicksLimit: 6, color: C.muted } }, tooltip: { mode: 'nearest', intersect: true, callbacks: { title: titDia, label: c => ` Indisponibilidade: ${nf(c.raw, 1)}%`, footer: rodapeDia } } }),
-      plugins: [linhas({ media: CTX.ind, fmtMedia: v => 'média ' + nf(v, 1) + '%', meta: m, fmtMeta: v => nf(v, 0) + '%' }), rotulos({ fmt: v => nf(v, 0) + '%' })],
+      data: { labels: lbl(), datasets: [{ label: 'Indisponibilidade', data: vals, backgroundColor: vals.map(v => (v <= m ? ST.ok : ST.bad)), borderRadius: 5, borderSkipped: 'bottom', maxBarThickness: 28 }] },
+      options: opc(L, { y: { ticks: { callback: v => v + '%', maxTicksLimit: 6, color: C.muted } }, tooltip: { mode: 'nearest', intersect: true, callbacks: { title: titDia, label: c => ` Indisponibilidade${nome ? ' · ' + nome : ''}: ${nf(c.raw, 1)}%`, footer: rodapeDia } } }),
+      plugins: [linhas({ media: med, fmtMedia: v => 'média ' + nf(v, 1) + '%', meta: m, fmtMeta: v => nf(v, 0) + '%' }), rotulos({ fmt: v => nf(v, 0) + '%' })],
     });
   };
   const desenharFr = () => {

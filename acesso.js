@@ -135,14 +135,14 @@
     el.innerHTML = `
       <header class="topbar"><div class="topbar__inner">
         <span class="brand"><span class="brand__logo"><img src="logo-icon.png" alt="" onerror="this.remove()"></span>
-          <span class="brand__text"><strong>Gerenciamento Diário</strong><small>Centro de Operações Agrícolas</small></span></span>
+          <span class="brand__text"><strong>Gerenciamento Operacional</strong><small>Centro de Operações Agrícolas</small></span></span>
         <span class="report-chip"><i class="fa-solid fa-lock"></i><span>Acesso restrito</span></span>
       </div></header>
       <main class="auth__main">
         <section class="auth__card">
           <div class="auth__hero">
             <span class="auth__kicker"><i class="fa-solid fa-seedling"></i> Operação Agrícola</span>
-            <h1>Gerenciamento Diário</h1>
+            <h1>Gerenciamento Operacional</h1>
             <p>Relatório gerencial diário da operação agrícola.</p>
             <ul class="auth__tags">
               <li><i class="fa-solid fa-bullseye"></i>Produção x Cota</li>
@@ -161,7 +161,7 @@
       </main>
       <footer class="footer"><div class="footer__inner">
         <div class="footer__brand"><span class="brand__logo brand__logo--lg"><img src="logo.png" alt="Bioenergética Aroeira" onerror="this.remove()"></span>
-          <div><strong>Gerenciamento Diário · Operação Agrícola</strong><small>Bioenergética Aroeira</small></div></div>
+          <div><strong>Gerenciamento Operacional · Operação Agrícola</strong><small>Bioenergética Aroeira</small></div></div>
         <p class="copyright">© ${ano} Talamante. Todos os direitos reservados.</p>
       </div></footer>`;
     return el;

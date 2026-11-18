@@ -330,3 +330,12 @@ body:not(.is-editor) .so-editor { display: none !important; }
   .cf-fr { grid-template-columns: minmax(0, 1fr) 40px; }
   .cf-fr .b { display: none; }
 }
+
+/* histórico: filtro de frente na eficiência e na indisponibilidade */
+.fr-alvo { color: var(--folha); font-weight: 700; }
+.fr-filtro { flex: none; }
+.fr-chip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px; border: 1px solid var(--folha); border-radius: 999px; background: #EEF4EA; font: inherit; font-size: 12px; font-weight: 700; color: var(--canavial); cursor: pointer; transition: background .2s; }
+.fr-chip:hover { background: #E1ECDB; }
+.fr-chip .fa-xmark { color: var(--muted); }
+.fr-dica { font-size: 11.5px; color: var(--muted); }
+@media (max-width: 700px) { .fr-dica { display: none; } }

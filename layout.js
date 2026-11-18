@@ -97,7 +97,7 @@
     paginas.forEach(x => x.classList.remove('is-on', 'entra'));
     const pg = paginas.find(x => x.dataset.p === p);
     pg.classList.add('is-on'); void pg.offsetWidth; if (!semMov()) pg.classList.add('entra');
-    document.title = `${pg.dataset.titulo || 'Painel'} · Gerenciamento Diário`;
+    document.title = `${pg.dataset.titulo || 'Painel'} · Gerenciamento Operacional`;
     window.scrollTo({ top: 0, behavior: 'auto' });
     L.secoes();
     requestAnimationFrame(() => { if (typeof L.aoEntrar === 'function') L.aoEntrar(pg); L.animar(pg); });
