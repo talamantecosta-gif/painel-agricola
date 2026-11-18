@@ -23,7 +23,7 @@
      Boletim Análise de Pisoteio DD-MM-AAAA.pdf (semanal)     → historico/pisoteio.json (todos os boletins)
      Dimensionamento de cotas (AAAA).xlsx (aba Cota mensal)   → historico/cotas.json (cota proporcional do dia)
      Controle de Entrega.xlsx (abas do mês)                    → historico/entrega.json (entrega por frente por dia)
-   Pastas extras (botão de pastas): delas o painel lê só as planilhas de cotas, de entrega e de viagens,
+   Pastas extras (botão de pastas): delas o painel lê só as planilhas de cotas, de entrega, de viagens e o pluviométrico,
    e do Controle de Entrega / Controle de Viagens só as abas do mês atual e do anterior (o resto já está publicado).
    ========================================================================= */
 (function () {
@@ -445,7 +445,7 @@
         else if (/analise.*\.json$/i.test(nome)) analises.push({ nome, h });
         else if (/\.xls[xmb]?$/i.test(nome) && !nome.startsWith('~$')) planilhas.push({ nome, h });
       }
-      // pastas extras: só as planilhas conhecidas (cotas, controle de entrega, controle de viagens)
+      // pastas extras: só as planilhas conhecidas (cotas, controle de entrega, controle de viagens, pluviométrico)
       const semPerm = [];
       for (const ex of (SUPORTA_PASTA || window.__PASTAS_TESTE ? await pastasExtras() : [])) {
         let ok = false; try { ok = await permissao(ex, !silencioso); } catch (e) { ok = false; }
@@ -453,7 +453,7 @@
         progresso(`Lendo a pasta ${ex.name}…`);
         for await (const [nome, h] of ex.entries()) {
           if (h.kind !== 'file' || nome.startsWith('~$') || !/\.xls[xmb]?$/i.test(nome)) continue;
-          if (/cota|entrega|viage|transporte|happ/i.test(nome)) planilhas.push({ nome, h, pasta: ex.name });
+          if (/cota|entrega|viage|transporte|happ|pluvi/i.test(nome)) planilhas.push({ nome, h, pasta: ex.name });
         }
       }
       const F = IDX.fontes || {};
@@ -745,7 +745,7 @@
       <p>Ao clicar em <b>Sincronizar</b>, o painel lê estas pastas do seu computador.</p>
       <ul class="pastas-lista">
         <li><i class="fa-solid fa-folder"></i><div><b>${esc(principal ? principal.name : 'nenhuma pasta')}</b><small>principal · relatórios em PDF, análises, boletins e planilhas</small></div></li>
-        ${ex.map((h, i) => `<li><i class="fa-solid fa-folder-tree"></i><div><b>${esc(h.name)}</b><small>extra · só as planilhas de cotas, controle de entrega e controle de viagens</small></div><button type="button" class="ib pastas-rm" data-i="${i}" aria-label="Remover a pasta ${esc(h.name)}"><i class="fa-solid fa-xmark"></i></button></li>`).join('')}
+        ${ex.map((h, i) => `<li><i class="fa-solid fa-folder-tree"></i><div><b>${esc(h.name)}</b><small>extra · só as planilhas de cotas, controle de entrega, controle de viagens e pluviométrico</small></div><button type="button" class="ib pastas-rm" data-i="${i}" aria-label="Remover a pasta ${esc(h.name)}"><i class="fa-solid fa-xmark"></i></button></li>`).join('')}
       </ul>
       <p class="hint">Nada é copiado para a pasta principal. Das planilhas de entrega e de viagens, o painel lê só as abas do mês atual e do anterior e publica um resumo criptografado; os meses anteriores continuam guardados.</p>`,
     [
