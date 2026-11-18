@@ -299,3 +299,34 @@ body:not(.is-editor) .so-editor { display: none !important; }
 
 /* sem números de notificação no trilho */
 .rail .badge { display: none !important; }
+
+/* histórico: botões de pastas e sincronizar */
+.hist-acoes { display: flex; align-items: center; gap: 8px; }
+.pastas-lista { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 8px; }
+.pastas-lista li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #FAFBF9; }
+.pastas-lista li > i { color: var(--folha); font-size: 16px; width: 18px; text-align: center; }
+.pastas-lista li div { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.pastas-lista li b { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pastas-lista li small { color: var(--muted); font-size: 11.5px; }
+.pastas-lista .pastas-rm { width: 30px; height: 30px; color: var(--bad); flex: none; }
+
+/* histórico: cota x entrega por frente */
+.cf-card { margin-top: 14px; }
+.cf-grid { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 18px; align-items: start; }
+.cf-lista { display: grid; gap: 4px; }
+.cf-fr { display: grid; grid-template-columns: minmax(0, 1fr) 54px 40px; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid transparent; border-radius: 9px; background: none; font: inherit; font-size: 12.5px; color: var(--text); cursor: pointer; text-align: left; transition: background .2s, border-color .2s; }
+.cf-fr:hover { background: var(--campo); }
+.cf-fr.is-on { background: #EEF4EA; border-color: var(--folha); }
+.cf-fr .n { font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cf-fr .b { height: 6px; border-radius: 3px; background: var(--hair); overflow: hidden; }
+.cf-fr .b i { display: block; height: 100%; border-radius: 3px; }
+.cf-fr b { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cf-nota { margin: 6px 10px 0; }
+.cf-res { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.cf-res b { color: var(--ink); }
+@media (max-width: 900px) {
+  .cf-grid { grid-template-columns: 1fr; }
+  .cf-lista { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .cf-fr { grid-template-columns: minmax(0, 1fr) 40px; }
+  .cf-fr .b { display: none; }
+}
