@@ -1080,7 +1080,7 @@
       </section>
 
       <section class="section" id="hMaq" data-nome="Máquinas">
-        <article class="card"><header class="card__head"><div><h3>Colhedoras: média por dia trabalhado</h3><p class="hint">${colPl ? 'Por frota (aba Select do Controle de Entrega) · ' : ''}Verde = média acima da meta · traço = meta (1 linha ${nf(metas.metaColhedora1Linha)} t · 2 linhas ${nf(metas.metaColhedora2Linhas)} t)</p></div></header>
+        <article class="card"><header class="card__head"><div><h3>Colhedoras: média por dia trabalhado</h3><p class="hint">${colPl ? 'Colhedoras próprias das Frentes 01 a 05 (aba Select do Controle de Entrega) · ' : ''}Verde = média acima da meta · traço = meta (1 linha ${nf(metas.metaColhedora1Linha)} t · 2 linhas ${nf(metas.metaColhedora2Linhas)} t)</p></div></header>
           <div class="chart-box hist-cv"><canvas id="hcCol" role="img" aria-label="Média por colhedora"></canvas></div></article>
       </section>
 
@@ -1233,7 +1233,8 @@
   const colhedorasDaPlanilha = () => {
     if (!ENTREGA || !ENTREGA.meses || !PER.de) return [];
     const fim = ateTP() === '9999-12-31' ? '9999-12-31' : PER.ate, M = new Map();
-    Object.entries(ENTREGA.meses).forEach(([ym, m]) => Object.entries(m.col || {}).forEach(([eq, x]) => Object.entries(x.d || {}).forEach(([dd, t]) => {
+    // só colhedoras próprias: frota cuja frente principal no mês é a 01 a 05
+    Object.entries(ENTREGA.meses).forEach(([ym, m]) => Object.entries(m.col || {}).filter(([, x]) => x.f >= 1 && x.f <= 5).forEach(([eq, x]) => Object.entries(x.d || {}).forEach(([dd, t]) => {
       const d = `${ym}-${dd}`; if (d < PER.de || d > fim || !(t > 0)) return;
       const c = M.get(eq) || { id: eq, dias: 0, tc: 0, fr: x.f != null ? (NOME_COD[x.f] || `Frente ${String(x.f).padStart(2, '0')}`) : '—' };
       c.dias++; c.tc += t; M.set(eq, c);
