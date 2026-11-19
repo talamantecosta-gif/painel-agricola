@@ -746,7 +746,7 @@
       }
       if (pvLido && window.Pluvio) Pluvio.definir(pvLido);
       if (scLido && window.Scania) Scania.definir(scLido);
-      if ((coaLido || semLido) && window.Semana) Semana.definir({ coa: coaLido, resumo: semLido });
+      if ((coaLido || semLido || cotaLida) && window.Semana) Semana.definir({ coa: coaLido, resumo: semLido, cotas: cotaLida });
       if (psLido && window.Pisoteio) Pisoteio.definir(psLido);
       if (cotaLida) COTAS = cotaLida;
       if (entLida) ENTREGA = entLida;

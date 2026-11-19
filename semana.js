@@ -3,6 +3,7 @@
    Fontes (publicadas pela sincronização da pasta Histórico):
      historico/analise-coa.json    números diários da análise COA por frente
      historico/resumo-semanal.json texto da semana, escrito toda segunda-feira
+     historico/cotas.json          cota de cada frente por dia (planilha de cotas) — substitui a meta da análise
    ========================================================================= */
 (function () {
   'use strict';
@@ -19,7 +20,17 @@
   const IND = { 'Aguardando Transbordo': 'Colhedoras aguardando transbordo', 'Aguardando Caminhão - Transbordo': 'Transbordos aguardando caminhão', 'Aguardando Colhedora': 'Transbordos aguardando colhedora', 'Equipamento em Fila': 'Transbordos em fila' };
   const soma = (a, f) => a.reduce((s, x) => s + (Number(f(x)) || 0), 0);
 
-  let COA = null, RES = null, SEM = null, MONT = false;
+  let COA = null, RES = null, COTAS = null, SEM = null, MONT = false;
+  // cota da frente no dia pela planilha de cotas (F.1 = Frente 01; JLA = Frente 11/31; Bisinoto = 13/33; Grisomaq = 34; Abençoada = 37)
+  const chave = s => { const t = String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim(); const m = t.match(/^F(?:RENTE)?\s*[-.]?\s*0*(\d+)/); return m ? 'F' + m[1] : t.replace(/[^A-Z0-9]/g, ''); };
+  const ALIAS = { F11: 'JLA', F31: 'JLA', F13: 'BISINOTO', F33: 'BISINOTO', F34: 'GRISOMAQ', F37: 'ABENCOADA' };
+  const alvo = s => { const c = chave(s); return ALIAS[c] || c; };
+  const cotaPl = (d, f) => {
+    const k = COTAS && COTAS.dias && COTAS.dias[d]; if (!k || !k.f) return null;
+    const a = alvo(f); let v = 0; // dia na planilha: frente sem cota = 0 (ex.: dia parado por chuva)
+    Object.entries(k.f).forEach(([n, x]) => { if (alvo(n) === a && Number.isFinite(x)) v = (v || 0) + x; });
+    return v;
+  };
 
   const semanas = () => {
     const ds = (COA && Array.isArray(COA.dias) ? COA.dias : []).map(d => d.data).filter(Boolean).sort();
@@ -34,8 +45,9 @@
     const nomes = [...new Set(dias.flatMap(d => Object.keys(d.frentes || {})))].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
     return nomes.map(f => {
       const L = dias.map(d => ({ d: d.data, v: (d.frentes || {})[f] })).filter(x => x.v);
-      const comEnt = L.filter(x => Number.isFinite(x.v.entrega) && Number.isFinite(x.v.meta) && x.v.meta > 0);
-      const ent = soma(comEnt, x => x.v.entrega), meta = soma(comEnt, x => x.v.meta);
+      const cot = x => { const c = cotaPl(x.d, f); if (c != null) return c; return Number.isFinite(x.v.meta) && x.v.meta > 0 ? x.v.meta : null; }; // sem o dia na planilha: meta da análise
+      const comEnt = L.filter(x => Number.isFinite(x.v.entrega) && cot(x) != null);
+      const ent = soma(comEnt, x => x.v.entrega), meta = soma(comEnt, cot);
       const tl = {}; L.forEach(x => Object.entries(x.v.timeline || {}).forEach(([k, t]) => { tl[k] = (tl[k] || 0) + ((t && t.horasAcimaMeta) || 0); }));
       const ofs = Object.entries(tl).filter(([, h]) => h > 0).sort((a, b) => b[1] - a[1]);
       const sinal = L.filter(x => ((x.v.colhedora || {}).aguardTransbordoPct || 0) > 10).length;
@@ -43,7 +55,7 @@
       const falta = soma(L, x => ((x.v.aguardandoCaminhao || {}).faltaCaminhao || []).length);
       const div = soma(L, x => ((x.v.aguardandoCaminhao || {}).possivelDivergencia || []).length);
       const dc = L.map(x => (x.v.colhedora || {}).disponibilidade).filter(Number.isFinite), dt = L.map(x => (x.v.transbordo || {}).disponibilidade).filter(Number.isFinite);
-      const st = {}; L.forEach(x => { st[x.d] = { s: x.v.status, ent: x.v.entrega, meta: x.v.meta }; });
+      const st = {}; L.forEach(x => { st[x.d] = { s: x.v.status, ent: x.v.entrega, meta: cot(x) }; });
       return { f, n: L.length, nEnt: comEnt.length, ent, meta, dif: comEnt.length ? ent - meta : null, pct: meta ? ent / meta * 100 : null, ofs, sinal, mlp, falta, div, dispC: dc.length ? soma(dc, x => x) / dc.length : null, dispT: dt.length ? soma(dt, x => x) / dt.length : null, st, ruins: L.filter(x => x.v.status === 'bad').length };
     });
   };
@@ -71,8 +83,8 @@
             <button type="button" class="ib" data-p="1" ${i < ws.length - 1 ? '' : 'disabled'} aria-label="Próxima semana"><i class="fa-solid fa-chevron-right"></i></button></div></div>
         <article class="card sm-res">
           <div class="sm-k">
-            <div><span>Entrega x meta</span><b style="color:${corPct(pctT)}">${pctT == null ? '—' : nf(pctT, 1) + '%'}</b><small>${T.meta ? `${nf(T.ent)} de ${nf(T.meta)} t · ${sg(T.ent - T.meta)} t` : 'sem entrega lida'}${T.nEnt && T.nEnt < w.dias ? ` · ${T.nEnt} de ${w.dias} dias` : ''}</small></div>
-            <div><span>Frentes na meta</span><b>${T.acima}<em> de ${F.filter(x => x.dif != null).length || F.length}</em></b><small>entrega maior ou igual à meta</small></div>
+            <div><span>Entrega x cota</span><b style="color:${corPct(pctT)}">${pctT == null ? '—' : nf(pctT, 1) + '%'}</b><small>${T.meta ? `${nf(T.ent)} de ${nf(T.meta)} t · ${sg(T.ent - T.meta)} t` : 'sem entrega lida'}${T.nEnt && T.nEnt < w.dias ? ` · ${T.nEnt} de ${w.dias} dias` : ''}</small></div>
+            <div><span>Frentes na cota</span><b>${T.acima}<em> de ${F.filter(x => x.dif != null).length || F.length}</em></b><small>entrega maior ou igual à cota</small></div>
             <div><span>Sinal de atenção</span><b>${T.sinal}<em> dias</em></b><small>colhedoras aguardando transbordo &gt; 10%</small></div>
             <div><span>Motor ligado parado</span><b>${nf(T.mlp)}<em> h</em></b><small>colhedoras + transbordos na semana</small></div>
             <div><span>Falta de caminhão</span><b>${T.falta}<em> horários</em></b><small>colhedora e transbordo esperando juntos</small></div>
@@ -85,7 +97,7 @@
             <header class="sm-fr__h"><b>${esc(x.f)}</b>${x.pct != null ? `<span class="sm-pct" style="--c:${corPct(x.pct)}">${nf(x.pct, 0)}% · ${sg(x.dif)} t</span>` : '<span class="sm-pct sm-pct--nd">sem entrega</span>'}</header>
             ${t && t.titulo ? `<div class="sm-tit${x.pct != null && x.pct >= 100 ? ' sm-tit--ok' : ''}">${esc(t.titulo)}</div>` : ''}
             <div class="sm-dias">${Array.from({ length: 7 }, (_, j) => { const d = addDias(w.ini, j), s = x.st[d]; const c = s && ST[s.s] ? ST[s.s][0] : null; return `<span class="sm-dia${c ? '' : ' nd'}" style="${c ? `--c:${c}` : ''}" title="${DSEM[j]} ${brC(d)}${s ? ` · ${ST[s.s] ? ST[s.s][1] : '—'}${Number.isFinite(s.ent) && Number.isFinite(s.meta) ? ` · ${nf(s.ent)} de ${nf(s.meta)} t` : ''}` : ' · sem análise'}"><i></i><small>${DSEM[j]}</small></span>`; }).join('')}</div>
-            ${x.meta ? `<div class="sm-ent"><div class="sm-ent__bar"><i style="--w:${Math.min(100, x.ent / x.meta * 100).toFixed(1)}%;background:${corPct(x.pct)}"></i><span style="left:${Math.min(100, 100 / Math.max(1, x.ent / x.meta) ).toFixed(1)}%"></span></div><small>${nf(x.ent)} t entregues para ${nf(x.meta)} t de meta${x.nEnt < x.n ? ` (${x.nEnt} de ${x.n} dias com entrega lida)` : ''}</small></div>` : ''}
+            ${x.meta ? `<div class="sm-ent"><div class="sm-ent__bar"><i style="--w:${Math.min(100, x.ent / x.meta * 100).toFixed(1)}%;background:${corPct(x.pct)}"></i><span style="left:${Math.min(100, 100 / Math.max(1, x.ent / x.meta) ).toFixed(1)}%"></span></div><small>${nf(x.ent)} t entregues para ${nf(x.meta)} t de cota${x.nEnt < x.n ? ` (${x.nEnt} de ${x.n} dias com entrega lida)` : ''}</small></div>` : ''}
             <div class="sm-of"><span class="sm-lbl">Maiores ofensores · horas acima da referência</span>${x.ofs.slice(0, 3).map(([k2, h]) => `<div class="sm-of__l"><span>${esc(IND[k2] || k2)}</span><span class="sm-of__t"><i style="--w:${(h / mxOf * 100).toFixed(1)}%"></i></span><b>${nf(h)} h</b></div>`).join('') || '<p class="hint">Nenhum indicador acima da referência.</p>'}</div>
             <div class="sm-chips">
               <span class="${x.sinal >= 3 ? 'is-bad' : ''}"><i class="fa-solid fa-triangle-exclamation"></i>Sinal de atenção <b>${x.sinal} ${x.sinal === 1 ? 'dia' : 'dias'}</b></span>
@@ -107,12 +119,12 @@
 
   const ler = async p => { try { const r = await fetch(p, { cache: 'no-store' }); if (!r.ok) return null; return (await Acesso.readJson(await r.json())).data; } catch (e) { return null; } };
   S.iniciar = async () => {
-    [COA, RES] = await Promise.all([ler('historico/analise-coa.json'), ler('historico/resumo-semanal.json')]);
+    [COA, RES, COTAS] = await Promise.all([ler('historico/analise-coa.json'), ler('historico/resumo-semanal.json'), ler('historico/cotas.json')]);
     const antes = Layout.aoEntrar;
     Layout.aoEntrar = pg => { if (antes) antes(pg); if (pg.dataset.p === 'historico' && !MONT) montar(); };
     montar();
   };
   // depois de sincronizar a pasta (só o que mudou)
-  S.definir = ({ coa, resumo } = {}) => { if (coa) COA = coa; if (resumo) RES = resumo; montar(); };
+  S.definir = ({ coa, resumo, cotas } = {}) => { if (coa) COA = coa; if (resumo) RES = resumo; if (cotas) COTAS = cotas; montar(); };
   window.Semana = S;
 })();
