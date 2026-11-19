@@ -280,7 +280,7 @@
   };
 
   /* Controle de Entrega: abas por mês (Data | Moagem | uma coluna por frente | colunas de %). */
-  const ENT_V = 1;
+  const ENT_V = 2; // 2: inclui a entrega por colhedora (aba Select)
   const lerEntrega = async (file, abas = null) => {
     const X = await carregaXlsx();
     const buf = await file.arrayBuffer();
@@ -288,7 +288,8 @@
     let alvo = abas ? todas.filter(n => abas.includes(normT(n))) : todas;
     if (!alvo.length) alvo = todas;
     if (!alvo.length) throw new Error('não encontrei as abas por mês');
-    const wb = X.read(buf, { type: 'array', sheets: alvo });
+    const temSel = nomesAbas(X, buf).find(n => normT(n) === 'select');
+    const wb = X.read(buf, { type: 'array', sheets: temSel ? [...alvo, temSel] : alvo });
     const meses = {};
     alvo.forEach(nome => {
       const ws = wb.Sheets[nome]; if (!ws) return;
@@ -310,6 +311,33 @@
       if (ym) meses[ym] = { aba: nome, plano, dias };
     });
     if (!Object.keys(meses).length) throw new Error('não encontrei as abas por mês (colunas Data, Moagem e as frentes)');
+    // aba Select (exportação do SGPA): entrega por colhedora (CD_EQUIPTO) por dia, só dos meses lidos
+    const ws = temSel && wb.Sheets[temSel];
+    if (ws) {
+      const rows = X.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+      const h = (rows[0] || []).map(v => String(v ?? '').trim().toUpperCase());
+      const cD = h.indexOf('DT_HISTORICO'), cE = h.indexOf('CD_EQUIPTO'), cF = h.indexOf('CD_FREN_TRAN'), cT = h.indexOf('QT_CANA_ENT');
+      if (cD >= 0 && cE >= 0 && cT >= 0) {
+        const acc = {}; // ym → eq → { d: { DD: t }, fr: { código: n } }
+        for (let i = 1; i < rows.length; i++) {
+          const r = rows[i]; if (!r) continue;
+          const d = isoCel(X, r[cD]); if (!d) continue;
+          const ym = d.slice(0, 7); if (!meses[ym]) continue;
+          const eq = String(r[cE] ?? '').trim(), t = numT(r[cT]); if (!eq || !t) continue;
+          const m = acc[ym] || (acc[ym] = {}), x = m[eq] || (m[eq] = { d: {}, fr: {} });
+          const dd = d.slice(8); x.d[dd] = (x.d[dd] || 0) + t / 1000;
+          const f = cF >= 0 ? r[cF] : null; if (f != null) x.fr[f] = (x.fr[f] || 0) + 1;
+        }
+        Object.entries(acc).forEach(([ym, m]) => {
+          meses[ym].col = {};
+          Object.entries(m).forEach(([eq, x]) => {
+            const fr = Object.entries(x.fr).sort((a, b) => b[1] - a[1])[0];
+            Object.keys(x.d).forEach(k => { x.d[k] = Math.round(x.d[k] * 100) / 100; });
+            meses[ym].col[eq] = { f: fr ? Number(fr[0]) : null, d: x.d };
+          });
+        });
+      }
+    }
     return { versao: ENT_V, arquivo: file.name, lidoEm: new Date().toISOString(), meses };
   };
   H.lerEntrega = lerEntrega;
@@ -993,12 +1021,21 @@
       F.set(fr, x);
     }));
     const ordF = s => { const m = String(s).match(/(\d+)/); return m ? +m[1] : 999; };
-    const frentes = [...F.values()].filter(f => f.cota > 0).sort((a, b) => ordF(a.fr) - ordF(b.fr));
+    let frentes = [...F.values()].filter(f => f.cota > 0).sort((a, b) => ordF(a.fr) - ordF(b.fr));
+    const fPl = frentesDaPlanilha(); const frPl = fPl.length > 0; if (frPl) frentes = fPl;
+    let rodProd = mProd, rodPct = pct;
+    if (frPl) {
+      let E = 0, dE = 0, Ec = 0, Cc = 0;
+      diasCF().forEach(d => { const e = (entDia(d) || {}).f || {}, c = cotaFrDia(d) || {}, te = soma(Object.values(e)); if (te > 0) { E += te; dE++; } Object.keys(c).forEach(k => { if (c[k] > 0) { Cc += c[k]; Ec += e[k] || 0; } }); });
+      rodProd = dE ? E / dE : null; rodPct = Cc ? Ec / Cc * 100 : null;
+    }
     // colhedoras
     const CO = new Map();
     L.forEach(r => (r.col || []).forEach(([id, tc, fr]) => { const x = CO.get(id) || { id, fr, dias: 0, tc: 0 }; x.dias++; x.tc += tc || 0; x.fr = fr; CO.set(id, x); }));
     const dois = new Set((metas.colhedoras2Linhas || []).map(String));
-    const colh = [...CO.values()].map(c => ({ ...c, med: c.tc / c.dias, meta: dois.has(c.id) ? metas.metaColhedora2Linhas : metas.metaColhedora1Linha })).sort((a, b) => b.med - a.med);
+    let colh = [...CO.values()].map(c => ({ ...c, med: c.tc / c.dias, meta: dois.has(c.id) ? metas.metaColhedora2Linhas : metas.metaColhedora1Linha })).sort((a, b) => b.med - a.med);
+    const cPl = colhedorasDaPlanilha(); const colPl = cPl.length > 0;
+    if (colPl) colh = cPl.map(c => ({ ...c, med: c.tc / c.dias, meta: dois.has(c.id) ? metas.metaColhedora2Linhas : metas.metaColhedora1Linha })).sort((a, b) => b.med - a.med);
     // transporte
     const logT = soma(L, r => r.log?.tot), rod = soma(L, r => r.log?.rod), tri = soma(L, r => r.log?.tri), via = soma(L, r => r.log?.via);
     CTX = { metas, mProd, mCota, pct, ef, ind, frentes, colh, logT, rod, tri, via, n };
@@ -1027,23 +1064,23 @@
 
       <section class="section" id="hFrentes" data-nome="Frentes">
         <div class="grid hgrid-fr">
-          <article class="card"><header class="card__head"><div><h3>Produção média por frente</h3><p class="hint">t por dia · traço = cota média · cor = atingimento médio</p></div></header>
+          <article class="card"><header class="card__head"><div><h3>Produção média por frente</h3><p class="hint">t por dia · traço = cota média · cor = atingimento${frPl ? ' · Controle de Entrega x planilha de cotas' : ' médio'}</p></div></header>
             <div class="chart-box" style="height:${Math.max(260, frentes.length * 34 + 40)}px"><canvas id="hcFr" role="img" aria-label="Produção média por frente"></canvas></div></article>
-          <article class="card"><header class="card__head"><div><h3>Frentes no período</h3><p class="hint">Médias por dia com relatório e a tendência do atingimento</p></div></header>
+          <article class="card"><header class="card__head"><div><h3>Frentes no período</h3><p class="hint">${frPl ? 'Entrega média por dia com entrega, atingimento da cota no período e a tendência diária' : 'Médias por dia com relatório e a tendência do atingimento'}</p></div></header>
             <div class="table-wrap"><table class="simple-table hist-tab">
               <thead><tr><th>Frente</th><th class="num">Média/dia (t)</th><th class="num">Atingimento</th><th>Tendência</th><th class="num">Eficiência</th><th class="num">Indisp.</th></tr></thead>
-              <tbody>${frentes.map(f => { const p = media(f.serie, x => x), e = media(f.ef, x => x), i = media(f.ind, x => x); return `<tr>
+              <tbody>${frentes.map(f => { const p = f.pct != null ? f.pct : media(f.serie, x => x), e = media(f.ef, x => x), i = media(f.ind, x => x); return `<tr>
                 <td><b>${esc(f.fr)}</b></td><td class="num"><b>${nf(f.prod / f.dias, 0)}</b></td>
                 <td class="num">${p != null ? `<span class="pill ${stP(p)}">${nf(p, 1)}%</span>` : '—'}</td><td>${spark(f.serie, corP(p))}</td>
                 <td class="num">${e != null ? `<span class="pill ${e >= metas.eficiencia ? 'ok' : e >= metas.eficiencia * .9 ? 'warn' : 'bad'}">${nf(e, 1)}%</span>` : '—'}</td>
                 <td class="num">${i != null ? nf(i, 1) + '%' : '—'}</td></tr>`; }).join('')}</tbody>
-              <tfoot><tr><td>Média da usina</td><td class="num">${nf(mProd, 0)}</td><td class="num">${nf(pct, 1)}%</td><td></td><td class="num">${nf(ef, 1)}%</td><td class="num">${nf(ind, 1)}%</td></tr></tfoot>
+              <tfoot><tr><td>Média da usina</td><td class="num">${nf(rodProd, 0)}</td><td class="num">${nf(rodPct, 1)}%</td><td></td><td class="num">${nf(ef, 1)}%</td><td class="num">${nf(ind, 1)}%</td></tr></tfoot>
             </table></div></article>
         </div>
       </section>
 
       <section class="section" id="hMaq" data-nome="Máquinas">
-        <article class="card"><header class="card__head"><div><h3>Colhedoras: média por dia trabalhado</h3><p class="hint">Verde = média acima da meta · traço = meta (1 linha ${nf(metas.metaColhedora1Linha)} t · 2 linhas ${nf(metas.metaColhedora2Linhas)} t)</p></div></header>
+        <article class="card"><header class="card__head"><div><h3>Colhedoras: média por dia trabalhado</h3><p class="hint">${colPl ? 'Por frota (aba Select do Controle de Entrega) · ' : ''}Verde = média acima da meta · traço = meta (1 linha ${nf(metas.metaColhedora1Linha)} t · 2 linhas ${nf(metas.metaColhedora2Linhas)} t)</p></div></header>
           <div class="chart-box hist-cv"><canvas id="hcCol" role="img" aria-label="Média por colhedora"></canvas></div></article>
       </section>
 
@@ -1179,6 +1216,29 @@
       });
     });
     return [...R.values()].filter(x => x.e > 0 || x.c > 0).map(x => ({ ...x, pct: x.c ? x.eC / x.c * 100 : null })).sort((a, b) => ordFr(a.k, b.k));
+  };
+  // frentes do período pelas planilhas (entrega do Controle de Entrega, cota da planilha de cotas; eficiência e indisponibilidade do relatório)
+  const frentesDaPlanilha = () => {
+    const ds = diasCF(); if (!ds.length) return [];
+    return resumoCF(ds).filter(r => r.e > 0).map(r => {
+      const cs = CODIGOS_FR[r.k] || [r.k], ef = [], ind = [], serie = [];
+      let dias = 0, cDias = 0;
+      ds.forEach(d => { const e = ((entDia(d) || {}).f || {})[r.k] || 0, c = (cotaFrDia(d) || {})[r.k]; if (e > 0) dias++; if (Number.isFinite(c) && c > 0) { cDias++; serie.push(e / c * 100); } });
+      L.forEach(x => (x.fr || []).forEach(f => { if (cs.includes(chaveFr(f[0]))) { if (Number.isFinite(f[3])) ef.push(f[3]); if (Number.isFinite(f[4])) ind.push(f[4]); } }));
+      dias = Math.max(1, dias);
+      return { fr: nomeFr(r.k), k: r.k, dias, prod: r.e, cota: cDias ? r.c / cDias * dias : 0, pct: r.pct, na: r.na, ef, ind, serie };
+    });
+  };
+  const NOME_COD = { 11: 'JLA', 31: 'JLA', 13: 'Bisinoto', 33: 'Bisinoto', 34: 'Grisomaq', 37: 'Abençoada' };
+  const colhedorasDaPlanilha = () => {
+    if (!ENTREGA || !ENTREGA.meses || !PER.de) return [];
+    const fim = ateTP() === '9999-12-31' ? '9999-12-31' : PER.ate, M = new Map();
+    Object.entries(ENTREGA.meses).forEach(([ym, m]) => Object.entries(m.col || {}).forEach(([eq, x]) => Object.entries(x.d || {}).forEach(([dd, t]) => {
+      const d = `${ym}-${dd}`; if (d < PER.de || d > fim || !(t > 0)) return;
+      const c = M.get(eq) || { id: eq, dias: 0, tc: 0, fr: x.f != null ? (NOME_COD[x.f] || `Frente ${String(x.f).padStart(2, '0')}`) : '—' };
+      c.dias++; c.tc += t; M.set(eq, c);
+    })));
+    return [...M.values()];
   };
   const htmlCotaFr = () => {
     const ds = diasCF(); if (!ds.length) return '';
@@ -1353,7 +1413,7 @@
   };
   const desenharFr = () => {
     const F = CTX.frentes;
-    const med = F.map(f => f.prod / f.dias), cot = F.map(f => f.cota / f.dias), at = F.map(f => media(f.serie, x => x));
+    const med = F.map(f => f.prod / f.dias), cot = F.map(f => f.cota / f.dias), at = F.map(f => (f.pct != null ? f.pct : media(f.serie, x => x)));
     graf('hcFr', {
       type: 'bar',
       data: { labels: F.map(f => f.fr), datasets: [{ label: 'Média/dia', data: med, backgroundColor: at.map(corP), borderRadius: 5, borderSkipped: 'start', maxBarThickness: 22 }] },
