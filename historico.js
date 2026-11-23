@@ -2,7 +2,7 @@
    Histórico do painel (Operação diária)
 
    Como os dados ficam no GitHub (todos protegidos com a chave do login):
-     historico/indice-operacao.json   resumo leve de cada dia (para períodos)
+     historico/indice-operacao.json   resumo leve de cada dia (para períodos) — manifesto + historico/indice-operacao/AAAA-MM.json
      historico/dias/AAAA-MM-DD.json   relatório completo do dia (dados + análise)
 
    Sincronização (só ao clicar no botão Sincronizar): a página lê a pasta do computador (vinculada uma vez),
@@ -124,9 +124,57 @@
     try { const r = await fetch(caminho, { cache: 'no-store' }); if (!r.ok) return null; return (await Acesso.readJson(await r.json())).data; }
     catch (e) { return null; }
   };
+  /* ---------- arquivos divididos por mês ----------
+     Os conjuntos que acumulam (índice, análise COA, cotas, entrega, transporte) ficam em
+     historico/<nome>.json (manifesto pequeno, com o código de cada mês) + historico/<nome>/AAAA-MM.json.
+     Cada sincronização só reenvia os meses que mudaram — o histórico do Git cresce bem menos.
+     Arquivo antigo (inteiro) continua sendo lido até a primeira sincronização. */
+  const DIV_V = 2;
+  const mesDe = d => String(d || '').slice(0, 7);
+  const porDia = x => { const { dias, ...m } = x; const p = {}; Object.entries(dias || {}).forEach(([d, r]) => { const k = mesDe(d); (p[k] = p[k] || {})[d] = r; }); return { m, p }; };
+  const juntaDia = (m, p) => ({ ...m, dias: Object.assign({}, ...Object.keys(p).sort().map(k => p[k] || {})) });
+  const DIV = {
+    indice: { path: 'historico/indice-operacao.json', dividir: porDia, juntar: juntaDia },
+    cotas: { path: 'historico/cotas.json', dividir: porDia, juntar: juntaDia },
+    coa: { path: 'historico/analise-coa.json',
+      dividir: x => { const { dias, ...m } = x; const p = {}; (dias || []).forEach(r => { const k = mesDe(r && r.data); if (k) (p[k] = p[k] || []).push(r); }); return { m, p }; },
+      juntar: (m, p) => ({ ...m, dias: Object.keys(p).sort().flatMap(k => p[k] || []) }) },
+    entrega: { path: 'historico/entrega.json',
+      dividir: x => { const { meses, ...m } = x; return { m, p: { ...(meses || {}) } }; },
+      juntar: (m, p) => ({ ...m, meses: { ...p } }) },
+    transporte: { path: 'historico/transporte.json',
+      dividir: x => { const { dias, meses, ...m } = x; const p = {}; const parte = k => (p[k] = p[k] || { dias: [], tot: null });
+        (dias || []).forEach(r => parte(mesDe(r.d)).dias.push(r)); Object.entries(meses || {}).forEach(([k, t]) => { parte(k).tot = t; }); return { m, p }; },
+      juntar: (m, p) => { const ks = Object.keys(p).sort(); return { ...m, dias: ks.flatMap(k => (p[k] && p[k].dias) || []), meses: Object.fromEntries(ks.filter(k => p[k] && p[k].tot).map(k => [k, p[k].tot])) }; } },
+  };
+  const lerArq = (c, p) => (c && c.token ? lerRepo(c, p).catch(() => null) : lerSite(p));
+  /** lê um conjunto (manifesto + meses); se ainda estiver no formato antigo, devolve o arquivo inteiro */
+  const lerDividido = async (nome, c = null) => {
+    const D = DIV[nome], m = await lerArq(c, D.path);
+    if (!m || m.split !== DIV_V) return m;
+    const pasta = D.path.replace(/\.json$/, ''), ks = Object.keys(m.partes || {}).sort();
+    const ps = await Promise.all(ks.map(k => lerArq(c, `${pasta}/${k}.json`)));
+    const { split, partes, ...meta } = m;
+    return D.juntar(meta, Object.fromEntries(ks.map((k, i) => [k, ps[i]]).filter(([, v]) => v != null)));
+  };
+  H.lerDividido = lerDividido;
+  const sha = async t => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].slice(0, 12).map(b => b.toString(16).padStart(2, '0')).join('');
+  /** publica só os meses que mudaram (compara com o manifesto publicado) + o manifesto */
+  const publicarDividido = async (arquivos, nome, x, c = null) => {
+    const D = DIV[nome], { m, p } = D.dividir(x), pasta = D.path.replace(/\.json$/, '');
+    const pub = await lerArq(c, D.path), antes = pub && pub.split === DIV_V ? pub.partes || {} : {};
+    const partes = {}; let n = 0;
+    for (const k of Object.keys(p).sort()) {
+      const h = await sha(JSON.stringify(p[k])); partes[k] = h;
+      if (antes[k] !== h) { arquivos.push({ path: `${pasta}/${k}.json`, content: JSON.stringify(await Acesso.encryptJson(p[k])) }); n++; }
+    }
+    arquivos.push({ path: D.path, content: JSON.stringify(await Acesso.encryptJson({ ...m, split: DIV_V, partes })) });
+    return n;
+  };
+
   let IDX = { dias: {} };
   const carregarIndice = async (c = null) => {
-    const x = c ? await lerRepo(c, 'historico/indice-operacao.json').catch(() => null) : await lerSite('historico/indice-operacao.json');
+    const x = await lerDividido('indice', c);
     IDX = x && x.dias ? x : (c ? IDX : { dias: {} });
     return IDX;
   };
@@ -582,7 +630,7 @@
           const baseT = TRANSP && TRANSP.dias && TRANSP.dias.length ? TRANSP : null;
           const T0 = await H.lerPlanilhaTransporte(pl.f, baseT ? abasRecentes() : null);
           const T = baseT ? juntarTransp(baseT, T0) : T0;
-          arquivos.push({ path: 'historico/transporte.json', content: JSON.stringify(await Acesso.encryptJson(T)) });
+          await publicarDividido(arquivos, 'transporte', T, c);
           IDX.transporte = { nome: pl.nome, mtime: pl.f.lastModified, de: T.dias[0].d, ate: T.dias[T.dias.length - 1].d };
           TRANSP = T; plLida = true;
         } catch (e) { erros.push(`${pl.nome}: ${e.message || e}`); }
@@ -654,7 +702,7 @@
           const X = await carregaXlsx();
           const buf = await p.f.arrayBuffer(), aba = nomesAbas(X, buf).find(n => /cota\s*mensal/i.test(n));
           const CT = lerCotas(X.read(buf, { type: 'array', ...(aba ? { sheets: [aba] } : {}) }), X, p.nome);
-          arquivos.push({ path: 'historico/cotas.json', content: JSON.stringify(await Acesso.encryptJson(CT)) });
+          await publicarDividido(arquivos, 'cotas', CT, c);
           novasF.cota = { nome: p.nome, mtime: p.f.lastModified, v: COTA_V };
           extras.push(`cota diária (${Object.keys(CT.dias).length} dias, até ${br(CT.ate)})`); cotaLida = CT;
         } catch (e) { erros.push(`${p.nome}: ${e.message || e}`); }
@@ -663,11 +711,11 @@
       if (entNova) {
         const p = pls.entrega; progresso(`Lendo ${p.nome} (abas do mês)`);
         try {
-          const base = ENTREGA || await lerSite('historico/entrega.json');
+          const base = ENTREGA || await lerDividido('entrega', c);
           const tudo = !base || !base.meses || !Object.keys(base.meses).length || (F.entrega || {}).v !== ENT_V;
           const E = await lerEntrega(p.f, tudo ? null : abasRecentes());
           const J = { ...E, meses: { ...(tudo ? {} : base.meses), ...E.meses } };
-          arquivos.push({ path: 'historico/entrega.json', content: JSON.stringify(await Acesso.encryptJson(J)) });
+          await publicarDividido(arquivos, 'entrega', J, c);
           novasF.entrega = { nome: p.nome, mtime: p.f.lastModified, v: ENT_V };
           const ms = Object.keys(E.meses).sort();
           extras.push(`controle de entrega (${ms.length > 2 ? `${ms.length} meses` : ms.map(m => MESES[+m.slice(5) - 1]).join(' e ')})`); entLida = J;
@@ -693,7 +741,7 @@
         try {
           const x = (await Acesso.readJson(JSON.parse(await coaArq.f.text()))).data;
           if (!x || typeof x !== 'object') throw new Error('arquivo vazio');
-          arquivos.push({ path: 'historico/analise-coa.json', content: JSON.stringify(await Acesso.encryptJson(x)) }); coaLido = x;
+          await publicarDividido(arquivos, 'coa', x, c); coaLido = x;
           novasF.coa = { nome: coaArq.nome, mtime: coaArq.f.lastModified };
           extras.push(`histórico da análise COA${Array.isArray(x.dias) ? ` (${x.dias.length} dias)` : ''}`);
         } catch (e) { erros.push(`${coaArq.nome}: ${e.message || e}`); }
@@ -704,7 +752,7 @@
       resumos.forEach(r => { IDX.dias[r.d] = r; });
       const ordenado = {}; datas().forEach(d => { ordenado[d] = IDX.dias[d]; });
       IDX = { versao: 1, atualizado: new Date().toISOString(), pasta: dir.name, transporte: IDX.transporte, fontes: novasF, dias: ordenado };
-      arquivos.push({ path: 'historico/indice-operacao.json', content: JSON.stringify(await Acesso.encryptJson(IDX)) });
+      await publicarDividido(arquivos, 'indice', IDX, c);
       // o relatório mais novo também vira o dados.json da página
       let ultimo = lidos.sort((a, b) => a.d.localeCompare(b.d)).pop();
       let atualD = Painel.atual?.raw?.meta?.dataRelatorio || '';
@@ -1489,7 +1537,7 @@
     if (window.Pisoteio) Pisoteio.iniciar();
     Layout.aoEntrar = pg => { if (antes) antes(pg); Object.values(G).forEach(c => { try { if (pg.contains(c.canvas)) { c.resize(); c.reset(); c.update(); } } catch (e) { /* */ } }); };
     await carregarIndice();
-    [TRANSP, COTAS, ENTREGA] = await Promise.all([lerSite('historico/transporte.json'), lerSite('historico/cotas.json'), lerSite('historico/entrega.json')]);
+    [TRANSP, COTAS, ENTREGA] = await Promise.all([lerDividido('transporte'), lerDividido('cotas'), lerDividido('entrega')]);
     atualizarTela();
     $('#hDe')?.addEventListener('change', () => { PER.de = $('#hDe').value; if (PER.de > PER.ate) [PER.de, PER.ate] = [PER.ate, PER.de]; $$('.hist-pre button').forEach(b => b.classList.remove('is-on')); renderPeriodo(); });
     $('#hAte')?.addEventListener('change', () => { PER.ate = $('#hAte').value; if (PER.de > PER.ate) [PER.de, PER.ate] = [PER.ate, PER.de]; $$('.hist-pre button').forEach(b => b.classList.remove('is-on')); renderPeriodo(); });

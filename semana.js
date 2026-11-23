@@ -119,7 +119,8 @@
 
   const ler = async p => { try { const r = await fetch(p, { cache: 'no-store' }); if (!r.ok) return null; return (await Acesso.readJson(await r.json())).data; } catch (e) { return null; } };
   S.iniciar = async () => {
-    [COA, RES, COTAS] = await Promise.all([ler('historico/analise-coa.json'), ler('historico/resumo-semanal.json'), ler('historico/cotas.json')]);
+    const lerD = (n, p) => (window.Hist && Hist.lerDividido ? Hist.lerDividido(n).catch(() => null) : ler(p)); // análise COA e cotas ficam divididas por mês
+    [COA, RES, COTAS] = await Promise.all([lerD('coa', 'historico/analise-coa.json'), ler('historico/resumo-semanal.json'), lerD('cotas', 'historico/cotas.json')]);
     const antes = Layout.aoEntrar;
     Layout.aoEntrar = pg => { if (antes) antes(pg); if (pg.dataset.p === 'historico' && !MONT) montar(); };
     montar();
