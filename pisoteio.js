@@ -101,6 +101,7 @@
   const nome = raw => {
     const m = String(raw).match(/^(Frente\s*\d+)\s*\((.+)\)$/i);
     if (!m) return { n: String(raw).replace(/\s+/g, ' ').trim(), s: '' };
+    if (/antiga/i.test(m[2])) return { n: m[1].replace(/\s+/g, ' '), s: '' }; // "(Antiga Frente 06)" não aparece
     return { n: m[1].replace(/\s+/g, ' '), s: m[2].replace(/(Frente \d+) Cana Exceção/i, '$1 · cana exceção') };
   };
   const total = rows => { const t = (rows || []).find(r => /^total geral$/i.test(r[0])); return t ? { av: t[1], pi: t[2], pct: t[3] } : null; };
