@@ -3,8 +3,9 @@
    Fonte: Pluviométrico 2026.xlsm, aba PLUVIOMÉTRICO 2026 (formulário do dia):
      J Data de parada · K Hr de parada · P Motivo · Q Previsão de retorno (hora de hoje)
      J/K preenchidas = PARADA; vazias = RODANDO. Chuva do dia = Turno A + B + C do formulário.
-   Publicado em pluviometrico.json (campo "situacao") e, a cada sincronização,
-   uma foto em historico/situacao/AAAA-MM.json (histórico das paradas).
+   Turnos: A 00h–08h (enviado às 08h) · B 08h–16h (enviado às 16h) · C 16h–24h (fecha o dia à meia-noite).
+   Cada sincronização grava uma foto em historico/situacao/AAAA-MM.json; o seletor mostra
+   a foto que fecha cada turno (a mais próxima do fim do turno, com 2 h de tolerância depois dele).
    ========================================================================= */
 (function () {
   'use strict';
@@ -14,21 +15,52 @@
   const pad = n => String(n).padStart(2, '0');
   const hm = ms => { const m = Math.max(0, Math.round(ms / 6e4)); return `${Math.floor(m / 60)}h${pad(m % 60)}`; };
   const dmy = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+  const dmya = d => `${dmy(d)}/${d.getFullYear()}`;
   const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const mm = v => (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const SEM = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
   const TC = ['#93C5FD', '#3B82F6', '#1E3A8A'];
+  const TURNO = { A: { fim: 8, txt: 'Turno A', faixa: '00h–08h' }, B: { fim: 16, txt: 'Turno B', faixa: '08h–16h' }, C: { fim: 24, txt: 'Turno C', faixa: '16h–24h' } };
   const toast = (m, ms) => (window.Painel && Painel.toast ? Painel.toast(m, ms) : null);
 
-  let SIT = null, HIST = null, HPER = '7', TIMER = null;
+  let SIT = null, HIST = null, HPER = '7', TIMER = null, SEL = 'agora';
 
-  /* ---------- cálculo da situação ---------- */
-  const calc = () => {
-    if (!SIT || !Array.isArray(SIT.rows) || !SIT.rows.length) return null;
-    const n = new Date(), hoje = SIT.data || n.toISOString().slice(0, 10);
-    const cont = {}; SIT.rows.forEach(r => { cont[r.n] = (cont[r.n] || 0) + 1; });
-    const rows = SIT.rows.map((r, i) => {
-      const x = { ...r, i, f: `Frente ${r.n}`, mm: (r.t || []).reduce((s, v) => s + (Number(v) || 0), 0), stop: !!r.p };
-      x.curto = `F${r.n}${cont[r.n] > 1 ? ' · ' + r.faz.replace(/^Faz\.\s*/, '').slice(0, 4) + '.' : ''}`;
+  /* ---------- turnos: cada foto vai para o turno que ela fecha ---------- */
+  // janela de cada turno deslocada 2 h para frente (A 02h–10h, B 10h–18h, C 18h–02h do dia seguinte),
+  // porque a planilha do fechamento costuma ser salva logo depois do fim do turno
+  const turnoDa = em => {
+    const d = new Date(new Date(em) - 2 * 36e5), h = d.getHours();
+    const t = h < 8 ? 'A' : h < 16 ? 'B' : 'C';
+    const dia = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    return { t, dia, fim: new Date(+dia + TURNO[t].fim * 36e5) };
+  };
+  const fotos = () => {
+    const L = (HIST && Array.isArray(HIST.snaps) ? HIST.snaps.slice() : []);
+    if (SIT && SIT.em && !L.some(x => x.em === SIT.em)) L.push({ em: SIT.em, data: SIT.data, rows: SIT.rows });
+    return L.filter(x => x && x.em && Array.isArray(x.rows) && x.rows.length);
+  };
+  const momentos = () => {
+    const G = new Map();
+    fotos().forEach(f => {
+      const k = turnoDa(f.em), id = `${ymd(k.dia)}|${k.t}`;
+      const dist = Math.abs(new Date(f.em) - k.fim), g = G.get(id);
+      if (!g || dist < g.dist) G.set(id, { id, ...k, foto: f, dist });
+    });
+    return [...G.values()].sort((a, b) => b.fim - a.fim);
+  };
+  const rotulo = m => `${dmya(m.dia)} · ${TURNO[m.t].txt}`;
+
+  /* ---------- cálculo da situação (de uma foto, num instante) ---------- */
+  const calc = (foto, n) => {
+    if (!foto || !Array.isArray(foto.rows) || !foto.rows.length) return null;
+    const hoje = foto.data || ymd(n);
+    const cont = {}; foto.rows.forEach(r => { cont[r.n] = (cont[r.n] || 0) + 1; });
+    const rows = foto.rows.map((r, i) => {
+      const x = { ...r, i, f: `Frente ${r.n}`, t: (r.t || [0, 0, 0]), stop: !!r.p };
+      x.mm = x.t.reduce((s, v) => s + (Number(v) || 0), 0);
+      x.fz = String(r.faz || '').replace(/^Faz\.\s*/, '');
+      x.curto = `F${r.n}${cont[r.n] > 1 ? ' · ' + x.fz.slice(0, 5) + '.' : ''}`;
       if (x.stop) {
         x.pd = new Date(r.p); x.dur = n - x.pd;
         if (r.ret) { x.rd = new Date(`${hoje}T${r.ret}`); x.left = x.rd - n; }
@@ -43,58 +75,54 @@
     const st = rows.filter(r => r.stop), comRet = st.filter(r => r.rd);
     const cedo = l => l.length ? l.reduce((a, r) => (r.rd < a.rd ? r : a), l[0]) : null;
     const prox = cedo(comRet.filter(r => r.left >= 0)) || cedo(comRet);
-    return { n, hoje, rows, nums, stopN, runN, wet, avg, mx, st, prox };
+    return { n, hoje, rows, nums, stopN, runN, wet, avg, mx, st, prox, em: foto.em ? new Date(foto.em) : null };
+  };
+  // o que está selecionado: "agora" (última planilha, tempos contados até este minuto) ou o fechamento de um turno
+  const atual = () => {
+    const agora = new Date();
+    if (SEL !== 'agora') {
+      const m = momentos().find(x => x.id === SEL);
+      if (m) {
+        const em = new Date(m.foto.em), n = em > m.fim ? em : new Date(Math.min(+m.fim, +agora));
+        const d = calc(m.foto, n); if (d) { d.mom = m; return d; }
+      }
+      SEL = 'agora';
+    }
+    const f = SIT || fotos().sort((a, b) => b.em.localeCompare(a.em))[0];
+    return calc(f, agora);
   };
 
-  /* ---------- folha (a mesma que vira imagem para o WhatsApp) ---------- */
+  /* ---------- folha compacta (a mesma que vira imagem para o grupo) ---------- */
   const folha = d => {
-    const max = Math.max(1, ...d.rows.map(r => r.mm)), H = 130, y = v => v / max * H;
-    const salvo = SIT.em ? new Date(SIT.em) : null;
-    const ret = r => (r.rd ? `<b>${dmy(r.rd)} · ${hhmm(r.rd)}</b>${r.left >= 0 ? `<small>em ${hm(r.left)}</small>` : `<small class="late">atrasado ${hm(-r.left)}</small>`}` : `<b>${esc(r.retTxt || 'sem previsão')}</b>`);
+    const ref = d.mom ? d.mom.dia : (d.hoje ? new Date(`${d.hoje}T12:00`) : d.n);
+    const sub = d.mom ? `${SEM[ref.getDay()]} · fechamento ${TURNO[d.mom.t].txt} (${TURNO[d.mom.t].faixa})` : `${SEM[d.n.getDay()]} · situação às ${hhmm(d.n)}`;
+    const ret = r => (r.rd ? `retorno <b>${hhmm(r.rd)}</b> ${r.left >= 0 ? `<em class="ok">em ${hm(r.left)}</em>` : `<em>atrasado ${hm(-r.left)}</em>`}` : `retorno <b>${esc(r.retTxt || 'sem previsão')}</b>`);
+    const par = d.rows.filter(r => r.stop), rod = d.rows.filter(r => !r.stop);
+    const max = Math.max(1, ...d.rows.map(r => r.mm));
+    const prox = d.prox ? `<b>${hhmm(d.prox.rd)}</b><span>${esc(d.prox.f)} · ${d.prox.left < 0 ? `<em>atrasado ${hm(-d.prox.left)}</em>` : `em ${hm(d.prox.left)}`}</span>` : `<b>—</b><span>${d.st.length ? 'sem horário informado' : 'todas rodando'}</span>`;
     return `<div class="st-folha" id="stFolha">
       <div class="st-hd">
-        <div class="st-brand"><img src="logo-icon.png" alt="" width="44" height="46"><div><b>Bioenergética Aroeira</b><small>COA · Centro de Operações Agrícolas</small></div></div>
-        <div class="st-ttl"><h2>Situação das frentes de colheita</h2><p>Relatório pluviométrico · paradas e chuva do dia</p></div>
-        <div class="st-when"><small>Situação em</small><b>${dmy(d.n)}/${d.n.getFullYear()} · ${hhmm(d.n)}</b><span class="st-live"><i></i>${salvo ? `planilha salva ${dmy(salvo)} · ${hhmm(salvo)}` : 'atualizando ao vivo'}</span></div>
+        <span class="st-logo"><img src="logo-icon.png" alt="" width="26" height="27"></span>
+        <div class="st-ttl"><h2>Situação · Frentes de colheita</h2><p>Pluviométrico · COA Bioenergética Aroeira</p></div>
+        <div class="st-when"><b>${dmya(ref)}</b><small>${sub}</small></div>
       </div>
       <div class="st-kpis">
-        <div class="st-kpi g"><small>Rodando</small><div><b>${d.runN.length}</b><span>de ${d.nums.length} frentes</span></div><p>${d.runN.length ? d.runN.map(x => 'Frente ' + x).join(' · ') : 'nenhuma frente rodando'}</p></div>
-        <div class="st-kpi s"><small>Chuva média do dia</small><div><b>${mm(d.avg)}</b><span>mm</span></div><p>${d.wet.length ? `média de ${d.wet.length} ${d.wet.length === 1 ? 'frente' : 'frentes'} com chuva · máx. ${mm(d.mx.mm)} mm (Frente ${d.mx.n})` : 'sem chuva registrada no dia'}</p></div>
-        <div class="st-kpi"><small>Próximo retorno previsto</small><div><b>${d.prox ? hhmm(d.prox.rd) : '—'}</b><span>${d.prox ? `hoje, ${dmy(d.prox.rd)}` : ''}</span></div><p>${d.prox ? `${esc(d.prox.f)} · ${esc(d.prox.faz)}${d.prox.left < 0 ? ` <small class="st-late">atrasado ${hm(-d.prox.left)}</small>` : ` · em ${hm(d.prox.left)}`}` : d.st.length ? 'sem horário de retorno informado' : 'todas as frentes rodando'}</p></div>
+        <div class="g"><small>Rodando</small><b>${d.runN.length}<span> de ${d.nums.length}</span></b><span>${d.stopN.length ? `${d.stopN.length} ${d.stopN.length === 1 ? 'frente parada' : 'frentes paradas'}` : 'todas as frentes'}</span></div>
+        <div class="s"><small>Chuva média do dia</small><b>${mm(d.avg)}<span> mm</span></b><span>${d.wet.length ? `máx. ${mm(d.mx.mm)} mm · Frente ${d.mx.n}` : 'sem chuva registrada'}</span></div>
+        <div><small>Próximo retorno</small>${prox}</div>
       </div>
-      <div class="st-pv"><div class="st-h"><h3>Chuva do dia por frente e turno (mm)</h3><div class="st-lg"><span><i style="background:${TC[0]}"></i>Turno A</span><span><i style="background:${TC[1]}"></i>Turno B</span><span><i style="background:${TC[2]}"></i>Turno C</span></div></div>
-        <div class="st-plot" style="height:${H + 26}px">${d.rows.map(r => `<div class="st-c" title="${esc(`${r.f} · ${r.faz}\nA ${mm(r.t[0])} · B ${mm(r.t[1])} · C ${mm(r.t[2])} mm`)}"><b>${mm(r.mm)}</b><div class="st-stk">${r.t.map((v, k) => (v ? `<i style="height:${y(v).toFixed(1)}px;background:${TC[k]}"></i>` : '')).join('')}</div></div>`).join('')}
-          ${d.wet.length ? '' : '<div class="st-semchuva">Sem chuva registrada hoje até agora</div>'}
-          ${d.avg > 0 ? `<div class="st-avg" style="bottom:${y(d.avg).toFixed(1)}px"><span>média ${mm(d.avg)} mm</span></div>` : ''}</div>
-        <div class="st-xl">${d.rows.map(r => `<div><b>${esc(r.curto)}</b><span><i class="st-dot${r.stop ? '' : ' ok'}"></i>${r.stop ? 'parada' : 'rodando'}</span></div>`).join('')}</div></div>
-      <div class="st-tbl"><table><thead><tr><th>Frente</th><th>Situação</th><th>Motivo</th><th>Chuva A · B · C</th><th>Total</th><th>Parada desde</th><th>Tempo parado</th><th>Retorno previsto</th></tr></thead><tbody>
-        ${d.rows.map(r => `<tr><td class="st-fr"><b>${esc(r.f)}</b><small>${esc(r.cod)} · ${esc(r.faz)}</small></td>
-          <td>${r.stop ? '<span class="st-farol"><span class="st-lamp"><i class="r"></i><i></i><i></i></span>PARADA</span>' : '<span class="st-farol ok"><span class="st-lamp"><i></i><i></i><i class="g"></i></span>RODANDO</span>'}</td>
-          <td${r.stop ? '' : ' class="st-mute"'}>${r.stop ? esc(r.mot) : '—'}</td>
-          <td class="st-mute">${r.t.map(mm).join(' · ')}</td><td class="st-mm">${mm(r.mm)} mm</td>
-          <td${r.stop ? '' : ' class="st-mute"'}>${r.stop ? `${dmy(r.pd)} · ${hhmm(r.pd)}` : '—'}</td>
-          <td class="${r.stop ? 'st-dur' : 'st-mute'}">${r.stop ? hm(r.dur) : '—'}</td>
-          <td class="st-ret">${r.stop ? ret(r) : '<span class="st-op">Em operação</span>'}</td></tr>`).join('')}
-      </tbody></table></div>
-      <div class="st-foot"><span>Fonte: Pluviométrico 2026 — aba PLUVIOMÉTRICO 2026 (paradas e chuva por turno A, B e C)</span><span>Previsões de retorno referentes a ${d.hoje.split('-').reverse().slice(0, 2).join('/')}</span></div>
+      <div class="st-sec-t">Paradas</div>
+      ${par.length ? `<div class="st-par">${par.map(r => `<div class="st-pr">
+          <i class="st-dot"></i><b>${esc(r.f)}</b><span class="st-fz">${esc(r.fz)} · ${esc(r.cod)}</span><span class="st-stt">Parada${r.mot ? ` · ${esc(r.mot)}` : ''}</span><span class="st-mmv">${mm(r.mm)} mm</span>
+          <span class="st-det">desde ${dmy(r.pd)} ${hhmm(r.pd)} · <b class="st-dur">${hm(r.dur)}</b> parada · ${ret(r)}</span></div>`).join('')}</div>`
+        : '<p class="st-nada">Nenhuma frente parada.</p>'}
+      <div class="st-sec-t">Rodando</div>
+      <div class="st-rod">${rod.map(r => `<div><i class="st-dot ok"></i><b>${esc(r.f)}</b><span class="st-fz">${esc(r.fz)}</span><span class="st-mmv">${mm(r.mm)} mm</span></div>`).join('') || '<p class="st-nada">Nenhuma frente rodando.</p>'}</div>
+      <div class="st-sec-t st-sec-lg"><span>Chuva do dia por frente (mm)${d.avg > 0 ? ` · média ${mm(d.avg)}` : ''}</span><span class="st-lg"><span><i style="background:${TC[0]}"></i>A</span><span><i style="background:${TC[1]}"></i>B</span><span><i style="background:${TC[2]}"></i>C</span></span></div>
+      ${d.wet.length ? `<div class="st-chv">${d.rows.map(r => `<div><b>${esc(r.curto)}</b><span class="st-trk">${r.t.map((v, k) => (v ? `<i style="width:${(v / max * 100).toFixed(1)}%;background:${TC[k]}"></i>` : '')).join('')}${d.avg > 0 ? `<u style="left:${Math.min(100, d.avg / max * 100).toFixed(1)}%"></u>` : ''}</span><span class="st-mmv">${mm(r.mm)}</span></div>`).join('')}</div>`
+        : '<p class="st-nada">Sem chuva registrada no dia até este momento.</p>'}
+      <div class="st-foot"><span>Gerenciamento Operacional · ${dmya(d.n)}, ${hhmm(d.n)}</span><span>${d.em ? `planilha salva ${dmy(d.em)} · ${hhmm(d.em)}` : ''}</span></div>
     </div>`;
-  };
-
-  /* ---------- texto para o WhatsApp ---------- */
-  const texto = d => {
-    const L = [`*Situação das frentes de colheita*`, `Bioenergética Aroeira · COA — ${dmy(d.n)}/${d.n.getFullYear()} às ${hhmm(d.n)}`, ''];
-    L.push(`🟢 *Rodando:* ${d.runN.length} de ${d.nums.length} frentes${d.runN.length ? ` (${d.runN.map(x => 'F' + x).join(', ')})` : ''}`);
-    L.push(`🌧️ *Chuva média do dia:* ${mm(d.avg)} mm${d.wet.length ? ` (máx. ${mm(d.mx.mm)} mm na Frente ${d.mx.n})` : ''}`);
-    if (d.prox) L.push(`⏰ *Próximo retorno:* ${hhmm(d.prox.rd)} · ${d.prox.f} (${d.prox.faz}) · ${d.prox.left < 0 ? 'atrasado ' + hm(-d.prox.left) : 'em ' + hm(d.prox.left)}`);
-    L.push('');
-    d.rows.forEach(r => {
-      if (r.stop) {
-        const rt = r.rd ? `retorno ${hhmm(r.rd)} (${r.left >= 0 ? 'em ' + hm(r.left) : 'atrasado ' + hm(-r.left)})` : `retorno: ${r.retTxt || 'sem previsão'}`;
-        L.push(`🔴 *${r.f}* — ${r.faz} (${r.cod})`, `     Motivo: ${r.mot || '—'} · chuva ${mm(r.mm)} mm · parada desde ${dmy(r.pd)} ${hhmm(r.pd)} (${hm(r.dur)}) · ${rt}`);
-      } else L.push(`🟢 *${r.f}* — ${r.faz} (${r.cod}) · rodando · ${mm(r.mm)} mm`);
-    });
-    if (SIT.em) { const s = new Date(SIT.em); L.push('', `_Planilha Pluviométrico 2026 salva em ${dmy(s)} às ${hhmm(s)}_`); }
-    return L.join('\n');
   };
 
   /* ---------- imagem (html2canvas, carregado só quando usado) ---------- */
@@ -107,13 +135,13 @@
   const gerarPng = async () => {
     const H = await carregaH2C(), el = $('#stFolha');
     el.classList.add('st-captura');
-    try { const cv = await H(el, { scale: 2, backgroundColor: '#FFFFFF', useCORS: true, logging: false }); return await new Promise(ok => cv.toBlob(ok, 'image/png')); }
+    try { const cv = await H(el, { scale: 3, backgroundColor: '#FFFFFF', useCORS: true, logging: false }); return await new Promise(ok => cv.toBlob(ok, 'image/png')); }
     finally { el.classList.remove('st-captura'); }
   };
-  const nomeArq = d => `situacao-frentes-${d.hoje}-${hhmm(d.n).replace(':', 'h')}.png`;
+  const nomeArq = d => `situacao-frentes-${d.mom ? `${ymd(d.mom.dia)}-turno-${d.mom.t}` : `${ymd(d.n)}-${hhmm(d.n).replace(':', 'h')}`}.png`;
   const baixar = (blob, nome) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); };
   const copiarImagem = async () => {
-    const d = calc(); if (!d) return;
+    const d = atual(); if (!d) return;
     const p = gerarPng();
     try {
       if (!navigator.clipboard || !window.ClipboardItem) throw new Error('sem suporte');
@@ -124,13 +152,7 @@
       catch (e2) { toast('Não foi possível gerar a imagem: ' + esc(e2.message || e2), 5000); }
     }
   };
-  const copiarTexto = async () => {
-    const d = calc(); if (!d) return;
-    const t = texto(d);
-    try { await navigator.clipboard.writeText(t); toast('<i class="fa-solid fa-circle-check"></i> Texto copiado · cole no grupo do WhatsApp', 4000); }
-    catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('Texto copiado', 3000); }
-  };
-  const baixarPng = async () => { const d = calc(); if (!d) return; try { baixar(await gerarPng(), nomeArq(d)); } catch (e) { toast('Não foi possível gerar a imagem: ' + esc(e.message || e), 5000); } };
+  const baixarPng = async () => { const d = atual(); if (!d) return; try { baixar(await gerarPng(), nomeArq(d)); } catch (e) { toast('Não foi possível gerar a imagem: ' + esc(e.message || e), 5000); } };
 
   /* ---------- histórico das paradas (a partir das fotos de cada sincronização) ---------- */
   const eventos = () => {
@@ -176,39 +198,59 @@
       <p class="st-nota"><i class="fa-solid fa-circle-info"></i> O retorno é estimado entre duas sincronizações: vale a previsão de retorno informada, se ela cair nesse intervalo. Quanto mais vezes a planilha for sincronizada, mais preciso fica.</p>`;
   };
 
+  /* ---------- seletor de data · turno ---------- */
+  const opcoes = () => {
+    const f = SIT || fotos().sort((a, b) => b.em.localeCompare(a.em))[0];
+    const ag = f && f.em ? ` (planilha ${hhmm(new Date(f.em))})` : '';
+    return [{ id: 'agora', txt: `Agora${ag}` }, ...momentos().map(m => ({ id: m.id, txt: rotulo(m) }))];
+  };
+  const montarSel = () => {
+    const sel = $('#stSel'); if (!sel) return;
+    const O = opcoes(); if (!O.some(o => o.id === SEL)) SEL = 'agora';
+    sel.innerHTML = O.map(o => `<option value="${o.id}"${o.id === SEL ? ' selected' : ''}>${esc(o.txt)}</option>`).join('');
+    const i = O.findIndex(o => o.id === SEL);
+    $('#stAnt').disabled = i >= O.length - 1; $('#stProx').disabled = i <= 0;
+  };
+  const passo = k => { const O = opcoes(), i = O.findIndex(o => o.id === SEL), j = Math.max(0, Math.min(O.length - 1, i + k)); SEL = O[j].id; montarSel(); desenhar(); };
+
   /* ---------- montagem ---------- */
+  const desenhar = () => { const box = $('#stFolhaBox'), d = atual(); if (box && d) box.innerHTML = folha(d); };
   const montar = () => {
     const el = $('#sitConteudo'); if (!el) return;
-    const d = calc();
-    if (!d) { el.innerHTML = ''; return; }
-    if (!el.querySelector('#stFolha')) {
+    if (!atual()) { el.innerHTML = ''; return; }
+    if (!el.querySelector('#stFolhaBox')) {
       el.innerHTML = `<section class="section st-sec" id="stSituacao" data-nome="Situação das frentes">
-        <div class="st-bar"><h2 class="tp-tit"><i class="fa-solid fa-traffic-light"></i>Situação das frentes de colheita</h2>
-          <div class="st-acoes"><button type="button" class="st-bt pri" id="stImg"><i class="fa-regular fa-image"></i>Copiar imagem</button><button type="button" class="st-bt" id="stTxt"><i class="fa-brands fa-whatsapp"></i>Copiar texto</button><button type="button" class="st-bt" id="stPng" aria-label="Baixar imagem"><i class="fa-solid fa-download"></i></button></div></div>
-        <div id="stFolhaBox"></div>
+        <h2 class="tp-tit"><i class="fa-solid fa-traffic-light"></i>Situação das frentes de colheita</h2>
+        <div class="st-bar">
+          <div class="st-nav"><button type="button" id="stAnt" aria-label="Turno anterior"><i class="fa-solid fa-chevron-left"></i></button><label class="st-selw"><select id="stSel" aria-label="Data e turno"></select><i class="fa-solid fa-chevron-down"></i></label><button type="button" id="stProx" aria-label="Próximo turno"><i class="fa-solid fa-chevron-right"></i></button></div>
+          <div class="st-acoes"><button type="button" class="st-bt" id="stImg"><i class="fa-regular fa-copy"></i>Copiar imagem</button><button type="button" class="st-bt pri" id="stPng"><i class="fa-solid fa-download"></i>Baixar imagem</button></div>
+        </div>
+        <div class="st-palco"><div id="stFolhaBox"></div></div>
         <article class="card st-card"><div class="st-hh"><div><h3><i class="fa-solid fa-clock-rotate-left"></i>Histórico de paradas</h3><p class="hint">Montado com a situação gravada em cada sincronização da planilha</p></div>
           <div class="hseg" id="stPer"><button type="button" data-v="7" class="is-on">7 dias</button><button type="button" data-v="30">30 dias</button><button type="button" data-v="safra">Safra</button></div></div>
           <div id="stHist"></div></article>
       </section>`;
       $('#stImg').addEventListener('click', copiarImagem);
-      $('#stTxt').addEventListener('click', copiarTexto);
       $('#stPng').addEventListener('click', baixarPng);
+      $('#stSel').addEventListener('change', e => { SEL = e.target.value; montarSel(); desenhar(); });
+      $('#stAnt').addEventListener('click', () => passo(1));
+      $('#stProx').addEventListener('click', () => passo(-1));
       $$('#stPer button').forEach(b => b.addEventListener('click', () => { HPER = b.dataset.v; $$('#stPer button').forEach(x => x.classList.toggle('is-on', x === b)); montarHist(); }));
       montarHist();
       if (window.Layout && Layout.pagina && Layout.pagina() === 'pluvio') Layout.secoes();
     }
-    $('#stFolhaBox').innerHTML = folha(d);
+    montarSel(); desenhar();
   };
   const visivel = () => document.visibilityState === 'visible' && window.Layout && Layout.pagina && Layout.pagina() === 'pluvio';
 
   S.iniciar = async sit => {
     SIT = sit || null; montar();
-    if (!TIMER) TIMER = setInterval(() => { if (visivel()) montar(); }, 30000);
+    if (!TIMER) TIMER = setInterval(() => { if (SEL === 'agora' && visivel()) desenhar(); }, 30000);
     try { if (window.Hist && Hist.lerDividido) HIST = await Hist.lerDividido('situacao'); } catch (e) { HIST = null; }
-    montarHist();
+    montar(); montarHist();
   };
   S.definir = sit => { SIT = sit || null; montar(); };
-  S.definirHist = h => { HIST = h; montarHist(); };
-  S.texto = () => { const d = calc(); return d ? texto(d) : ''; };
+  S.definirHist = h => { HIST = h; montar(); montarHist(); };
+  S.momentos = momentos;
   window.Situacao = S;
 })();
