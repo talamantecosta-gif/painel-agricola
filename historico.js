@@ -142,6 +142,9 @@
     entrega: { path: 'historico/entrega.json',
       dividir: x => { const { meses, ...m } = x; return { m, p: { ...(meses || {}) } }; },
       juntar: (m, p) => ({ ...m, meses: { ...p } }) },
+    situacao: { path: 'historico/situacao.json',
+      dividir: x => { const { snaps, ...m } = x; const p = {}; (snaps || []).forEach(r => { const k = mesDe(r && r.em); if (k) (p[k] = p[k] || []).push(r); }); return { m, p }; },
+      juntar: (m, p) => ({ ...m, snaps: Object.keys(p).sort().flatMap(k => p[k] || []) }) },
     transporte: { path: 'historico/transporte.json',
       dividir: x => { const { dias, meses, ...m } = x; const p = {}; const parte = k => (p[k] = p[k] || { dias: [], tot: null });
         (dias || []).forEach(r => parte(mesDe(r.d)).dias.push(r)); Object.entries(meses || {}).forEach(([k, t]) => { parte(k).tot = t; }); return { m, p }; },
@@ -659,13 +662,24 @@
           r.avisos.forEach(a => erros.push(`${p.nome}: ${a}`));
         } catch (e) { erros.push(`${p.nome}: ${e.message || e}`); }
       }
-      let pvLido = null;
+      let pvLido = null, sitLida = null;
       if (pvNova) {
         const p = pls.pluvio; progresso(`Lendo a planilha ${p.nome}`);
         try {
           if (!window.Pluvio) throw new Error('o leitor do pluviométrico não carregou (atualize a página)');
           const X = await carregaXlsx();
-          const PV = Pluvio.ler(X.read(await p.f.arrayBuffer(), { type: 'array', cellDates: true }), X, p.nome);
+          const buf = await p.f.arrayBuffer();
+          const PV = Pluvio.ler(X.read(buf, { type: 'array', cellDates: true }), X, p.nome, X.read(buf, { type: 'array' }));
+          // situação das frentes: foto do momento em que a planilha foi salva + histórico das fotos
+          if (PV.situacao) {
+            PV.situacao.em = new Date(p.f.lastModified).toISOString();
+            const H0 = await lerDividido('situacao', c), snaps = (H0 && Array.isArray(H0.snaps)) ? H0.snaps : [];
+            const ult = snaps[snaps.length - 1];
+            const igual = ult && ult.data === PV.situacao.data && JSON.stringify(ult.rows) === JSON.stringify(PV.situacao.rows);
+            if (!igual && !snaps.some(x => x.em === PV.situacao.em)) snaps.push({ em: PV.situacao.em, data: PV.situacao.data, rows: PV.situacao.rows });
+            snaps.sort((a, b) => a.em.localeCompare(b.em));
+            await publicarDividido(arquivos, 'situacao', { versao: 1, snaps }, c); sitLida = { snaps };
+          }
           arquivos.push({ path: 'pluviometrico.json', content: JSON.stringify(await Acesso.encryptJson(PV)) });
           novasF.pluvio = { nome: p.nome, mtime: p.f.lastModified, v: Pluvio.VERSAO };
           extras.push(`pluviométrico (até ${brC(PV.meta.ate)})`); pvLido = PV;
@@ -793,6 +807,7 @@
           <p class="hint">Para não precisar mais disso, use <b>Configurar GitHub</b> na página Histórico.</p>${erros.length ? `<p>Atenção:</p>${ul(erros)}` : ''}`, [{ html: 'Fechar', primary: true, onClick: Painel.fecharModal }]);
       }
       if (pvLido && window.Pluvio) Pluvio.definir(pvLido);
+      if (sitLida && window.Situacao) Situacao.definirHist(sitLida);
       if (scLido && window.Scania) Scania.definir(scLido);
       if ((coaLido || semLido || cotaLida) && window.Semana) Semana.definir({ coa: coaLido, resumo: semLido, cotas: cotaLida });
       if (psLido && window.Pisoteio) Pisoteio.definir(psLido);

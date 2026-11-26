@@ -47,8 +47,43 @@
     const tipo = { colheita: 'Colheita', fertirrigacao: 'Fertirrigação', plantio: 'Plantio', preparo: 'Preparo', vinhaca: 'Vinhaça', irrigacao: 'Irrigação' }[m[1]] || '';
     return `${tipo ? tipo + ' · ' : ''}Frente ${m[2].padStart(2, '0')}`;
   };
-  const fazN = s => titulo(String(s ?? '').replace(/\s+/g, ' ').trim().replace(/^faz\.?\s*/i, 'Faz. ').replace(/^fazenda\s+/i, 'Faz. '));
-  P.ler = (wb, X, arquivo = '') => {
+  const fazN = s => titulo(String(s ?? '').replace(/\s+/g, ' ').trim().replace(/^fazenda\s+/i, 'Faz ').replace(/^faz\b\.?\s*/i, 'Faz. ')); // "Fazenda X" e "Faz X" → "Faz. X"
+  /* Situação das frentes de colheita: formulário do dia (aba PLUVIOMÉTRICO 2026)
+     Frente | Código | Fazenda | Turno A | B | C | ... | J Data de parada | K Hr de parada | ... | P Motivo | Q Previsão de retorno
+     J/K preenchidas = PARADA; vazias = RODANDO. Só linhas "COLHEITA - FRENTE n". Usa a planilha sem conversão de datas (wbRaw). */
+  const pad2 = n => String(n).padStart(2, '0');
+  const hora = v => {
+    if (typeof v === 'number' && Number.isFinite(v)) { const m = Math.round((v % 1) * 1440) % 1440; return `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`; }
+    if (v instanceof Date && !isNaN(v)) return `${pad2(v.getHours())}:${pad2(v.getMinutes())}`;
+    const t = String(v ?? '').trim().match(/^(\d{1,2})\s*[:h]\s*(\d{2})/i); return t ? `${pad2(t[1])}:${t[2]}` : null;
+  };
+  const lerSituacao = (W, X) => {
+    for (const nome of W.SheetNames) {
+      if (!W.Sheets[nome]) continue;
+      const rows = X.utils.sheet_to_json(W.Sheets[nome], { header: 1, raw: true, defval: null });
+      const fi = rows.findIndex(r => r && r.some(c => norm(c) === 'turno a') && r.some(c => norm(c) === 'turno c'));
+      if (fi < 0) continue;
+      const dl = rows.slice(0, fi).find(r => r && r.some(c => norm(c).startsWith('data')));
+      const data = dl && iso(dl.find(c => c instanceof Date || (typeof c === 'number' && c > 30000)));
+      const h = rows[fi].map(norm), ix = (k, d) => { const i = h.findIndex(x => x.startsWith(k)); return i >= 0 ? i : d; };
+      const c = { fr: ix('frente', 1), cod: ix('codigo', 2), faz: ix('fazenda', 3), A: h.indexOf('turno a'), B: h.indexOf('turno b'), C: h.indexOf('turno c'), dp: ix('data de parada', 9), hp: ix('hr de parada', 10), mot: ix('motivo', 15), ret: ix('previsao', 16) };
+      const out = [];
+      rows.slice(fi + 1).forEach(r => {
+        if (!r || !r[c.fr]) return;
+        const m = norm(r[c.fr]).match(/^colheita\s*frente\s*(\d+)/); if (!m) return;
+        const t = ['A', 'B', 'C'].map(k => Math.max(0, num(r[c[k]]) || 0));
+        const dp = iso(r[c.dp]), hp = hora(r[c.hp]), mot = String(r[c.mot] ?? '').trim(), rv = r[c.ret];
+        const parada = !!(dp || hp);
+        const retH = parada ? hora(rv) : null, retTxt = parada && !retH && rv != null && String(rv).trim() ? String(rv).trim() : null;
+        out.push({ n: +m[1], cod: String(r[c.cod] ?? '').trim(), faz: fazN(r[c.faz]), t, p: parada ? `${dp || data}T${hp || '00:00'}` : null, mot: parada ? (mot || 'Não informado') : null, ret: retH, retTxt });
+      });
+      if (out.length) return { data, rows: out };
+    }
+    return null;
+  };
+  P.lerSituacao = lerSituacao;
+
+  P.ler = (wb, X, arquivo = '', wbRaw = null) => {
     X = X || window.XLSX;
     const linhas = n => X.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null });
     const regs = []; // {d, frente, cod, faz, t, v}
@@ -100,7 +135,8 @@
     const datasR = reg.map(r => r[0]).sort(), inicio = datasR[0] || formData;
     const ultima = [...datasR, formData || inicio].sort().pop();
     const agora = new Date();
-    return { meta: { arquivo, inicio, ate: ultima, formulario: formData, lidoEm: agora.toISOString() }, locais, reg };
+    let situacao = null; try { situacao = lerSituacao(wbRaw || wb, X); } catch (e) { situacao = null; }
+    return { meta: { arquivo, inicio, ate: ultima, formulario: formData, lidoEm: agora.toISOString() }, locais, reg, situacao };
   };
 
   /* ---------- estado e cálculos ---------- */
@@ -486,13 +522,14 @@
   P.iniciar = async () => {
     try { const r = await fetch('pluviometrico.json', { cache: 'no-store' }); if (r.ok) DADOS = (await Acesso.readJson(await r.json())).data; } catch (e) { DADOS = null; }
     if (DADOS && (!Array.isArray(DADOS.reg) || !DADOS.locais)) DADOS = null;
+    if (window.Situacao) Situacao.iniciar(DADOS && DADOS.situacao);
     const antes = Layout.aoEntrar;
     Layout.aoEntrar = pg => { if (antes) antes(pg); if (pg.dataset.p !== 'pluvio') return; if (!MONTADO) mostrar(); else { desenharTL(true); } };
     if (naPagina()) mostrar();
   };
   // depois de sincronizar a pasta: troca os dados sem recarregar
-  P.definir = data => { DADOS = data; MONTADO = false; if (naPagina()) mostrar(); };
-  P.VERSAO = 2; // muda quando a leitura da planilha muda: força republicar
+  P.definir = data => { DADOS = data; MONTADO = false; if (window.Situacao) Situacao.definir(data && data.situacao); if (naPagina()) mostrar(); };
+  P.VERSAO = 3; // 3: situação das frentes (paradas). Muda quando a leitura da planilha muda: força republicar
   P.dados = () => D;
   P.filtro = F;
   window.Pluvio = P;
