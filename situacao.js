@@ -60,7 +60,7 @@
       const x = { ...r, i, f: `Frente ${r.n}`, t: (r.t || [0, 0, 0]), stop: !!r.p };
       x.mm = x.t.reduce((s, v) => s + (Number(v) || 0), 0);
       x.fz = String(r.faz || '').replace(/^Faz\.\s*/, '');
-      x.curto = `F${r.n}${cont[r.n] > 1 ? ' · ' + x.fz.slice(0, 5) + '.' : ''}`;
+      x.curto = `F${r.n}${cont[r.n] > 1 ? ' · ' + x.fz.slice(0, 4) + '.' : ''}`;
       if (x.stop) {
         x.pd = new Date(r.p); x.dur = n - x.pd;
         if (r.ret) { x.rd = new Date(`${hoje}T${r.ret}`); x.left = x.rd - n; }
@@ -92,36 +92,37 @@
     return calc(f, agora);
   };
 
-  /* ---------- folha compacta (a mesma que vira imagem para o grupo) ---------- */
+  /* ---------- folha (a mesma que vira imagem para o grupo) ---------- */
   const folha = d => {
-    const ref = d.mom ? d.mom.dia : (d.hoje ? new Date(`${d.hoje}T12:00`) : d.n);
-    const sub = d.mom ? `${SEM[ref.getDay()]} · fechamento ${TURNO[d.mom.t].txt} (${TURNO[d.mom.t].faixa})` : `${SEM[d.n.getDay()]} · situação às ${hhmm(d.n)}`;
-    const ret = r => (r.rd ? `retorno <b>${hhmm(r.rd)}</b> ${r.left >= 0 ? `<em class="ok">em ${hm(r.left)}</em>` : `<em>atrasado ${hm(-r.left)}</em>`}` : `retorno <b>${esc(r.retTxt || 'sem previsão')}</b>`);
-    const par = d.rows.filter(r => r.stop), rod = d.rows.filter(r => !r.stop);
-    const max = Math.max(1, ...d.rows.map(r => r.mm));
-    const prox = d.prox ? `<b>${hhmm(d.prox.rd)}</b><span>${esc(d.prox.f)} · ${d.prox.left < 0 ? `<em>atrasado ${hm(-d.prox.left)}</em>` : `em ${hm(d.prox.left)}`}</span>` : `<b>—</b><span>${d.st.length ? 'sem horário informado' : 'todas rodando'}</span>`;
+    const max = Math.max(1, ...d.rows.map(r => r.mm)), H = 130, y = v => v / max * H;
+    const salvo = d.em;
+    const ret = r => (r.rd ? `<b>${dmy(r.rd)} · ${hhmm(r.rd)}</b>${r.left >= 0 ? `<small>em ${hm(r.left)}</small>` : `<small class="late">atrasado ${hm(-r.left)}</small>`}` : `<b>${esc(r.retTxt || 'sem previsão')}</b>`);
     return `<div class="st-folha" id="stFolha">
       <div class="st-hd">
-        <span class="st-logo"><img src="logo-icon.png" alt="" width="26" height="27"></span>
-        <div class="st-ttl"><h2>Situação · Frentes de colheita</h2><p>Pluviométrico · COA Bioenergética Aroeira</p></div>
-        <div class="st-when"><b>${dmya(ref)}</b><small>${sub}</small></div>
+        <div class="st-brand"><img src="logo-icon.png" alt="" width="44" height="46"><div><b>Bioenergética Aroeira</b><small>COA · Centro de Operações Agrícolas</small></div></div>
+        <div class="st-ttl"><h2>Situação das frentes de colheita</h2><p>Relatório pluviométrico · paradas e chuva do dia</p></div>
+        <div class="st-when"><small>${d.mom ? `Fechamento ${TURNO[d.mom.t].txt} (${TURNO[d.mom.t].faixa})` : 'Situação em'}</small><b>${d.mom && +d.n === +d.mom.fim && d.mom.t === 'C' ? `${dmya(d.mom.dia)} · 24:00` : `${dmya(d.n)} · ${hhmm(d.n)}`}</b><span class="st-live${d.mom ? ' st-fixo' : ''}"><i></i>${salvo ? `planilha salva ${dmy(salvo)} · ${hhmm(salvo)}` : 'atualizando ao vivo'}</span></div>
       </div>
       <div class="st-kpis">
-        <div class="g"><small>Rodando</small><b>${d.runN.length}<span> de ${d.nums.length}</span></b><span>${d.stopN.length ? `${d.stopN.length} ${d.stopN.length === 1 ? 'frente parada' : 'frentes paradas'}` : 'todas as frentes'}</span></div>
-        <div class="s"><small>Chuva média do dia</small><b>${mm(d.avg)}<span> mm</span></b><span>${d.wet.length ? `máx. ${mm(d.mx.mm)} mm · Frente ${d.mx.n}` : 'sem chuva registrada'}</span></div>
-        <div><small>Próximo retorno</small>${prox}</div>
+        <div class="st-kpi g"><small>Rodando</small><div><b>${d.runN.length}</b><span>de ${d.nums.length} frentes</span></div><p>${d.runN.length ? d.runN.map(x => 'Frente ' + x).join(' · ') : 'nenhuma frente rodando'}</p></div>
+        <div class="st-kpi s"><small>Chuva média do dia</small><div><b>${mm(d.avg)}</b><span>mm</span></div><p>${d.wet.length ? `média de ${d.wet.length} ${d.wet.length === 1 ? 'frente' : 'frentes'} com chuva · máx. ${mm(d.mx.mm)} mm (Frente ${d.mx.n})` : 'sem chuva registrada no dia'}</p></div>
+        <div class="st-kpi"><small>Próximo retorno previsto</small><div><b>${d.prox ? hhmm(d.prox.rd) : '—'}</b><span>${d.prox ? `hoje, ${dmy(d.prox.rd)}` : ''}</span></div><p>${d.prox ? `${esc(d.prox.f)} · ${esc(d.prox.faz)}${d.prox.left < 0 ? ` <small class="st-late">atrasado ${hm(-d.prox.left)}</small>` : ` · em ${hm(d.prox.left)}`}` : d.st.length ? 'sem horário de retorno informado' : 'todas as frentes rodando'}</p></div>
       </div>
-      <div class="st-sec-t">Paradas</div>
-      ${par.length ? `<div class="st-par">${par.map(r => `<div class="st-pr">
-          <i class="st-dot"></i><b>${esc(r.f)}</b><span class="st-fz">${esc(r.fz)} · ${esc(r.cod)}</span><span class="st-stt">Parada${r.mot ? ` · ${esc(r.mot)}` : ''}</span><span class="st-mmv">${mm(r.mm)} mm</span>
-          <span class="st-det">desde ${dmy(r.pd)} ${hhmm(r.pd)} · <b class="st-dur">${hm(r.dur)}</b> parada · ${ret(r)}</span></div>`).join('')}</div>`
-        : '<p class="st-nada">Nenhuma frente parada.</p>'}
-      <div class="st-sec-t">Rodando</div>
-      <div class="st-rod">${rod.map(r => `<div><i class="st-dot ok"></i><b>${esc(r.f)}</b><span class="st-fz">${esc(r.fz)}</span><span class="st-mmv">${mm(r.mm)} mm</span></div>`).join('') || '<p class="st-nada">Nenhuma frente rodando.</p>'}</div>
-      <div class="st-sec-t st-sec-lg"><span>Chuva do dia por frente (mm)${d.avg > 0 ? ` · média ${mm(d.avg)}` : ''}</span><span class="st-lg"><span><i style="background:${TC[0]}"></i>A</span><span><i style="background:${TC[1]}"></i>B</span><span><i style="background:${TC[2]}"></i>C</span></span></div>
-      ${d.wet.length ? `<div class="st-chv">${d.rows.map(r => `<div><b>${esc(r.curto)}</b><span class="st-trk">${r.t.map((v, k) => (v ? `<i style="width:${(v / max * 100).toFixed(1)}%;background:${TC[k]}"></i>` : '')).join('')}${d.avg > 0 ? `<u style="left:${Math.min(100, d.avg / max * 100).toFixed(1)}%"></u>` : ''}</span><span class="st-mmv">${mm(r.mm)}</span></div>`).join('')}</div>`
-        : '<p class="st-nada">Sem chuva registrada no dia até este momento.</p>'}
-      <div class="st-foot"><span>Gerenciamento Operacional · ${dmya(d.n)}, ${hhmm(d.n)}</span><span>${d.em ? `planilha salva ${dmy(d.em)} · ${hhmm(d.em)}` : ''}</span></div>
+      <div class="st-pv"><div class="st-h"><h3>Chuva do dia por frente e turno (mm)</h3><div class="st-lg"><span><i style="background:${TC[0]}"></i>Turno A</span><span><i style="background:${TC[1]}"></i>Turno B</span><span><i style="background:${TC[2]}"></i>Turno C</span></div></div>
+        <div class="st-plot" style="height:${H + 26}px">${d.rows.map(r => `<div class="st-c" title="${esc(`${r.f} · ${r.faz}\nA ${mm(r.t[0])} · B ${mm(r.t[1])} · C ${mm(r.t[2])} mm`)}"><b>${mm(r.mm)}</b><div class="st-stk">${r.t.map((v, k) => (v ? `<i style="height:${y(v).toFixed(1)}px;background:${TC[k]}"></i>` : '')).join('')}</div></div>`).join('')}
+          ${d.wet.length ? '' : '<div class="st-semchuva">Sem chuva registrada hoje até agora</div>'}
+          ${d.avg > 0 ? `<div class="st-avg" style="bottom:${y(d.avg).toFixed(1)}px"><span>média ${mm(d.avg)} mm</span></div>` : ''}</div>
+        <div class="st-xl">${d.rows.map(r => `<div><b>${esc(r.curto)}</b><span><i class="st-dot${r.stop ? '' : ' ok'}"></i>${r.stop ? 'parada' : 'rodando'}</span></div>`).join('')}</div></div>
+      <div class="st-tbl"><table><thead><tr><th>Frente</th><th>Situação</th><th>Motivo</th><th>Chuva A · B · C</th><th>Total</th><th>Parada desde</th><th>Tempo parado</th><th>Retorno previsto</th></tr></thead><tbody>
+        ${d.rows.map(r => `<tr><td class="st-fr"><b>${esc(r.f)}</b><small>${esc(r.cod)} · ${esc(r.faz)}</small></td>
+          <td>${r.stop ? '<span class="st-farol"><span class="st-lamp"><i class="r"></i><i></i><i></i></span>PARADA</span>' : '<span class="st-farol ok"><span class="st-lamp"><i></i><i></i><i class="g"></i></span>RODANDO</span>'}</td>
+          <td${r.stop ? '' : ' class="st-mute"'}>${r.stop ? esc(r.mot) : '—'}</td>
+          <td class="st-mute">${r.t.map(mm).join(' · ')}</td><td class="st-mm">${mm(r.mm)} mm</td>
+          <td${r.stop ? '' : ' class="st-mute"'}>${r.stop ? `${dmy(r.pd)} · ${hhmm(r.pd)}` : '—'}</td>
+          <td class="${r.stop ? 'st-dur' : 'st-mute'}">${r.stop ? hm(r.dur) : '—'}</td>
+          <td class="st-ret">${r.stop ? ret(r) : '<span class="st-op">Em operação</span>'}</td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="st-foot"><span>Fonte: Pluviométrico 2026 — aba PLUVIOMÉTRICO 2026 (paradas e chuva por turno A, B e C)</span><span>Previsões de retorno referentes a ${d.hoje.split('-').reverse().slice(0, 2).join('/')}</span></div>
     </div>`;
   };
 
@@ -134,9 +135,10 @@
   }));
   const gerarPng = async () => {
     const H = await carregaH2C(), el = $('#stFolha');
-    el.classList.add('st-captura');
-    try { const cv = await H(el, { scale: 3, backgroundColor: '#FFFFFF', useCORS: true, logging: false }); return await new Promise(ok => cv.toBlob(ok, 'image/png')); }
-    finally { el.classList.remove('st-captura'); }
+    const box = $('#stFolhaBox'), pal = box.parentElement, z = box.style.zoom, fl = pal.classList.contains('st-fluido');
+    box.style.zoom = ''; pal.classList.remove('st-fluido'); el.classList.add('st-captura');
+    try { const cv = await H(el, { scale: 2, backgroundColor: '#FFFFFF', useCORS: true, logging: false }); return await new Promise(ok => cv.toBlob(ok, 'image/png')); }
+    finally { el.classList.remove('st-captura'); box.style.zoom = z; pal.classList.toggle('st-fluido', fl); }
   };
   const nomeArq = d => `situacao-frentes-${d.mom ? `${ymd(d.mom.dia)}-turno-${d.mom.t}` : `${ymd(d.n)}-${hhmm(d.n).replace(':', 'h')}`}.png`;
   const baixar = (blob, nome) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nome; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); };
@@ -214,7 +216,14 @@
   const passo = k => { const O = opcoes(), i = O.findIndex(o => o.id === SEL), j = Math.max(0, Math.min(O.length - 1, i + k)); SEL = O[j].id; montarSel(); desenhar(); };
 
   /* ---------- montagem ---------- */
-  const desenhar = () => { const box = $('#stFolhaBox'), d = atual(); if (box && d) box.innerHTML = folha(d); };
+  // a folha tem 1120 px (tamanho da imagem) e é mostrada reduzida; em tela estreita vira layout fluido
+  const ajustar = () => {
+    const box = $('#stFolhaBox'), pal = box && box.parentElement; if (!pal) return;
+    const w = pal.clientWidth, z = Math.min(0.76, w / 1120);
+    pal.classList.toggle('st-fluido', z < 0.6);
+    box.style.zoom = z < 0.6 ? '' : z.toFixed(3);
+  };
+  const desenhar = () => { const box = $('#stFolhaBox'), d = atual(); if (box && d) { box.innerHTML = folha(d); ajustar(); } };
   const montar = () => {
     const el = $('#sitConteudo'); if (!el) return;
     if (!atual()) { el.innerHTML = ''; return; }
@@ -230,6 +239,7 @@
           <div class="hseg" id="stPer"><button type="button" data-v="7" class="is-on">7 dias</button><button type="button" data-v="30">30 dias</button><button type="button" data-v="safra">Safra</button></div></div>
           <div id="stHist"></div></article>
       </section>`;
+      window.addEventListener('resize', ajustar);
       $('#stImg').addEventListener('click', copiarImagem);
       $('#stPng').addEventListener('click', baixarPng);
       $('#stSel').addEventListener('change', e => { SEL = e.target.value; montarSel(); desenhar(); });
