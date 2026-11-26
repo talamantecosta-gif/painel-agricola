@@ -63,6 +63,8 @@
   const pastasExtras = () => (window.__PASTAS_TESTE ? Promise.resolve(window.__PASTAS_TESTE) : idb('readonly', st => st.get('extras')).then(x => (Array.isArray(x) ? x : [])).catch(() => []));
   const guardarExtras = l => idb('readwrite', st => st.put(l, 'extras')).catch(() => null);
   const SUPORTA_PASTA = 'showDirectoryPicker' in window;
+  // planilhas que não são do painel, mesmo com nome parecido (ex.: OC de pagamento da Happening)
+  const IGNORAR = /pagamento|\boc\b|fatura|nota fiscal|boleto|medi[cç][aã]o/i;
 
   /* ---------- zip sem compressão (quando não há token) ---------- */
   const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
@@ -541,7 +543,7 @@
         progresso(`Lendo a pasta ${ex.name}…`);
         for await (const [nome, h] of ex.entries()) {
           if (h.kind !== 'file' || nome.startsWith('~$') || !/\.xls[xmb]?$/i.test(nome)) continue;
-          if (/cota|entrega|viage|transporte|happ|pluvi/i.test(nome)) planilhas.push({ nome, h, pasta: ex.name });
+          if (/cota|entrega|viage|transporte|happ|pluvi/i.test(nome) && !IGNORAR.test(nome)) planilhas.push({ nome, h, pasta: ex.name });
         }
       }
       const F = IDX.fontes || {};
@@ -586,8 +588,10 @@
       progresso('Conferindo as planilhas…');
       const pls = { transporte: null, incendio: null, usuarios: null, pluvio: null, cota: null, entrega: null };
       for (const p of planilhas) {
+        if (IGNORAR.test(p.nome)) continue;
         const f = await p.h.getFile();
-        let tipo = /entrega/i.test(p.nome) ? 'entrega' : /cota/i.test(p.nome) ? 'cota' : /usu[aá]rio/i.test(p.nome) ? 'usuarios' : /pluvi/i.test(p.nome) ? 'pluvio' : /inc[eê]ndio|risco|queimada/i.test(p.nome) ? 'incendio' : /viage|transporte|happ/i.test(p.nome) ? 'transporte' : null;
+        let tipo = /entrega/i.test(p.nome) ? 'entrega' : /cota/i.test(p.nome) ? 'cota' : /usu[aá]rio/i.test(p.nome) ? 'usuarios' : /pluvi/i.test(p.nome) ? 'pluvio' : /inc[eê]ndio|risco|queimada/i.test(p.nome) ? 'incendio' : /viage|transporte/i.test(p.nome) ? 'transporte' : null;
+        // "Happ" no nome sozinho não basta: só entra se o conteúdo for o controle de viagens (abas por mês com Data e Moagem)
         if (!tipo) { try { tipo = await tipoPlanilha(f); } catch (e) { tipo = null; } }
         if (tipo && (!pls[tipo] || f.lastModified > pls[tipo].f.lastModified)) pls[tipo] = { ...p, f };
       }
