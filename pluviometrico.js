@@ -531,6 +531,7 @@
   P.definir = data => { DADOS = data; MONTADO = false; if (window.Situacao) Situacao.definir(data && data.situacao); if (naPagina()) mostrar(); };
   P.VERSAO = 3; // 3: situação das frentes (paradas). Muda quando a leitura da planilha muda: força republicar
   P.dados = () => D;
+  P.bruto = () => DADOS;
   P.filtro = F;
   window.Pluvio = P;
 })();

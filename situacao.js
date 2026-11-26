@@ -24,7 +24,7 @@
   const TURNO = { A: { fim: 8, txt: 'Turno A', faixa: '00h–08h' }, B: { fim: 16, txt: 'Turno B', faixa: '08h–16h' }, C: { fim: 24, txt: 'Turno C', faixa: '16h–24h' } };
   const toast = (m, ms) => (window.Painel && Painel.toast ? Painel.toast(m, ms) : null);
 
-  let SIT = null, HIST = null, HPER = '7', TIMER = null, SEL = 'agora';
+  let SIT = null, HIST = null, TIMER = null, SEL = null;
 
   /* ---------- turnos: cada foto vai para o turno que ela fecha ---------- */
   // janela de cada turno deslocada 2 h para frente (A 02h–10h, B 10h–18h, C 18h–02h do dia seguinte),
@@ -35,9 +35,22 @@
     const dia = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     return { t, dia, fim: new Date(+dia + TURNO[t].fim * 36e5) };
   };
+  const bruto = () => (window.Pluvio && Pluvio.bruto ? Pluvio.bruto() : null);
+  // chuva de um dia por turno, somada por local (aba Acumulado; o formulário PLUVIOMÉTRICO 2026 entra onde o Acumulado ainda não tem o turno)
+  const chuvaDia = dia => {
+    const B = bruto(), M = new Map(); if (!B || !Array.isArray(B.reg) || !Array.isArray(B.locais)) return M;
+    B.reg.forEach(([d, li, t, v]) => {
+      if (d !== dia) return; const L = B.locais[li]; if (!L) return;
+      const m = String(L.frente || '').match(/^Colheita · Frente 0*(\d+)$/); if (!m) return;
+      const k = `${+m[1]}|${String(L.cod).trim()}`, a = M.get(k) || [null, null, null], i = 'ABC'.indexOf(t);
+      if (i >= 0) { a[i] = (a[i] || 0) + (Number(v) || 0); M.set(k, a); }
+    });
+    return M;
+  };
   const fotos = () => {
     const L = (HIST && Array.isArray(HIST.snaps) ? HIST.snaps.slice() : []);
-    if (SIT && SIT.em && !L.some(x => x.em === SIT.em)) L.push({ em: SIT.em, data: SIT.data, rows: SIT.rows });
+    const B = bruto(), emS = SIT && (SIT.em || (B && B.meta && B.meta.lidoEm));
+    if (SIT && emS && !L.some(x => x.em === emS)) L.push({ em: emS, data: SIT.data, rows: SIT.rows });
     return L.filter(x => x && x.em && Array.isArray(x.rows) && x.rows.length);
   };
   const momentos = () => {
@@ -52,12 +65,15 @@
   const rotulo = m => `${dmya(m.dia)} · ${TURNO[m.t].txt}`;
 
   /* ---------- cálculo da situação (de uma foto, num instante) ---------- */
-  const calc = (foto, n) => {
+  const calc = (foto, n, dia, lim = 2) => {
     if (!foto || !Array.isArray(foto.rows) || !foto.rows.length) return null;
     const hoje = foto.data || ymd(n);
     const cont = {}; foto.rows.forEach(r => { cont[r.n] = (cont[r.n] || 0) + 1; });
+    const CH = chuvaDia(dia || hoje);
     const rows = foto.rows.map((r, i) => {
-      const x = { ...r, i, f: `Frente ${r.n}`, t: (r.t || [0, 0, 0]), stop: !!r.p };
+      const ac = CH.get(`${r.n}|${String(r.cod).trim()}`) || [], t0 = r.t || [0, 0, 0];
+      // só os turnos até o turno escolhido (A; A e B; A, B e C)
+      const x = { ...r, i, f: `Frente ${r.n}`, t: [0, 1, 2].map(k => (k > lim ? 0 : ac[k] != null ? ac[k] : (Number(t0[k]) || 0))), stop: !!r.p };
       x.mm = x.t.reduce((s, v) => s + (Number(v) || 0), 0);
       x.fz = String(r.faz || '').replace(/^Faz\.\s*/, '');
       x.curto = `F${r.n}${cont[r.n] > 1 ? ' · ' + x.fz.slice(0, 4) + '.' : ''}`;
@@ -77,19 +93,11 @@
     const prox = cedo(comRet.filter(r => r.left >= 0)) || cedo(comRet);
     return { n, hoje, rows, nums, stopN, runN, wet, avg, mx, st, prox, em: foto.em ? new Date(foto.em) : null };
   };
-  // o que está selecionado: "agora" (última planilha, tempos contados até este minuto) ou o fechamento de um turno
+  // o turno selecionado (padrão: o mais recente); tempos contados até o fechamento do turno, ou até agora se ele ainda está em andamento
   const atual = () => {
-    const agora = new Date();
-    if (SEL !== 'agora') {
-      const m = momentos().find(x => x.id === SEL);
-      if (m) {
-        const em = new Date(m.foto.em), n = em > m.fim ? em : new Date(Math.min(+m.fim, +agora));
-        const d = calc(m.foto, n); if (d) { d.mom = m; return d; }
-      }
-      SEL = 'agora';
-    }
-    const f = SIT || fotos().sort((a, b) => b.em.localeCompare(a.em))[0];
-    return calc(f, agora);
+    const M = momentos(); const m = M.find(x => x.id === SEL) || M[0]; if (!m) return null; SEL = m.id;
+    const agora = new Date(), em = new Date(m.foto.em), n = em > m.fim ? em : new Date(Math.min(+m.fim, +agora));
+    const d = calc(m.foto, n, ymd(m.dia), 'ABC'.indexOf(m.t)); if (d) d.mom = m; return d;
   };
 
   /* ---------- folha (a mesma que vira imagem para o grupo) ---------- */
@@ -156,64 +164,16 @@
   };
   const baixarPng = async () => { const d = atual(); if (!d) return; try { baixar(await gerarPng(), nomeArq(d)); } catch (e) { toast('Não foi possível gerar a imagem: ' + esc(e.message || e), 5000); } };
 
-  /* ---------- histórico das paradas (a partir das fotos de cada sincronização) ---------- */
-  const eventos = () => {
-    const snaps = (HIST && Array.isArray(HIST.snaps) ? HIST.snaps : []).slice().sort((a, b) => a.em.localeCompare(b.em));
-    const ev = new Map();
-    snaps.forEach((s, i) => (s.rows || []).forEach(r => {
-      if (!r.p) return;
-      const k = `${r.n}|${r.cod}|${r.p}`;
-      const e = ev.get(k) || { k, n: r.n, cod: r.cod, faz: r.faz, ini: new Date(r.p), visto: i };
-      e.mot = r.mot; e.visto = i; e.ret = r.ret ? new Date(`${s.data}T${r.ret}`) : null; e.retTxt = r.retTxt;
-      ev.set(k, e);
-    }));
-    const agora = new Date();
-    return [...ev.values()].map(e => {
-      if (e.visto < snaps.length - 1) {
-        const visto = new Date(snaps[e.visto].em), sumiu = new Date(snaps[e.visto + 1].em);
-        // voltou entre duas fotos: usa a previsão de retorno se ela cair nesse intervalo, senão a foto em que sumiu
-        if (e.ret && e.ret >= visto && e.ret <= sumiu) { e.fim = e.ret; e.est = 'pela previsão de retorno'; } else { e.fim = sumiu; e.est = 'pela sincronização seguinte'; }
-      } else e.fim = null;
-      e.dur = (e.fim || agora) - e.ini;
-      return e;
-    }).sort((a, b) => b.ini - a.ini);
-  };
-  const montarHist = () => {
-    const el = $('#stHist'); if (!el) return;
-    const E = eventos();
-    if (!E.length) { el.innerHTML = `<p class="st-vazio"><i class="fa-regular fa-clock"></i> O histórico de paradas começa a ser gravado a partir da próxima sincronização: cada vez que a planilha for salva e sincronizada, o painel guarda a situação daquele momento.</p>`; return; }
-    const agora = new Date(), ini = HPER === 'safra' ? new Date(0) : new Date(agora - (+HPER) * 864e5);
-    const sobre = e => Math.max(0, Math.min(+(e.fim || agora), +agora) - Math.max(+e.ini, +ini));
-    const P = E.filter(e => sobre(e) > 0);
-    const porF = new Map(); P.forEach(e => { const x = porF.get(e.n) || { n: e.n, h: 0, q: 0 }; x.h += sobre(e) / 36e5; x.q++; porF.set(e.n, x); });
-    const F = [...porF.values()].sort((a, b) => a.n - b.n), mx = Math.max(1, ...F.map(x => x.h)), tot = F.reduce((s, x) => s + x.h, 0);
-    const maior = F.slice().sort((a, b) => b.h - a.h)[0];
-    el.innerHTML = `
-      <div class="st-hk"><div><small>Paradas no período</small><b>${P.length}</b></div><div><small>Horas paradas (soma das frentes)</small><b>${tot.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} h</b></div><div><small>Frente com mais horas paradas</small><b>${maior ? `Frente ${maior.n} · ${Math.round(maior.h)} h` : '—'}</b></div><div><small>Em aberto agora</small><b>${P.filter(e => !e.fim).length}</b></div></div>
-      <div class="st-hg">
-        <div class="st-hb">${F.map(x => `<div class="st-hl"><span>Frente ${x.n}</span><span class="st-ht"><i style="width:${(x.h / mx * 100).toFixed(1)}%"></i></span><b>${Math.round(x.h)} h</b><small>${x.q} ${x.q === 1 ? 'parada' : 'paradas'}</small></div>`).join('') || '<p class="hint">Nenhuma parada no período.</p>'}</div>
-        <div class="st-ev"><table><thead><tr><th>Frente</th><th>Fazenda</th><th>Motivo</th><th>Parou</th><th>Voltou</th><th>Duração</th></tr></thead><tbody>
-          ${P.map(e => `<tr><td><b>Frente ${e.n}</b></td><td>${esc(e.cod)} · ${esc(e.faz)}</td><td>${esc(e.mot)}</td><td>${dmy(e.ini)} · ${hhmm(e.ini)}</td>
-            <td>${e.fim ? `<span title="horário estimado ${esc(e.est)}">≈ ${dmy(e.fim)} · ${hhmm(e.fim)}</span>` : '<span class="st-aberto">parada agora</span>'}</td><td class="st-dur">${hm(e.dur)}</td></tr>`).join('')}
-        </tbody></table></div>
-      </div>
-      <p class="st-nota"><i class="fa-solid fa-circle-info"></i> O retorno é estimado entre duas sincronizações: vale a previsão de retorno informada, se ela cair nesse intervalo. Quanto mais vezes a planilha for sincronizada, mais preciso fica.</p>`;
-  };
-
   /* ---------- seletor de data · turno ---------- */
-  const opcoes = () => {
-    const f = SIT || fotos().sort((a, b) => b.em.localeCompare(a.em))[0];
-    const ag = f && f.em ? ` (planilha ${hhmm(new Date(f.em))})` : '';
-    return [{ id: 'agora', txt: `Agora${ag}` }, ...momentos().map(m => ({ id: m.id, txt: rotulo(m) }))];
-  };
+  const opcoes = () => momentos().map(m => ({ id: m.id, txt: rotulo(m) }));
   const montarSel = () => {
     const sel = $('#stSel'); if (!sel) return;
-    const O = opcoes(); if (!O.some(o => o.id === SEL)) SEL = 'agora';
+    const O = opcoes(); if (!O.length) return; if (!O.some(o => o.id === SEL)) SEL = O[0].id;
     sel.innerHTML = O.map(o => `<option value="${o.id}"${o.id === SEL ? ' selected' : ''}>${esc(o.txt)}</option>`).join('');
     const i = O.findIndex(o => o.id === SEL);
     $('#stAnt').disabled = i >= O.length - 1; $('#stProx').disabled = i <= 0;
   };
-  const passo = k => { const O = opcoes(), i = O.findIndex(o => o.id === SEL), j = Math.max(0, Math.min(O.length - 1, i + k)); SEL = O[j].id; montarSel(); desenhar(); };
+  const passo = k => { const O = opcoes(); if (!O.length) return; const i = O.findIndex(o => o.id === SEL), j = Math.max(0, Math.min(O.length - 1, i + k)); SEL = O[j].id; montarSel(); desenhar(); };
 
   /* ---------- montagem ---------- */
   // a folha tem 1120 px (tamanho da imagem) e é mostrada reduzida; em tela estreita vira layout fluido
@@ -235,9 +195,6 @@
           <div class="st-acoes"><button type="button" class="st-bt" id="stImg"><i class="fa-regular fa-copy"></i>Copiar imagem</button><button type="button" class="st-bt pri" id="stPng"><i class="fa-solid fa-download"></i>Baixar imagem</button></div>
         </div>
         <div class="st-palco"><div id="stFolhaBox"></div></div>
-        <article class="card st-card"><div class="st-hh"><div><h3><i class="fa-solid fa-clock-rotate-left"></i>Histórico de paradas</h3><p class="hint">Montado com a situação gravada em cada sincronização da planilha</p></div>
-          <div class="hseg" id="stPer"><button type="button" data-v="7" class="is-on">7 dias</button><button type="button" data-v="30">30 dias</button><button type="button" data-v="safra">Safra</button></div></div>
-          <div id="stHist"></div></article>
       </section>`;
       window.addEventListener('resize', ajustar);
       $('#stImg').addEventListener('click', copiarImagem);
@@ -245,8 +202,6 @@
       $('#stSel').addEventListener('change', e => { SEL = e.target.value; montarSel(); desenhar(); });
       $('#stAnt').addEventListener('click', () => passo(1));
       $('#stProx').addEventListener('click', () => passo(-1));
-      $$('#stPer button').forEach(b => b.addEventListener('click', () => { HPER = b.dataset.v; $$('#stPer button').forEach(x => x.classList.toggle('is-on', x === b)); montarHist(); }));
-      montarHist();
       if (window.Layout && Layout.pagina && Layout.pagina() === 'pluvio') Layout.secoes();
     }
     montarSel(); desenhar();
@@ -255,12 +210,12 @@
 
   S.iniciar = async sit => {
     SIT = sit || null; montar();
-    if (!TIMER) TIMER = setInterval(() => { if (SEL === 'agora' && visivel()) desenhar(); }, 30000);
+    if (!TIMER) TIMER = setInterval(() => { const M = momentos(); if (M[0] && SEL === M[0].id && visivel()) desenhar(); }, 30000);
     try { if (window.Hist && Hist.lerDividido) HIST = await Hist.lerDividido('situacao'); } catch (e) { HIST = null; }
-    montar(); montarHist();
+    montar();
   };
   S.definir = sit => { SIT = sit || null; montar(); };
-  S.definirHist = h => { HIST = h; montar(); montarHist(); };
+  S.definirHist = h => { HIST = h; montar(); };
   S.momentos = momentos;
   window.Situacao = S;
 })();

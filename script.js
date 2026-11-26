@@ -1575,7 +1575,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   };
 
   /* ---------- Eventos ---------- */
-  $('#btnImport').addEventListener('click', () => $('#fileInput').click());
+  $('#btnImport')?.addEventListener('click', () => $('#fileInput').click());
   const handleFiles = async files => {
     if (window.Layout && !Layout.editor()) return toast('<i class="fa-solid fa-lock"></i> Só o responsável pelo painel importa relatórios', 3500);
     // analise.json primeiro (sem perguntas); o PDF/dados.json por último (abre a confirmação)
@@ -1584,7 +1584,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   };
   $('#fileInput').addEventListener('change', e => { handleFiles(e.target.files); e.target.value = ''; });
   $('#btnSair').addEventListener('click', () => { Acesso.logout(); store.clear(); location.reload(); });
-  $('#btnJson').addEventListener('click', () => {
+  $('#btnJson')?.addEventListener('click', () => {
     if (!state.M) return toast('Sem dados para exportar');
     downloadProtected('dados.json', state.M.raw);
   });
