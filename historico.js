@@ -519,12 +519,14 @@
       if (!dir) { if (silencioso) return; dir = await pedirPasta(); }
       if (!(await permissao(dir, !silencioso))) { if (!silencioso) toast('<i class="fa-solid fa-folder-closed"></i> Sem permissão para ler a pasta', 4000); marcarStatus(); return; }
       const c = await cfg.get();
+      // equipe (quem não é o dono): atualiza só o que encontrar nas pastas dela, sem mostrar erro do que faltar
+      const equipe = !(Layout.dono && Layout.dono());
       if (!silencioso) Painel.modal('Sincronizando histórico', `<div class="spinner"></div><p style="text-align:center" id="syncMsg">Lendo a pasta ${esc(dir.name)}…</p>`);
       await carregarIndice(c && c.token ? c : null);
       // arquivos da pasta
       const pdfs = [], analises = [], planilhas = [];
       let coaArq = null, scDir = null, semArq = null; const psArqs = [];
-      for await (const [nome, h] of dir.entries()) {
+      try { for await (const [nome, h] of dir.entries()) {
         if (h.kind === 'directory' && /master\s*driver|scania/i.test(nome)) { scDir = h; continue; }
         if (h.kind !== 'file') continue;
         if (window.Pisoteio && Pisoteio.ehBoletim(nome)) psArqs.push({ nome, h, f: await h.getFile() });
@@ -534,17 +536,17 @@
         else if (/\.json$/i.test(nome) && /hist.*analise|analise.*coa/i.test(nome)) { const f = await h.getFile(); if (!coaArq || f.lastModified > coaArq.f.lastModified) coaArq = { nome, h, f }; }
         else if (/analise.*\.json$/i.test(nome)) analises.push({ nome, h });
         else if (/\.xls[xmb]?$/i.test(nome) && !nome.startsWith('~$')) planilhas.push({ nome, h });
-      }
+      } } catch (e) { if (!equipe) throw e; } // pasta principal sumiu/sem acesso: a equipe segue com as outras
       // pastas extras: só as planilhas conhecidas (cotas, controle de entrega, controle de viagens, pluviométrico)
       const semPerm = [];
       for (const ex of (SUPORTA_PASTA || window.__PASTAS_TESTE ? await pastasExtras() : [])) {
         let ok = false; try { ok = await permissao(ex, !silencioso); } catch (e) { ok = false; }
-        if (!ok) { semPerm.push(ex.name); continue; }
+        if (!ok) { if (!equipe) semPerm.push(ex.name); continue; }
         progresso(`Lendo a pasta ${ex.name}…`);
-        for await (const [nome, h] of ex.entries()) {
+        try { for await (const [nome, h] of ex.entries()) {
           if (h.kind !== 'file' || nome.startsWith('~$') || !/\.xls[xmb]?$/i.test(nome)) continue;
           if (/cota|entrega|viage|transporte|happ|pluvi/i.test(nome) && !IGNORAR.test(nome)) planilhas.push({ nome, h, pasta: ex.name });
-        }
+        } } catch (e) { if (!equipe) semPerm.push(ex.name); } // pasta não encontrada neste computador
       }
       const F = IDX.fontes || {};
       const mudou = (k, a) => a && (!F[k] || F[k].nome !== a.nome || F[k].mtime < a.f.lastModified);
@@ -774,7 +776,8 @@
         } catch (e) { erros.push(`${coaArq.nome}: ${e.message || e}`); }
       }
       if (anArqNovo) novasF.analise = { nome: anArq.nome, mtime: anArq.f.lastModified };
-      if (!resumos.length && !plLida && !extras.length && !anArqNovo && !orfaos.length) { Painel.modal('Nada foi publicado', `<p>Não consegui ler os arquivos novos:</p><ul class="check-list">${erros.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>`, [{ html: 'Fechar', onClick: Painel.fecharModal }]); return; }
+      if (equipe) erros.length = 0; // a equipe não vê erro do que não está nas pastas dela
+      if (!resumos.length && !plLida && !extras.length && !anArqNovo && !orfaos.length) { if (equipe || !erros.length) { Painel.fecharModal(); if (!silencioso) toast('<i class="fa-solid fa-circle-check"></i> Painel em dia', 3500); await guardarUltima(); return; } Painel.modal('Nada foi publicado', `<p>Não consegui ler os arquivos novos:</p><ul class="check-list">${erros.map(x => `<li><i class="fa-solid fa-circle-exclamation"></i>${esc(x)}</li>`).join('')}</ul>`, [{ html: 'Fechar', onClick: Painel.fecharModal }]); return; }
       orfaos.forEach(d => { delete IDX.dias[d]; if (!resumos.some(r => r.d === d) && publicados && publicados.has(`${d}.json`)) arquivos.push({ path: `historico/dias/${d}.json`, apagar: true }); });
       resumos.forEach(r => { IDX.dias[r.d] = r; });
       const ordenado = {}; datas().forEach(d => { ordenado[d] = IDX.dias[d]; });
