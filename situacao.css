@@ -81,12 +81,12 @@
 .st-tbl td { padding: 7px 10px; border-bottom: 1px solid var(--st-line); white-space: nowrap; vertical-align: middle; }
 .st-fr b { display: block; font-size: 14px; }
 .st-fr small { display: block; font-size: 11.5px; color: var(--st-mute); }
-.st-farol { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 5px; border-radius: 999px; background: #FEE2E2; color: #B91C1C; font-size: 12px; font-weight: 800; letter-spacing: .02em; }
-.st-farol.ok { background: #DCFCE7; color: #15803D; }
-.st-lamp { display: inline-flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: 6px; background: #1F2937; }
-.st-lamp i { width: 6px; height: 6px; border-radius: 50%; background: #4B5563; }
-.st-lamp i.r { background: #F43F5E; box-shadow: 0 0 5px #F43F5E; }
-.st-lamp i.g { background: #22C55E; box-shadow: 0 0 5px #22C55E; }
+.st-farol { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px 0 27px; border-radius: 999px; background: #FEE2E2 url('data:image/svg+xml,%3Csvg%20xmlns="http://www.w3.org/2000/svg"%20width="12"%20height="28"%20viewBox="0%200%2012%2028"%3E%3Crect%20width="12"%20height="28"%20rx="4"%20fill="%231F2937"/%3E%3Ccircle%20cx="6"%20cy="6"%20r="4"%20fill="%23F43F5E"%20opacity=".35"/%3E%3Ccircle%20cx="6"%20cy="6"%20r="2.8"%20fill="%23F43F5E"/%3E%3Ccircle%20cx="6"%20cy="14"%20r="2.8"%20fill="%234B5563"/%3E%3Ccircle%20cx="6"%20cy="22"%20r="2.8"%20fill="%234B5563"/%3E%3C/svg%3E') no-repeat 6px 50% / 12px 28px; color: #B91C1C; font-size: 12px; font-weight: 800; letter-spacing: .02em; }
+.st-farol.ok { background: #DCFCE7 url('data:image/svg+xml,%3Csvg%20xmlns="http://www.w3.org/2000/svg"%20width="12"%20height="28"%20viewBox="0%200%2012%2028"%3E%3Crect%20width="12"%20height="28"%20rx="4"%20fill="%231F2937"/%3E%3Ccircle%20cx="6"%20cy="6"%20r="2.8"%20fill="%234B5563"/%3E%3Ccircle%20cx="6"%20cy="14"%20r="2.8"%20fill="%234B5563"/%3E%3Ccircle%20cx="6"%20cy="22"%20r="4"%20fill="%2322C55E"%20opacity=".35"/%3E%3Ccircle%20cx="6"%20cy="22"%20r="2.8"%20fill="%2322C55E"/%3E%3C/svg%3E') no-repeat 6px 50% / 12px 28px; color: #15803D; }
+/* o gerador de imagem separa números com tabular-nums ("16 :18"): na captura usa números normais */
+.st-captura, .st-captura * { font-variant-numeric: normal !important; }
+/* e não desenha o que fica dentro de caixa com rolagem (o semáforo sumia): na captura a tabela não rola */
+.st-captura .st-tbl { overflow: visible !important; }
 .st-mute { color: var(--st-mute); }
 .st-mm { color: #2563EB; font-weight: 700; }
 .st-dur { color: #7F1D1D; font-weight: 700; }

@@ -125,7 +125,7 @@
         <div class="st-xl">${d.rows.map(r => `<div><b>${esc(r.curto)}</b><span><i class="st-dot${r.stop ? '' : ' ok'}"></i>${r.stop ? 'parada' : 'rodando'}</span></div>`).join('')}</div></div>
       <div class="st-tbl"><table><thead><tr><th>Frente</th><th>Situação</th><th>Motivo</th><th>Chuva A · B · C</th><th>Total</th><th>Parada desde</th><th>Tempo parado</th><th>Retorno previsto</th></tr></thead><tbody>
         ${d.rows.map(r => `<tr><td class="st-fr"><b>${esc(r.f)}</b><small>${esc(r.cod)} · ${esc(r.faz)}</small></td>
-          <td>${r.stop ? '<span class="st-farol"><span class="st-lamp"><i class="r"></i><i></i><i></i></span>PARADA</span>' : '<span class="st-farol ok"><span class="st-lamp"><i></i><i></i><i class="g"></i></span>RODANDO</span>'}</td>
+          <td>${r.stop ? '<span class="st-farol">PARADA</span>' : '<span class="st-farol ok">RODANDO</span>'}</td>
           <td${r.stop ? '' : ' class="st-mute"'}>${r.stop ? esc(r.mot) : '—'}</td>
           <td class="st-mute">${r.t.map(mm).join(' · ')}</td><td class="st-mm">${mm(r.mm)} mm</td>
           <td${r.stop ? '' : ' class="st-mute"'}>${r.stop ? `${dmy(r.pd)} · ${hhmm(r.pd)}` : '—'}</td>
@@ -135,6 +135,8 @@
       <div class="st-foot"><span>Fonte: Pluviométrico 2026 — aba PLUVIOMÉTRICO 2026 (paradas e chuva por turno A, B e C)</span><span>Previsões de retorno referentes a ${d.hoje.split('-').reverse().slice(0, 2).join('/')}</span></div>
     </div>`;
   };
+
+  // o semáforo é a imagem de fundo do selo (situacao.css): assim ele sai também na imagem copiada
 
   /* ---------- imagem (html2canvas, carregado só quando usado) ---------- */
   let h2c = null;
