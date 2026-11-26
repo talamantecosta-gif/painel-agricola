@@ -29,18 +29,27 @@
   const aesEnc = async (key, bytes) => { const iv = rnd(12); const ct = await subtle.encrypt({ name: 'AES-GCM', iv }, key, bytes); return { iv: b64(iv), ct: b64(ct) }; };
   const aesDec = async (key, o) => new Uint8Array(await subtle.decrypt({ name: 'AES-GCM', iv: unb64(o.iv) }, key, unb64(o.ct)));
 
-  let K = null, KRAW = null, USER = null, CFG = null;
+  // chave do token da equipe: derivada da senha com um sal fixo por usuário (não muda quando o acesso.json é refeito)
+  const tkBits = async (user, pass) => {
+    const base = await subtle.importKey('raw', te.encode(normUser(user) + '\u0000' + pass), 'PBKDF2', false, ['deriveBits']);
+    const salt = new Uint8Array(await subtle.digest('SHA-256', te.encode('painel-tk|' + normUser(user))));
+    return new Uint8Array(await subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: ITER }, base, 256));
+  };
+
+  let K = null, KRAW = null, USER = null, CFG = null, TKR = null, EDS = [];
 
   /* ---------- Arquivo de acessos ---------- */
   const loadConfig = async () => {
     try { const r = await fetch('acesso.json', { cache: 'no-store' }); if (!r.ok) return null; const c = await r.json(); return c && Array.isArray(c.usuarios) ? c : null; }
     catch (e) { return null; }
   };
-  const makeEntry = async (user, pass, kraw) => {
+  const makeEntry = async (user, pass, kraw, tk = null) => {
     const salt = rnd(16);
     const wk = await wrapKeyFor(user, pass, salt, ITER);
     const w = await aesEnc(wk, kraw);
-    return { id: await userId(user), salt: b64(salt), iter: ITER, iv: w.iv, chave: w.ct, criadoEm: new Date().toISOString() };
+    const ent = { id: await userId(user), salt: b64(salt), iter: ITER, iv: w.iv, chave: w.ct, criadoEm: new Date().toISOString() };
+    if (tk) ent.tk = await aesEnc(await importK(await tkBits(user, pass)), te.encode(typeof tk === 'string' ? tk : JSON.stringify(tk)));
+    return ent;
   };
   const checkPass = p => (p || '').length >= 8;
 
@@ -61,12 +70,12 @@
     try { nomes = cfg.nomes ? await decryptJson(cfg.nomes) : {}; } catch (e) { /* */ }
     return cfg.usuarios.map(x => ({ id: x.id, nome: nomes[x.id] || '(sem nome)', criadoEm: x.criadoEm }));
   };
-  const addUser = async (cfg, user, pass) => {
+  const addUser = async (cfg, user, pass, tk = null) => {
     if (!KRAW) throw new Error('Entre primeiro com um usuário liberado.');
     const u = normUser(user);
     if (!u) throw new Error('Informe o usuário.');
     if (!checkPass(pass)) throw new Error('A senha precisa ter pelo menos 8 caracteres.');
-    const ent = await makeEntry(u, pass, KRAW);
+    const ent = await makeEntry(u, pass, KRAW, tk);
     const nomes = cfg.nomes ? await decryptJson(cfg.nomes) : {};
     nomes[ent.id] = u;
     const list = cfg.usuarios.filter(x => x.id !== ent.id); list.push(ent);
@@ -90,7 +99,8 @@
     const key = await importK(kraw);
     if (!(await verify(key))) throw new Error('Acesso desatualizado. Peça um novo usuário ao administrador.');
     K = key; KRAW = kraw; USER = u;
-    const ses = JSON.stringify({ id, n: USER, k: b64(kraw) });
+    try { TKR = await tkBits(u, pass); } catch (e) { TKR = null; }
+    const ses = JSON.stringify({ id, n: USER, k: b64(kraw), w: TKR ? b64(TKR) : null });
     try { sessionStorage.setItem(SES_KEY, ses); if (keep) localStorage.setItem(SES_KEY, ses); else localStorage.removeItem(SES_KEY); } catch (e) { /* sem storage */ }
     return USER;
   };
@@ -103,13 +113,21 @@
       if (!CFG.usuarios.some(x => x.id === o.id)) throw new Error('usuário removido');
       const kraw = unb64(o.k), key = await importK(kraw);
       if (!(await verify(key))) throw new Error('chave trocada');
-      K = key; KRAW = kraw; USER = o.n;
+      K = key; KRAW = kraw; USER = o.n; TKR = o.w ? unb64(o.w) : null;
       try { sessionStorage.setItem(SES_KEY, s); } catch (e) { /* */ }
       return true;
     } catch (e) { clearSession(); return false; }
   };
   const clearSession = () => { try { sessionStorage.removeItem(SES_KEY); localStorage.removeItem(SES_KEY); } catch (e) { /* */ } };
-  const logout = () => { clearSession(); K = KRAW = USER = null; };
+  const logout = () => { clearSession(); K = KRAW = USER = TKR = null; EDS = []; };
+  /** Token da equipe liberado para este usuário ({ owner, repo, branch, token }) ou null. */
+  const tokenEquipe = async () => {
+    if (!USER || !TKR || !CFG) return null;
+    const id = await userId(USER), e = CFG.usuarios.find(x => x.id === id);
+    if (!e || !e.tk) return null;
+    try { const t = td.decode(await aesDec(await importK(TKR), e.tk)); return t.startsWith('{') ? JSON.parse(t) : { token: t }; } catch (er) { return null; }
+  };
+  const carregarEditores = async () => { try { EDS = CFG && CFG.editores ? (await decryptJson(CFG.editores)).map(normUser) : []; } catch (e) { EDS = []; } };
 
   /* ---------- Criptografia dos arquivos de dados ---------- */
   const isProtected = o => !!(o && o.protegido === 'aes-gcm-v1' && o.iv && o.ct);
@@ -175,7 +193,7 @@
       screen(`<h2 class="auth__title">Acesso não configurado</h2><p class="auth__msg">Ainda não existe o arquivo <b>acesso.json</b> no site. Abra <a href="acessos.html">acessos.html</a> para criar o primeiro usuário.</p>`);
       return;
     }
-    if (await restore()) { unlockPage(); resolve(USER); return; }
+    if (await restore()) { await carregarEditores(); unlockPage(); resolve(USER); return; }
     const el = screen(`<h2 class="auth__title">Entrar</h2><p class="auth__sub">Use o usuário e a senha liberados para você.</p>
       <form class="auth__form" autocomplete="on">
         <label class="auth__field"><span>Usuário</span><span class="field"><i class="fa-solid fa-user"></i><input name="u" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus></span></label>
@@ -188,7 +206,7 @@
     eye.addEventListener('click', () => { const show = f.p.type === 'password'; f.p.type = show ? 'text' : 'password'; eye.innerHTML = `<i class="fa-regular ${show ? 'fa-eye-slash' : 'fa-eye'}"></i>`; });
     f.addEventListener('submit', async e => {
       e.preventDefault(); msg.hidden = true; go.disabled = true; go.querySelector('span').textContent = 'Verificando…';
-      try { await login(f.u.value, f.p.value, f.k.checked); unlockPage(); resolve(USER); }
+      try { await login(f.u.value, f.p.value, f.k.checked); await carregarEditores(); unlockPage(); resolve(USER); }
       catch (err) { msg.textContent = err.message; msg.hidden = false; f.p.value = ''; f.p.focus(); }
       finally { go.disabled = false; go.querySelector('span').textContent = 'Entrar'; }
     });
@@ -196,7 +214,8 @@
 
   window.Acesso = {
     gate, login, logout, loadConfig, createConfig, addUser, removeUser, listUsers, checkPass, userId,
-    encryptJson, decryptJson, readJson, isProtected, esc,
+    encryptJson, decryptJson, readJson, isProtected, esc, tokenEquipe,
+    get editores() { return EDS.slice(); },
     get user() { return USER; }, get config() { return CFG; }, set config(c) { CFG = c; },
     get unlocked() { return !!K; },
   };

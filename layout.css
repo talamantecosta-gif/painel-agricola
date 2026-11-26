@@ -224,6 +224,9 @@ body.lay:not(.auth-locked) > .footer { margin-left: 88px; background: transparen
 
 /* ---------- Só o responsável importa e publica ---------- */
 body:not(.is-editor) .so-editor { display: none !important; }
+body:not(.is-dono) .so-dono { display: none !important; }
+.gh-sub { display: flex; align-items: center; gap: 8px; margin: 16px 0 4px; font-size: 14px; color: var(--ink); }
+.gh-eq { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: #F0FDF4; border: 1px solid #CDEFD7; color: #14532D; font-size: 13px; }
 
 /* ---------- Histórico v2 ---------- */
 .hist-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px 14px; flex-wrap: wrap; margin: 4px 0 16px; }

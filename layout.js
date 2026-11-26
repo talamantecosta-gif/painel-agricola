@@ -113,8 +113,14 @@
   L.selo = () => {}; // selos de notificação desativados
 
   // quem pode importar e publicar; os demais só visualizam
-  const EDITORES = ['talamanteneto'];
-  L.definirUsuario = u => document.body.classList.toggle('is-editor', EDITORES.includes(String(u || '').trim().toLowerCase()));
+  // dono: configura o GitHub e distribui o token da equipe; editores: marcados na coluna "Atualizar" da planilha de usuários
+  const DONOS = ['talamanteneto'];
+  L.definirUsuario = u => {
+    const n = String(u || '').trim().toLowerCase(), eds = (window.Acesso && Acesso.editores) || [];
+    document.body.classList.toggle('is-dono', DONOS.includes(n));
+    document.body.classList.toggle('is-editor', DONOS.includes(n) || eds.includes(n));
+  };
+  L.dono = () => document.body.classList.contains('is-dono');
   L.editor = () => document.body.classList.contains('is-editor');
 
   window.Layout = L;

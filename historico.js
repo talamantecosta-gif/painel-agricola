@@ -46,7 +46,9 @@
   /* ---------- armazenamento local (protegido) ---------- */
   const CFG_KEY = 'painel-github';
   const cfg = {
-    async get() { try { const s = localStorage.getItem(CFG_KEY); if (!s) return null; const o = JSON.parse(s); return Acesso.isProtected(o) ? await Acesso.decryptJson(o) : null; } catch (e) { return null; } },
+    // configuração deste navegador; sem token próprio, usa o token da equipe liberado para o usuário
+    async get() { const o = await cfg.local(); if (o && o.token) return o; const e = window.Acesso && Acesso.tokenEquipe ? await Acesso.tokenEquipe() : null; return e && e.token ? { owner: 'talamantecosta-gif', repo: 'painel-agricola', branch: 'main', ...(o || {}), ...e, equipeUsada: true } : o; },
+    async local() { try { const s = localStorage.getItem(CFG_KEY); if (!s) return null; const o = JSON.parse(s); return Acesso.isProtected(o) ? await Acesso.decryptJson(o) : null; } catch (e) { return null; } },
     async set(v) { try { if (!v) localStorage.removeItem(CFG_KEY); else localStorage.setItem(CFG_KEY, JSON.stringify(await Acesso.encryptJson(v))); } catch (e) { /* sem storage */ } },
   };
   // pasta vinculada (o navegador guarda a autorização, não os arquivos)
@@ -397,12 +399,13 @@
   const COL_USER = ['usuario', 'usuarios', 'login', 'user', 'nome de usuario', 'usuario do site', 'usuario painel'];
   const COL_SENHA = ['senha', 'password', 'senha do site', 'senha painel'];
   const COL_ATIVO = ['ativo', 'status', 'situacao', 'acesso', 'liberado'];
+  const ehColEditor = x => /atualiz|permiss|editor|publica/.test(x);
   const normU = s => normT(s).replace(/[^a-z0-9]+/g, ' ').trim();
   const achaCab = rows => {
     for (let i = 0; i < Math.min(rows.length, 30); i++) {
       const h = (rows[i] || []).map(normU);
       const u = h.findIndex(x => COL_USER.includes(x)), p = h.findIndex(x => COL_SENHA.includes(x));
-      if (u >= 0 && p >= 0) return { i, u, p, a: h.findIndex(x => COL_ATIVO.includes(x)) };
+      if (u >= 0 && p >= 0) return { i, u, p, a: h.findIndex(x => COL_ATIVO.includes(x)), e: h.findIndex(ehColEditor) };
     }
     return null;
   };
@@ -474,10 +477,12 @@
     for (const n of wb.SheetNames) { const rows = X.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: null }); const cab = achaCab(rows); if (cab) { tab = { rows, cab }; break; } }
     if (!tab) throw new Error('não encontrei as colunas "Usuário" e "Senha"');
     const inativo = v => /^(nao|n|inativo|bloqueado|desativado|removido|sem acesso|0|false)$/.test(normU(v));
-    const lista = new Map(), avisos = [];
+    const sim = v => /^(sim|s|x|yes|y|1|true|ok|liberado|pode|permitido|editor|atualiza)$/.test(normU(v));
+    const lista = new Map(), avisos = [], editores = new Set();
     tab.rows.slice(tab.cab.i + 1).forEach((r, k) => {
       const u = String(r[tab.cab.u] ?? '').trim().toLowerCase(); if (!u) return;
       if (tab.cab.a >= 0 && inativo(r[tab.cab.a])) return; // fica de fora (é removido)
+      if (tab.cab.e >= 0 && sim(r[tab.cab.e])) editores.add(u);
       const p = String(r[tab.cab.p] ?? '');
       if (!Acesso.checkPass(p)) { avisos.push(`a senha de ${u} tem menos de 8 caracteres (linha ${tab.cab.i + k + 2}) — mantive o acesso como estava`); lista.set(u, null); return; }
       lista.set(u, p);
@@ -491,13 +496,17 @@
     const atuais = await Acesso.listUsers(cfgA);
     const eu = String(Acesso.user || '').toLowerCase();
     let cfgN = cfgA, removidos = 0;
-    for (const [u, p] of lista) if (p) cfgN = await Acesso.addUser(cfgN, u, p);
+    // token da equipe: vai só para quem tem permissão de atualizar, criptografado com a senha de cada um
+    const tk = c && c.equipe ? { owner: c.owner, repo: c.repo, branch: c.branch || 'main', token: c.equipe } : null;
+    for (const [u, p] of lista) if (p) { progresso(`Atualizando os usuários do painel… ${u}`); cfgN = await Acesso.addUser(cfgN, u, p, editores.has(u) ? tk : null); }
     for (const x of atuais) {
       const nome = String(x.nome || '').toLowerCase();
       if (lista.has(nome) || nome === eu || nome === '(sem nome)') continue;
       cfgN = await Acesso.removeUser(cfgN, x.id); removidos++;
     }
-    return { cfg: cfgN, mudou: true, total: cfgN.usuarios.length, removidos, avisos };
+    cfgN = { ...cfgN, editores: await Acesso.encryptJson([...editores]) };
+    if (tab.cab.e < 0) avisos.push('não achei a coluna de permissão de atualizar (ex.: "Atualizar") — ninguém além do administrador publica');
+    return { cfg: cfgN, mudou: true, total: cfgN.usuarios.length, removidos, avisos, editores: editores.size, comToken: tk ? [...editores].filter(u => lista.get(u)).length : 0 };
   };
 
   H.sincronizar = async ({ silencioso = false, trocarPasta = false } = {}) => {
@@ -593,7 +602,7 @@
       const semNova = mudou('semanal', semArq);
       const psSig = psArqs.length ? hashTxt(psArqs.map(a => `${a.nome}|${a.f.lastModified}`).sort().join(';')) : null;
       const psNova = !!(psSig && window.Pisoteio && (!F.pisoteio || F.pisoteio.sig !== psSig || F.pisoteio.v !== Pisoteio.VERSAO));
-      const incNova = mudou('incendio', pls.incendio), usNova = mudou('usuarios', pls.usuarios), coaNova = mudou('coa', coaArq), pvNova = mudou('pluvio', pls.pluvio) || !!(pls.pluvio && window.Pluvio && (F.pluvio || {}).v !== Pluvio.VERSAO);
+      const incNova = mudou('incendio', pls.incendio), tkSig = hashTxt(c && c.equipe ? `${c.owner}|${c.repo}|${c.equipe}` : ''), usNova = !!(pls.usuarios && Layout.dono && Layout.dono() && (mudou('usuarios', pls.usuarios) || ((F.usuarios || {}).tk || hashTxt('')) !== tkSig)), coaNova = mudou('coa', coaArq), pvNova = mudou('pluvio', pls.pluvio) || !!(pls.pluvio && window.Pluvio && (F.pluvio || {}).v !== Pluvio.VERSAO);
       const cotaNova = mudou('cota', pls.cota) || !!(pls.cota && (F.cota || {}).v !== COTA_V);
       const entNova = mudou('entrega', pls.entrega) || !!(pls.entrega && (F.entrega || {}).v !== ENT_V);
       if (!novos.length && !anNovas.length && !plNova && !incNova && !usNova && !coaNova && !pvNova && !scNova && !semNova && !psNova && !cotaNova && !entNova && !orfaos.length && !anArqNovo) {
@@ -657,8 +666,8 @@
         try {
           const r = await atualizarUsuarios(p.f, c);
           if (r.mudou) arquivos.push({ path: 'acesso.json', content: JSON.stringify(r.cfg, null, 1) });
-          novasF.usuarios = { nome: p.nome, mtime: p.f.lastModified };
-          extras.push(`usuários (${r.total} liberados${r.removidos ? `, ${r.removidos} removido${r.removidos > 1 ? 's' : ''}` : ''})`);
+          novasF.usuarios = { nome: p.nome, mtime: p.f.lastModified, tk: tkSig };
+          extras.push(`usuários (${r.total} liberados${r.removidos ? `, ${r.removidos} removido${r.removidos > 1 ? 's' : ''}` : ''} · ${r.editores} com permissão de atualizar${r.comToken ? `, ${r.comToken} com o token da equipe` : ''})`);
           r.avisos.forEach(a => erros.push(`${p.nome}: ${a}`));
         } catch (e) { erros.push(`${p.nome}: ${e.message || e}`); }
       }
@@ -857,31 +866,46 @@
   };
 
   H.configurar = async () => {
-    const c = (await cfg.get()) || { owner: 'talamantecosta-gif', repo: 'painel-agricola', branch: 'main', token: '' };
-    Painel.modal('Publicar direto no GitHub', `
-      <p>Com um token do GitHub salvo neste navegador, a sincronização publica o histórico sozinha, sem baixar nem subir arquivos.</p>
+    const dono = !!(Layout.dono && Layout.dono());
+    const c = (await cfg.local()) || { owner: 'talamantecosta-gif', repo: 'painel-agricola', branch: 'main', token: '' };
+    const eq = !c.token && Acesso.tokenEquipe ? await Acesso.tokenEquipe() : null;
+    Painel.modal('GitHub do painel', `
+      ${eq && eq.token ? '<p class="gh-eq"><i class="fa-solid fa-users"></i> Você publica com o <b>token da equipe</b>, liberado pelo administrador. Não precisa configurar nada: é só clicar em Sincronizar.</p>' : ''}
+      <p>${dono ? 'Seu token pessoal: com ele salvo neste navegador, a sincronização publica sozinha no GitHub.' : 'Token próprio (opcional): só se o administrador pedir.'}</p>
       <div class="gh-form">
         <label>Usuário ou organização<input id="ghOwner" value="${esc(c.owner)}" autocomplete="off"></label>
         <label>Repositório<input id="ghRepo" value="${esc(c.repo)}" autocomplete="off"></label>
         <label>Branch<input id="ghBranch" value="${esc(c.branch)}" autocomplete="off"></label>
         <label class="gh-full">Token (fine-grained)<input id="ghToken" type="password" placeholder="${c.token ? 'Token salvo — deixe em branco para manter' : 'github_pat_…'}" autocomplete="off"></label>
       </div>
-      <p class="hint">O token fica guardado protegido pela sua senha do painel, só neste navegador, e só é enviado para api.github.com. Crie em GitHub → Settings → Developer settings → Fine-grained tokens, com acesso só ao repositório do painel e a permissão <b>Contents: Read and write</b>.</p>
+      ${dono ? `<h4 class="gh-sub"><i class="fa-solid fa-users"></i> Token temporário da equipe</h4>
+      <p class="hint">Vai para os usuários marcados na coluna <b>Atualizar</b> da planilha de usuários, criptografado com a senha de cada um. ${c.equipe ? '<b>Há um token da equipe salvo.</b>' : 'Nenhum token da equipe salvo.'}</p>
+      <div class="gh-form"><label class="gh-full">Token da equipe<input id="ghEq" type="password" placeholder="${c.equipe ? 'Token da equipe salvo — deixe em branco para manter' : 'github_pat_…'}" autocomplete="off"></label></div>` : ''}
+      <p class="hint">Os tokens ficam protegidos pela senha do painel e só são enviados para api.github.com. Crie em GitHub → Settings → Developer settings → Fine-grained tokens, só com o repositório do painel e a permissão <b>Contents: Read and write</b>.</p>
       <p class="hint" id="ghMsg"></p>`,
     [
       { html: '<i class="fa-solid fa-folder-tree"></i> Pastas', onClick: () => { Painel.fecharModal(); H.pastas(); } },
-      ...(!c.token ? [{ html: '<i class="fa-solid fa-file-zipper"></i> Sincronizar sem GitHub (.zip)', onClick: () => { Painel.fecharModal(); H.sincronizar(); } }] : []),
-      ...(c.token ? [{ html: '<i class="fa-solid fa-trash"></i> Remover token', onClick: async () => { await cfg.set(null); Painel.fecharModal(); toast('Token removido deste navegador'); marcarStatus(); } }] : []),
+      ...(c.token ? [{ html: '<i class="fa-solid fa-trash"></i> Remover meu token', onClick: async () => { await cfg.set(c.equipe ? { ...c, token: '' } : null); Painel.fecharModal(); toast('Token removido deste navegador'); marcarStatus(); } }] : []),
+      ...(dono && c.equipe ? [{ html: '<i class="fa-solid fa-user-slash"></i> Tirar token da equipe', onClick: async () => { await cfg.set({ ...c, equipe: '' }); Painel.fecharModal(); toast('Token da equipe retirado · sincronizando para tirar dos usuários', 4000); H.sincronizar(); } }] : []),
       { html: '<i class="fa-solid fa-plug-circle-check"></i> Testar e salvar', primary: true, onClick: async () => {
-        const n = { owner: $('#ghOwner').value.trim(), repo: $('#ghRepo').value.trim(), branch: $('#ghBranch').value.trim() || 'main', token: $('#ghToken').value.trim() || c.token };
+        const n = { owner: $('#ghOwner').value.trim(), repo: $('#ghRepo').value.trim(), branch: $('#ghBranch').value.trim() || 'main', token: $('#ghToken').value.trim() || c.token || '' };
+        const novoEq = dono ? ($('#ghEq').value.trim() || c.equipe || '') : (c.equipe || '');
         const msg = $('#ghMsg');
-        if (!n.owner || !n.repo || !n.token) { msg.textContent = 'Preencha usuário, repositório e token.'; return; }
+        if (!n.owner || !n.repo) { msg.textContent = 'Preencha usuário e repositório.'; return; }
+        if (!n.token && !novoEq) { if (eq && eq.token) { Painel.fecharModal(); return; } msg.textContent = 'Informe o token.'; return; }
         msg.textContent = 'Testando…';
+        const testa = async (tok, qual) => {
+          const rep = await gh({ ...n, token: tok }, 'GET', '');
+          if (!rep) throw new Error(`repositório não encontrado para o ${qual}.`);
+          if (rep.permissions && !rep.permissions.push) throw new Error(`o ${qual} não tem permissão de escrita (Contents: Read and write).`);
+        };
         try {
-          const rep = await gh(n, 'GET', '');
-          if (!rep) throw new Error('repositório não encontrado para este token.');
-          if (rep.permissions && !rep.permissions.push) throw new Error('o token não tem permissão de escrita (Contents: Read and write).');
-          await cfg.set(n); Painel.fecharModal(); toast('<i class="fa-solid fa-circle-check"></i> GitHub conectado neste navegador', 3500); marcarStatus();
+          if (n.token) await testa(n.token, 'seu token');
+          if (novoEq && novoEq !== c.equipe) await testa(novoEq, 'token da equipe');
+          const mudouEq = novoEq !== (c.equipe || '');
+          await cfg.set({ ...n, equipe: novoEq }); Painel.fecharModal(); marcarStatus();
+          if (mudouEq) { toast('<i class="fa-solid fa-circle-check"></i> Token da equipe salvo · sincronizando para liberar aos usuários com permissão', 4500); H.sincronizar(); }
+          else toast('<i class="fa-solid fa-circle-check"></i> GitHub conectado neste navegador', 3500);
         } catch (e) { msg.textContent = 'Não funcionou: ' + (e.message || e); }
       } },
     ]);
@@ -1569,6 +1593,7 @@
     if (bs) {
       bs.addEventListener('click', async () => { if (!Layout.editor()) return; const c = await cfg.get(); if (!c || !c.token) return H.configurar(); H.sincronizar(); });
       bs.addEventListener('contextmenu', e => { e.preventDefault(); if (Layout.editor()) H.configurar(); });
+      $('#btnGit')?.addEventListener('click', () => { if (Layout.editor()) H.configurar(); });
       const bp = $('#btnPastas'); if (bp) { if (!SUPORTA_PASTA) bp.hidden = true; bp.addEventListener('click', () => { if (Layout.editor()) H.pastas(); }); }
       let t; bs.addEventListener('touchstart', () => { t = setTimeout(() => { if (Layout.editor()) H.configurar(); }, 650); }, { passive: true });
       bs.addEventListener('touchend', () => clearTimeout(t));

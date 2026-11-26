@@ -69,11 +69,13 @@
     if (!foto || !Array.isArray(foto.rows) || !foto.rows.length) return null;
     const hoje = foto.data || ymd(n);
     const cont = {}; foto.rows.forEach(r => { cont[r.n] = (cont[r.n] || 0) + 1; });
-    const CH = chuvaDia(dia || hoje);
+    const form = !dia || foto.data === dia, CH = form ? new Map() : chuvaDia(dia);
     const rows = foto.rows.map((r, i) => {
       const ac = CH.get(`${r.n}|${String(r.cod).trim()}`) || [], t0 = r.t || [0, 0, 0];
-      // só os turnos até o turno escolhido (A; A e B; A, B e C)
-      const x = { ...r, i, f: `Frente ${r.n}`, t: [0, 1, 2].map(k => (k > lim ? 0 : ac[k] != null ? ac[k] : (Number(t0[k]) || 0))), stop: !!r.p };
+      // chuva: formulário PLUVIOMÉTRICO 2026 quando ele é do dia do relatório; senão, aba Acumulado (somada por turno).
+      // Só os turnos até o turno escolhido (A; A e B; A, B e C)
+      const t = [0, 1, 2].map(k => (k > lim ? 0 : form ? (Number(t0[k]) || 0) : ac[k] != null ? ac[k] : (Number(t0[k]) || 0)));
+      const x = { ...r, i, f: `Frente ${r.n}`, t, stop: !!r.p };
       x.mm = x.t.reduce((s, v) => s + (Number(v) || 0), 0);
       x.fz = String(r.faz || '').replace(/^Faz\.\s*/, '');
       x.curto = `F${r.n}${cont[r.n] > 1 ? ' · ' + x.fz.slice(0, 4) + '.' : ''}`;
